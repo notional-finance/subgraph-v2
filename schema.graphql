@@ -1,0 +1,556 @@
+type Proposal @entity {
+  "Proposal's unique identifier"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+  createdAt: Int!
+  proposer: Delegate!
+  votes: [Vote!]!
+  history: [ProposalState!]
+  targets: [Bytes!]!
+  values: [BigInt!]!
+  calldatas: [Bytes!]!
+  startBlock: Int!
+  endBlock: Int!
+  isCancelled: Boolean
+  isQueued: Boolean
+  isExecuted: Boolean
+}
+
+type Vote @entity {
+  "Address and proposal combined as the unique identifier"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+  proposal: Proposal!
+  delegate: Delegate!
+  yesToProposal: Boolean!
+  votingPower: BigInt!
+}
+
+type Delegate @entity {
+  "Ethereum address"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+  votes: [Vote!] @derivedFrom(field: "delegate")
+  proposals: [Proposal!] @derivedFrom(field: "proposer")
+}
+
+type ProposalState @entity {
+  id: ID!
+  state: ProposalStateEnum!
+  transactionHash: Bytes!
+  lastUpdateTimestamp: Int!
+}
+
+enum TokenType {
+  "Token that is the base for a cToken or other mintable token"
+  UnderlyingToken
+  "Compound interest bearing token"
+  cToken
+  "Ether specific Compound interest bearing token"
+  cETH
+  "The one and only Ether"
+  Ether
+  "A token that cannot be minted as a cToken, but can be used as collateral or traded"
+  NonMintable
+}
+
+enum ProposalStateEnum {
+  PENDING
+  CANCELLED
+  QUEUED
+  EXECUTED
+}
+
+type Currency @entity {
+  "Auto incrementing unique numeric id"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  "Category of token that this refers to"
+  tokenType: TokenType!
+
+  "Name of the asset currency"
+  name: String!
+  "Symbol of the asset currency"
+  symbol: String!
+  "Address of asset token"
+  tokenAddress: Bytes!
+  "Decimals of the asset token"
+  decimals: BigInt!
+  "If asset token has a transfer fee"
+  hasTransferFee: Boolean!
+  "Maximum total contract balance for collateral, zero if no limit"
+  maxCollateralBalance: BigInt
+
+  "Name of the underlying currency"
+  underlyingName: String
+  "Symbol of the underlying currency"
+  underlyingSymbol: String
+  "Address of underlying token"
+  underlyingTokenAddress: Bytes
+  "Decimals of the underlying token"
+  underlyingDecimals: BigInt
+  "If underlying token has a transfer fee"
+  underlyingHasTransferFee: Boolean
+
+  "Exchange rate from this currency to Eth, used in free collateral calculations"
+  ethExchangeRate: EthExchangeRate! @derivedFrom(field: "baseCurrency")
+  "Exchange rate from this currency to the underlying asset"
+  assetExchangeRate: AssetExchangeRate @derivedFrom(field: "assetCurrency")
+  "Cash group for a currency, if exists"
+  cashGroup: CashGroup @derivedFrom(field: "currency")
+  "nToken for a currency, if exists"
+  nToken: nToken @derivedFrom(field: "currency")
+}
+
+type EthExchangeRate @entity {
+  "Currency id that this exchange rate refers to"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  "Base currency in the exchange rate"
+  baseCurrency: Currency!
+  "Rate oracle that is used to reference the exchange rate"
+  rateOracle: Bytes!
+  "Decimal places of the exchange rate"
+  rateDecimalPlaces: Int!
+  "Does the exchange rate need to invert"
+  mustInvert: Boolean!
+  "Percentage buffer used when calculating free collateral for debt balances"
+  buffer: Int!
+  "Percentage haircut used when calculating free collateral for collateral balances"
+  haircut: Int!
+  "Exchange rate discount given when liquidating this currency"
+  liquidationDiscount: Int!
+}
+
+type AssetExchangeRate @entity {
+  "Currency id that this asset rate refers to"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  "Asset currency in the exchange rate"
+  assetCurrency: Currency!
+  "Asset rate adapter interface to the asset token"
+  rateAdapterAddress: Bytes!
+  "Decimal places of the underlying token to the asset token"
+  underlyingDecimalPlaces: Int!
+
+  "Asset rates that fCash assets will settle at for given maturities"
+  settlementRates: [SettlementRate!] @derivedFrom(field: "assetExchangeRate")
+}
+
+type SettlementRate @entity {
+  "Currency id and maturity that this settlement rate refers to"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  "Currency of this settlement rate"
+  currency: Currency!
+  "Asset exchange rate referenced by this settlement rate"
+  assetExchangeRate: AssetExchangeRate!
+  "Maturity that this settlement rate refers to"
+  maturity: Int!
+  "Settlement rate value"
+  rate: BigInt!
+}
+
+type CashGroup @entity {
+  "Currency id that this cash group refers to"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  "Currency of this cash group"
+  currency: Currency!
+  "Index of the AMMs on chain that will be made available."
+  maxMarketIndex: Int!
+  "Maximum length of a market maturity in seconds"
+  maxMarketMaturityLengthSeconds: Int!
+
+  "Time window in minutes that the rate oracle will be averaged over"
+  rateOracleTimeWindowSeconds: Int!
+  "Total fees per trade, specified in basis points"
+  totalFeeBasisPoints: Int!
+  "Share of the fees given to the protocol, denominated in percentage"
+  reserveFeeSharePercent: Int!
+  "Debt buffer specified in basis points"
+  debtBufferBasisPoints: Int!
+  "fCash haircut specified in basis points"
+  fCashHaircutBasisPoints: Int!
+  "Penalty for settling a negative cash debt in basis points"
+  settlementPenaltyRateBasisPoints: Int!
+  "Discount on fCash given to the liquidator in basis points"
+  liquidationfCashHaircutBasisPoints: Int!
+  "Discount on negative fCash given to the liquidator in basis points"
+  liquidationDebtBufferBasisPoints: Int!
+
+  "Liquidity token haircut applied to cash claims, specified as a percentage between 0 and 100"
+  liquidityTokenHaircutsPercent: [Int!]!
+  "Rate scalar used to determine the slippage of the market"
+  rateScalars: [Int!]!
+
+  "Current size of reserves accumulated for this cash group"
+  reserveBalance: BigInt!
+
+  nToken: nToken! @derivedFrom(field: "cashGroup")
+}
+
+type nToken @entity {
+  "Currency id of the nToken"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  "Address of the nToken"
+  tokenAddress: Bytes!
+  name: String!
+  symbol: String!
+  decimals: BigInt!
+  totalSupply: BigInt!
+  integralTotalSupply: BigInt!
+  lastSupplyChangeTime: BigInt!
+
+  "Cash group that governs this nToken"
+  cashGroup: CashGroup!
+  "Currency of this nToken"
+  currency: Currency!
+
+  "Proportion of deposits that go into each corresponding market"
+  depositShares: [Int!]
+  "Maximum market proportion that the nToken will provide liquidity at"
+  leverageThresholds: [Int!]
+  "Annualized anchor rates used during market initialization"
+  annualizedAnchorRates: [Int!]
+  "Market proportions used during market initialization"
+  proportions: [Int!]
+
+  "Annual incentive emission rate"
+  incentiveEmissionRate: BigInt
+
+  "Residual purchase incentive in basis points"
+  residualPurchaseIncentiveBasisPoints: Int
+  "Seconds until residuals become available to purchase after market initialization"
+  residualPurchaseTimeBufferSeconds: Int
+  "Basis points of cash withholding for negative fCash"
+  cashWithholdingBufferBasisPoints: Int
+  "Percentage of the nToken PV that is used during free collateral"
+  pvHaircutPercentage: Int
+  "Discount on nToken PV given to liquidators"
+  liquidationHaircutPercentage: Int
+
+  "Link to the nToken account object"
+  account: Account @derivedFrom(field: "nToken")
+}
+
+type GlobalTransferOperator @entity {
+  "Address of the global transfer operator"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+}
+
+enum AssetType {
+  fCash
+  LiquidityToken_3Month
+  LiquidityToken_6Month
+  LiquidityToken_1Year
+  LiquidityToken_2Year
+  LiquidityToken_5Year
+  LiquidityToken_10Year
+  LiquidityToken_20Year
+}
+
+type Account @entity {
+  "Account address"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  "Timestamp of the next time that the account will require settlement"
+  nextSettleTime: BigInt!
+  "True if the account's portfolio has debt assets"
+  hasPortfolioAssetDebt: Boolean!
+  "True if the account's cash balances have debt, may be temporarily inconsistent after a SettleCashEvent"
+  hasCashDebt: Boolean!
+
+  "Currency id of an asset bitmap, if set"
+  assetBitmapCurrency: Currency
+  "Account's balances of both cash and nTokens"
+  balances: [Balance!]!
+  "Account's portfolio assets"
+  portfolio: [Asset!]!
+
+  "A link to the nToken object if this is an nToken"
+  nToken: nToken
+
+  tradeHistory: [Trade!] @derivedFrom(field: "account")
+  balanceChanges: [BalanceChange!] @derivedFrom(field: "account")
+  assetChanges: [AssetChange!] @derivedFrom(field: "account")
+  nTokenChanges: [nTokenChange!] @derivedFrom(field: "account")
+}
+
+type Balance @entity {
+  "Account Address:Currency ID combination"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  "Reference to currency that this balance represents"
+  currency: Currency!
+
+  "Cash balance denominated in asset cash terms"
+  assetCashBalance: BigInt!
+  "nToken balance of this currency"
+  nTokenBalance: BigInt!
+  "Last time token incentives were claimed on this balance"
+  lastClaimTime: Int!
+  "Last stored integral total supply amount, used to calculate incentives"
+  lastClaimIntegralSupply: BigInt!
+}
+
+type Asset @entity {
+  "Account:CurrencyId:AssetType:Maturity"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  "Reference to currency that this balance represents"
+  currency: Currency!
+  "Timestamp when fCash matures, if liquidity token this will still refer to fCash maturity date"
+  maturity: BigInt!
+  "Date when assets will be settled, quarterly for liquidity tokens and at maturity for fCash"
+  settlementDate: BigInt!
+  "Asset type"
+  assetType: AssetType!
+  "Notional amount"
+  notional: BigInt!
+}
+
+type Market @entity {
+  "Currency Id:Settlement Date:Maturity combination"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  "Currency of this market"
+  currency: Currency!
+  "Date that fCash from this market will mature"
+  maturity: Int!
+  "Date that this market will settle"
+  settlementDate: Int!
+  "Market index"
+  marketIndex: Int!
+  "Length of market maturity in seconds"
+  marketMaturityLengthSeconds: Int!
+
+  "Total fCash available in the market"
+  totalfCash: BigInt!
+  "Total asset cash available in the market"
+  totalAssetCash: BigInt!
+  "Total liquidity tokens available in the market"
+  totalLiquidity: BigInt!
+  "Last annualized interest rate the market traded at"
+  lastImpliedRate: Int!
+  "Oracle rate for the market, must be averaged in using previousTradeTime"
+  oracleRate: Int!
+  "Last time when a trade occurred on the market"
+  previousTradeTime: Int!
+}
+
+type MarketInitialization @entity {
+  "Currency ID:time reference timestamp"
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+  transactionOrigin: Bytes!
+
+  "Currency of markets"
+  currency: Currency!
+  "Markets that were initialized during this event"
+  markets: [Market!]!
+}
+
+enum TradeType {
+  Lend
+  Borrow
+  AddLiquidity
+  RemoveLiquidity
+  PurchaseNTokenResidual
+  SettleCashDebt
+}
+
+type Trade @entity {
+  "Currency ID:Account:Transaction hash:logIndex"
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+  transactionOrigin: Bytes!
+
+  account: Account!
+  currency: Currency!
+  market: Market
+
+  tradeType: TradeType!
+  maturity: BigInt!
+  netAssetCash: BigInt!
+  netUnderlyingCash: BigInt!
+  netfCash: BigInt!
+  netLiquidityTokens: BigInt
+}
+
+type BalanceChange @entity {
+  "Currency ID:Account:Transaction hash:logIndex"
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+  transactionOrigin: Bytes!
+
+  account: Account!
+  currency: Currency!
+
+  assetCashBalanceBefore: BigInt!
+  assetCashBalanceAfter: BigInt!
+  assetCashValueUnderlyingBefore: BigInt!
+  assetCashValueUnderlyingAfter: BigInt!
+
+  nTokenBalanceBefore: BigInt!
+  nTokenBalanceAfter: BigInt!
+  nTokenValueAssetBefore: BigInt!
+  nTokenValueAssetAfter: BigInt!
+  nTokenValueUnderlyingBefore: BigInt!
+  nTokenValueUnderlyingAfter: BigInt!
+
+  lastClaimTimeBefore: Int!
+  lastClaimTimeAfter: Int!
+  lastClaimIntegralSupplyBefore: BigInt!
+  lastClaimIntegralSupplyAfter: BigInt!
+}
+
+type AssetChange @entity {
+  "Account:CurrencyId:AssetType:Maturity:Transaction hash"
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+  transactionOrigin: Bytes!
+
+  account: Account!
+  currency: Currency!
+
+  maturity: BigInt!
+  settlementDate: BigInt!
+  assetType: AssetType!
+
+  notionalBefore: BigInt!
+  notionalAfter: BigInt!
+}
+
+type nTokenChange @entity {
+  "nTokenAddress:Transaction hash"
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+  transactionOrigin: Bytes!
+
+  nToken: nToken!
+  "Account that mints or redeems nTokens, set to null on initialize markets"
+  account: Account
+
+  assetChanges: [AssetChange!]!
+  balanceChange: BalanceChange
+
+  totalSupplyBefore: BigInt!
+  totalSupplyAfter: BigInt!
+  integralTotalSupplyBefore: BigInt!
+  integralTotalSupplyAfter: BigInt!
+  lastSupplyChangeTimeBefore: BigInt!
+  lastSupplyChangeTimeAfter: BigInt!
+}
+
+type AssetTransfer @entity {
+  "from:to:assetId:Transaction hash"
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+  transactionOrigin: Bytes!
+
+  fromAssetChange: AssetChange!
+  toAssetChange: AssetChange!
+}
+
+# type IncentivesClaimed @entity {
+# }
+
+enum LiquidationType {
+  LocalCurrency,
+  LocalFcash,
+  CollateralCurrency,
+  CrossCurrencyFcash
+}
+
+type Liquidation @entity {
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+  transactionOrigin: Bytes!
+  
+  type: LiquidationType!
+  account: Account!
+  liquidator: Account!
+  localCurrency: Currency!
+  netLocalFromLiquidator: BigInt!
+  collateralOrFcashCurrency: Currency
+  netCollateralTransfer: BigInt
+  netNTokenTransfer: BigInt
+  fCashMaturities: [BigInt!]
+  fCashNotionalTransfer: [BigInt!]
+}
