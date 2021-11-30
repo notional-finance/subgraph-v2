@@ -10,6 +10,7 @@ import {
   UpdateIncentiveEmissionRate,
   UpdateTokenCollateralParameters,
   UpdateGlobalTransferOperator,
+  UpdateAuthorizedCallbackContract,
   Notional,
   SetSettlementRate,
   MarketsInitialized,
@@ -40,6 +41,7 @@ import {
   Account,
   Trade,
   Liquidation,
+  AuthorizedCallbackContract,
 } from '../generated/schema';
 import {BASIS_POINTS, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, QUARTER} from './common';
 import {updateMarkets} from './markets';
@@ -462,6 +464,23 @@ export function handleUpdateGlobalTransferOperator(event: UpdateGlobalTransferOp
   }
 }
 
+export function handleUpdateAuthorizedCallbackContract(event: UpdateAuthorizedCallbackContract): void {
+  let operator = AuthorizedCallbackContract.load(event.params.operator.toHexString());
+  if (event.params.approved && operator == null) {
+    operator = new AuthorizedCallbackContract(event.params.operator.toHexString());
+    operator.name = getTokenNameAndSymbol(event.params.operator)[0];
+    operator.lastUpdateBlockNumber = event.block.number.toI32();
+    operator.lastUpdateTimestamp = event.block.timestamp.toI32();
+    operator.lastUpdateBlockHash = event.block.hash;
+    operator.lastUpdateTransactionHash = event.transaction.hash;
+    log.debug('Created authorized callback contract {}', [operator.id]);
+    operator.save();
+  } else if (!event.params.approved && operator != null) {
+    log.debug('Deleted authorized callback contract {}', [operator.id]);
+    store.remove('AuthorizedCallbackContract', event.params.operator.toHexString());
+  }
+}
+
 export function handleSetSettlementRate(event: SetSettlementRate): void {
   let currencyId = event.params.currencyId.toI32();
   let maturity = event.params.maturity.toI32();
@@ -677,7 +696,7 @@ export function handleLiquidateLocalCurrency(event: LiquidateLocalCurrency): voi
   liq.localCurrency = localId.toString();
   liq.netLocalFromLiquidator = event.params.netLocalFromLiquidator;
   liq.save();
-  
+
   log.debug('Logged liquidate collateral currency event at {}', [liq.id]);
 }
 
@@ -709,7 +728,7 @@ export function handleLiquidatefCash(event: LiquidatefCashEvent): void {
   }
 
   liq.account = event.params.liquidated.toHexString();
-  liq.liquidator = event.params.liquidator.toHexString(); 
+  liq.liquidator = event.params.liquidator.toHexString();
   let localId = event.params.localCurrencyId as i32;
   liq.localCurrency = localId.toString();
   let fcashId = event.params.fCashCurrency as i32;
@@ -718,6 +737,6 @@ export function handleLiquidatefCash(event: LiquidatefCashEvent): void {
   liq.fCashMaturities = event.params.fCashMaturities;
   liq.fCashNotionalTransfer = event.params.fCashNotionalTransfer;
   liq.save();
-  
+
   log.debug('Logged liquidate fcash event at {}', [liq.id]);
 }

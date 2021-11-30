@@ -277,6 +277,16 @@ type GlobalTransferOperator @entity {
   lastUpdateTransactionHash: Bytes!
 }
 
+type AuthorizedCallbackContract @entity {
+  "Address of the callback contract"
+  id: ID!
+  name: String!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+}
+
 enum AssetType {
   fCash
   LiquidityToken_3Month
@@ -542,7 +552,7 @@ type Liquidation @entity {
   timestamp: Int!
   transactionHash: Bytes!
   transactionOrigin: Bytes!
-  
+
   type: LiquidationType!
   account: Account!
   liquidator: Account!

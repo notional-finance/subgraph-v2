@@ -104,6 +104,8 @@ dataSources:
           handler: handleUpdateTokenCollateralParameters
         - event: UpdateGlobalTransferOperator(address,bool)
           handler: handleUpdateGlobalTransferOperator
+        - event: UpdateAuthorizedCallbackContract(address,bool)
+          handler: handleUpdateAuthorizedCallbackContract
         - event: UpdateMaxCollateralBalance(uint16,uint72)
           handler: handleUpdateMaxCollateralBalance
         - event: SetSettlementRate(indexed uint256,indexed uint256,uint128)
