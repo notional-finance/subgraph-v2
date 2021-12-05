@@ -29,6 +29,8 @@ import {
 } from '../generated/Notional/Notional';
 import {ERC20} from '../generated/Notional/ERC20';
 
+import {updateLendBorrowDayData} from './utils/intervalUpdates'
+
 import {
   Currency,
   EthExchangeRate,
@@ -589,6 +591,9 @@ export function handleLendBorrowTrade(event: LendBorrowTrade): void {
   trade.netUnderlyingCash = convertAssetToUnderlying(notional, currencyId, trade.netAssetCash);
   trade.netfCash = event.params.netfCash;
   trade.maturity = maturity;
+
+  updateLendBorrowDayData(event)
+
   trade.save();
   log.debug('Logged lend borrow trade event at {}', [trade.id]);
 }
