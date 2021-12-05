@@ -539,9 +539,9 @@ type AssetTransfer @entity {
 # }
 
 enum LiquidationType {
-  LocalCurrency,
-  LocalFcash,
-  CollateralCurrency,
+  LocalCurrency
+  LocalFcash
+  CollateralCurrency
   CrossCurrencyFcash
 }
 
@@ -563,4 +563,13 @@ type Liquidation @entity {
   netNTokenTransfer: BigInt
   fCashMaturities: [BigInt!]
   fCashNotionalTransfer: [BigInt!]
+}
+
+# Data accumulated and condensed into day stats for lending and borrowing
+type LendBorrowDayData @entity {
+  id: ID!
+  date: Int!
+  volumeNetUnderlyingCash: BigInt!
+  tradeType: TradeType!
+  txCount: BigInt!
 }
