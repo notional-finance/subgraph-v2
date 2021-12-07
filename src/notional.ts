@@ -29,6 +29,8 @@ import {
 } from '../generated/Notional/Notional';
 import {ERC20} from '../generated/Notional/ERC20';
 
+import {updateDailyLendBorrowVolume} from './utils/intervalUpdates'
+
 import {
   Currency,
   EthExchangeRate,
@@ -39,11 +41,10 @@ import {
   SettlementRate,
   MarketInitialization,
   Account,
-  Trade,
   Liquidation,
   AuthorizedCallbackContract,
 } from '../generated/schema';
-import {BASIS_POINTS, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, QUARTER} from './common';
+import {BASIS_POINTS, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, getTrade, QUARTER} from './common';
 import {updateMarkets} from './markets';
 import {convertAssetToUnderlying, getBalance, updateAccount, updateNTokenPortfolio} from './accounts';
 
@@ -544,28 +545,6 @@ export function handleNTokenSupplyChange(event: nTokenSupplyChange): void {
   updateMarkets(currencyId, tRef, event);
 }
 
-function getTrade(currencyId: i32, account: Address, event: ethereum.Event): Trade {
-  let id =
-    currencyId.toString() +
-    ':' +
-    account.toHexString() +
-    ':' +
-    event.transaction.hash.toHexString() +
-    ':' +
-    event.logIndex.toString();
-  let trade = new Trade(id);
-  trade.blockHash = event.block.hash;
-  trade.blockNumber = event.block.number.toI32();
-  trade.timestamp = event.block.timestamp.toI32();
-  trade.transactionHash = event.transaction.hash;
-  trade.transactionOrigin = event.transaction.from;
-
-  trade.account = account.toHexString();
-  trade.currency = currencyId.toString();
-
-  return trade;
-}
-
 export function handleLendBorrowTrade(event: LendBorrowTrade): void {
   updateMarkets(event.params.currencyId, event.block.timestamp.toI32(), event);
   let notional = Notional.bind(event.address);
@@ -589,6 +568,9 @@ export function handleLendBorrowTrade(event: LendBorrowTrade): void {
   trade.netUnderlyingCash = convertAssetToUnderlying(notional, currencyId, trade.netAssetCash);
   trade.netfCash = event.params.netfCash;
   trade.maturity = maturity;
+
+  updateDailyLendBorrowVolume(event)
+
   trade.save();
   log.debug('Logged lend borrow trade event at {}', [trade.id]);
 }
