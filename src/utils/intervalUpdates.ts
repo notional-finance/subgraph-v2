@@ -1,10 +1,10 @@
-import { LendBorrowDayData } from '../../generated/schema'
+import { DailyLendBorrowVolume, Trade } from '../../generated/schema'
 import { Notional, LendBorrowTrade } from '../../generated/Notional/Notional';
 import { BigInt } from '@graphprotocol/graph-ts'
-import { getMarketIndex } from '../common';
+import { getMarketIndex, getSettlementDate, getTrade } from '../common';
 import { convertAssetToUnderlying } from '../accounts';
 
-export function updateLendBorrowDayData(event: LendBorrowTrade): LendBorrowDayData
+export function updateDailyLendBorrowVolume(event: LendBorrowTrade): DailyLendBorrowVolume
 {
     let notional = Notional.bind(event.address);
     let timestamp = event.block.timestamp.toI32()
@@ -13,27 +13,44 @@ export function updateLendBorrowDayData(event: LendBorrowTrade): LendBorrowDayDa
     let currencyId = event.params.currencyId as i32;
     let maturity = event.params.maturity;
     let marketIndex = getMarketIndex(maturity, event.block.timestamp)
-    let key = dayId.toString() + ':' + currencyId.toString() + ':' + marketIndex.toString()
+    let settlementDate = getSettlementDate(maturity, marketIndex);
+    let tradeType = '';
+    let convertedAssetToUnderlying = convertAssetToUnderlying(notional, currencyId, event.params.netAssetCash).abs();
+    let netAssetCash = event.params.netAssetCash.abs()
+    let netfCash = event.params.netfCash.abs();
+    if (event.params.netAssetCash.gt(BigInt.fromI32(0))) {
+        tradeType = 'Borrow';
+    } else {
+        tradeType = 'Lend';
+    }
+    let trade = getTrade(currencyId, event.params.account, event);
 
-    let lendBorrowDayData = LendBorrowDayData.load(key)
-    if (lendBorrowDayData === null) {
+    let key = dayId.toString() + ':' + currencyId.toString() + ':' + marketIndex.toString() + ':' + tradeType
+    let dailyLendBorrowVolume = DailyLendBorrowVolume.load(key)
 
-        lendBorrowDayData = new LendBorrowDayData(key)
+    if (dailyLendBorrowVolume === null) {
 
-        if (event.params.netAssetCash.gt(BigInt.fromI32(0))) {
-            lendBorrowDayData.tradeType = 'Borrow';
-        } else {
-            lendBorrowDayData.tradeType = 'Lend';
-        }
-        lendBorrowDayData.date = dayStartTimestamp
-        lendBorrowDayData.volumeNetUnderlyingCash = BigInt.fromString('0')
-        lendBorrowDayData.txCount = BigInt.fromI32(0)
+        dailyLendBorrowVolume = new DailyLendBorrowVolume(key)
+        dailyLendBorrowVolume.date = dayStartTimestamp
+        dailyLendBorrowVolume.currency = currencyId.toString()
+        dailyLendBorrowVolume.market = currencyId.toString() + ':' + settlementDate.toString() + ':' + maturity.toString();
+        dailyLendBorrowVolume.trades = new Array<string>();
+        dailyLendBorrowVolume.marketIndex = marketIndex
+        dailyLendBorrowVolume.tradeType = tradeType;
+        dailyLendBorrowVolume.totalVolumeUnderlyingCash = BigInt.fromString('0')
+        dailyLendBorrowVolume.totalVolumeNetAssetCash = BigInt.fromString('0')
+        dailyLendBorrowVolume.totalVolumeNetfCash = BigInt.fromString('0')
+        dailyLendBorrowVolume.txCount = BigInt.fromI32(0)
     }
 
-    let convertedAssetToUnderlying = convertAssetToUnderlying(notional, currencyId, event.params.netAssetCash).abs();
-    lendBorrowDayData.volumeNetUnderlyingCash = lendBorrowDayData.volumeNetUnderlyingCash.plus(convertedAssetToUnderlying)
-    lendBorrowDayData.txCount = lendBorrowDayData.txCount.plus(BigInt.fromI32(1))
-    lendBorrowDayData.save()
+    let trades = dailyLendBorrowVolume.trades
+    trades.push(trade.id)
+    dailyLendBorrowVolume.trades = trades
+    dailyLendBorrowVolume.totalVolumeUnderlyingCash = dailyLendBorrowVolume.totalVolumeUnderlyingCash.plus(convertedAssetToUnderlying)
+    dailyLendBorrowVolume.totalVolumeNetAssetCash = dailyLendBorrowVolume.totalVolumeNetAssetCash.plus(netAssetCash)
+    dailyLendBorrowVolume.totalVolumeNetfCash = dailyLendBorrowVolume.totalVolumeNetfCash.plus(netfCash)
+    dailyLendBorrowVolume.txCount = dailyLendBorrowVolume.txCount.plus(BigInt.fromI32(1))
+    dailyLendBorrowVolume.save()
     
-    return lendBorrowDayData as LendBorrowDayData
+    return dailyLendBorrowVolume as DailyLendBorrowVolume
 }

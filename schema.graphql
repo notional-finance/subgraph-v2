@@ -566,10 +566,16 @@ type Liquidation @entity {
 }
 
 # Data accumulated and condensed into day stats for lending and borrowing
-type LendBorrowDayData @entity {
+type DailyLendBorrowVolume @entity {
   id: ID!
   date: Int!
-  volumeNetUnderlyingCash: BigInt!
+  currency: Currency!
+  market: Market!
+  trades: [Trade!]!
+  marketIndex: Int!
   tradeType: TradeType!
+  totalVolumeUnderlyingCash: BigInt!
+  totalVolumeNetAssetCash: BigInt!
+  totalVolumeNetfCash: BigInt!
   txCount: BigInt!
 }
