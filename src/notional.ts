@@ -33,8 +33,6 @@ import {updateDailyLendBorrowVolume} from './utils/intervalUpdates'
 
 import {
   Currency,
-  EthExchangeRate,
-  AssetExchangeRate,
   CashGroup,
   nToken,
   GlobalTransferOperator,
@@ -45,6 +43,17 @@ import {
   AuthorizedCallbackContract,
 } from '../generated/schema';
 import {BASIS_POINTS, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, getTrade, QUARTER} from './common';
+
+import {
+  getEthExchangeRate,
+  getAssetExchangeRate
+} from './exchange_rates/utils'
+
+import {
+  updateAssetExchangeRateHistoricalData,
+  updateEthExchangeRateHistoricalData
+} from './timeseriesUpdate'
+
 import {updateMarkets} from './markets';
 import {convertAssetToUnderlying, getBalance, updateAccount, updateNTokenPortfolio} from './accounts';
 
@@ -59,22 +68,6 @@ function getCurrency(id: string): Currency {
     entity = new Currency(id);
   }
   return entity as Currency;
-}
-
-function getEthExchangeRate(id: string): EthExchangeRate {
-  let entity = EthExchangeRate.load(id);
-  if (entity == null) {
-    entity = new EthExchangeRate(id);
-  }
-  return entity as EthExchangeRate;
-}
-
-function getAssetExchangeRate(id: string): AssetExchangeRate {
-  let entity = AssetExchangeRate.load(id);
-  if (entity == null) {
-    entity = new AssetExchangeRate(id);
-  }
-  return entity as AssetExchangeRate;
 }
 
 export function getCashGroup(id: string): CashGroup {
@@ -226,6 +219,8 @@ export function handleUpdateETHRate(event: UpdateETHRate): void {
 
   log.debug('Updated ethExchangeRate variables for entity {}', [ethExchangeRate.id]);
   ethExchangeRate.save();
+
+  updateEthExchangeRateHistoricalData(ethExchangeRate, event);
 }
 
 export function handleUpdateAssetRate(event: UpdateAssetRate): void {
@@ -246,6 +241,8 @@ export function handleUpdateAssetRate(event: UpdateAssetRate): void {
 
   log.debug('Updated assetExchangeRate variables for entity {}', [assetExchangeRate.id]);
   assetExchangeRate.save();
+
+  updateAssetExchangeRateHistoricalData(assetExchangeRate, event);
 }
 
 export function handleUpdateCashGroup(event: UpdateCashGroup): void {

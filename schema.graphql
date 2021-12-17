@@ -113,6 +113,10 @@ type Currency @entity {
   cashGroup: CashGroup @derivedFrom(field: "currency")
   "nToken for a currency, if exists"
   nToken: nToken @derivedFrom(field: "currency")
+
+  "Hourly data for this currency"
+  ethExchangeRateHistoricalData: [EthExchangeRateHistoricalData!]
+  assetExchangeRateHistoricalData: [AssetExchangeRateHistoricalData!]
 }
 
 type EthExchangeRate @entity {
@@ -520,6 +524,20 @@ type nTokenChange @entity {
   integralTotalSupplyAfter: BigInt!
   lastSupplyChangeTimeBefore: BigInt!
   lastSupplyChangeTimeAfter: BigInt!
+}
+
+type EthExchangeRateHistoricalData @entity {
+  id: ID!
+  timestamp: Int!
+  value: BigInt!
+  ethExchangeRate: EthExchangeRate!
+}
+
+type AssetExchangeRateHistoricalData @entity {
+  id: ID!
+  timestamp: Int!
+  value: BigInt!
+  assetExchangeRate: AssetExchangeRate!
 }
 
 type AssetTransfer @entity {
