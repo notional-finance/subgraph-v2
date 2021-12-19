@@ -1,4 +1,4 @@
-import {Address, BigInt, ByteArray, Bytes, ethereum, log, store} from '@graphprotocol/graph-ts';
+import {Address, BigInt, ByteArray, Bytes, dataSource, ethereum, log, store} from '@graphprotocol/graph-ts';
 import {
   ListCurrency,
   UpdateETHRate,
@@ -41,6 +41,7 @@ import {
   Account,
   Liquidation,
   AuthorizedCallbackContract,
+  NTokenPresentValueHistoricalData
 } from '../generated/schema';
 import {BASIS_POINTS, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, getTrade, QUARTER} from './common';
 
@@ -49,13 +50,9 @@ import {
   getAssetExchangeRate
 } from './exchange_rates/utils'
 
-import {
-  updateAssetExchangeRateHistoricalData,
-  updateEthExchangeRateHistoricalData
-} from './timeseriesUpdate'
-
 import {updateMarkets} from './markets';
 import {convertAssetToUnderlying, getBalance, updateAccount, updateNTokenPortfolio} from './accounts';
+import { updateAssetExchangeRateHistoricalData, updateEthExchangeRateHistoricalData, updateNTokenPresentValueHistoricalData } from './timeseriesUpdate';
 
 const LocalCurrency = 'LocalCurrency';
 const LocalFcash = 'LocalFcash';
@@ -105,6 +102,14 @@ function getMarketInitialization(currencyId: i32, tRef: i32): MarketInitializati
   return entity as MarketInitialization;
 }
 
+export function getNTokenPresentValueHistoricalData(id: string): NTokenPresentValueHistoricalData {
+  let entity = NTokenPresentValueHistoricalData.load(id);
+    if (entity == null) {
+        entity = new NTokenPresentValueHistoricalData(id);
+    }
+  return entity as NTokenPresentValueHistoricalData;
+}
+
 function getTokenNameAndSymbol(tokenAddress: Address): string[] {
   log.debug('Fetching token symbol and name at {}', [tokenAddress.toHexString()]);
   let erc20 = ERC20.bind(tokenAddress);
@@ -135,6 +140,21 @@ function getTokenTypeString(tokenType: i32): string {
   if (tokenType == 4) return 'NonMintable';
 
   return 'unknown';
+}
+
+export function handleBlockUpdates(event: ethereum.Block): void {
+  if (event.number.toI32() % 138 != 0) {
+      return;
+  }
+
+  let notional = Notional.bind(dataSource.address());
+  let maxCurrencyId = notional.getMaxCurrencyId();
+
+  for (let currencyId: i32 = 1; currencyId <= maxCurrencyId; currencyId++) {
+    updateAssetExchangeRateHistoricalData(notional, currencyId, event.timestamp.toI32());
+    updateEthExchangeRateHistoricalData(notional, currencyId, event.timestamp.toI32());
+    updateNTokenPresentValueHistoricalData(notional, currencyId, event.timestamp.toI32());
+  }
 }
 
 export function handleListCurrency(event: ListCurrency): void {
@@ -219,8 +239,6 @@ export function handleUpdateETHRate(event: UpdateETHRate): void {
 
   log.debug('Updated ethExchangeRate variables for entity {}', [ethExchangeRate.id]);
   ethExchangeRate.save();
-
-  updateEthExchangeRateHistoricalData(ethExchangeRate, event);
 }
 
 export function handleUpdateAssetRate(event: UpdateAssetRate): void {
@@ -241,8 +259,6 @@ export function handleUpdateAssetRate(event: UpdateAssetRate): void {
 
   log.debug('Updated assetExchangeRate variables for entity {}', [assetExchangeRate.id]);
   assetExchangeRate.save();
-
-  updateAssetExchangeRateHistoricalData(assetExchangeRate, event);
 }
 
 export function handleUpdateCashGroup(event: UpdateCashGroup): void {

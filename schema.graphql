@@ -117,6 +117,7 @@ type Currency @entity {
   "Hourly data for this currency"
   ethExchangeRateHistoricalData: [EthExchangeRateHistoricalData!]
   assetExchangeRateHistoricalData: [AssetExchangeRateHistoricalData!]
+  nTokenPresentValueHistoricalData: [NTokenPresentValueHistoricalData!]
 }
 
 type EthExchangeRate @entity {
@@ -530,14 +531,22 @@ type EthExchangeRateHistoricalData @entity {
   id: ID!
   timestamp: Int!
   value: BigInt!
-  ethExchangeRate: EthExchangeRate!
+  currency: Currency!
 }
 
 type AssetExchangeRateHistoricalData @entity {
   id: ID!
   timestamp: Int!
   value: BigInt!
-  assetExchangeRate: AssetExchangeRate!
+  currency: Currency!
+}
+
+type NTokenPresentValueHistoricalData @entity {
+  id: ID!
+  timestamp: Int!
+  pvAsset: BigInt!
+  pvUnderlying: BigInt!
+  currency: Currency!
 }
 
 type AssetTransfer @entity {
