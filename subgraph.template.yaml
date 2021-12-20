@@ -82,6 +82,8 @@ dataSources:
           file: ./abi/Notional.json
         - name: ERC20
           file: ./abi/ERC20.json
+      blockHandlers:
+        - handler: handleBlockUpdates
       eventHandlers:
         # Governance Events
         - event: ListCurrency(uint16)
