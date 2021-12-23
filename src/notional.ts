@@ -148,7 +148,9 @@ export function handleBlockUpdates(event: ethereum.Block): void {
   }
 
   let notional = Notional.bind(dataSource.address());
-  let maxCurrencyId = notional.getMaxCurrencyId();
+  let result = notional.try_getMaxCurrencyId();
+  if (result.reverted) return
+  let maxCurrencyId = result.value
 
   for (let currencyId: i32 = 1; currencyId <= maxCurrencyId; currencyId++) {
     updateAssetExchangeRateHistoricalData(notional, currencyId, event.timestamp.toI32());

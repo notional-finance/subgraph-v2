@@ -23,12 +23,13 @@ function createHourlyId(currencyId: number, timestamp: i32): string {
 }
 
 export function updateEthExchangeRateHistoricalData(notional: Notional, currencyId: i32, timestamp: i32): void {
+  let result = notional.try_getCurrencyAndRates(currencyId);
+  if (result.reverted) return;
+  let ethRate = result.value.value2;
+
   let historicalId = createHourlyId(currencyId, timestamp);
   let ethExchangeRateHistoricalData = getEthExchangeRateHistoricalData(historicalId);
   let roundedTimestamp = (timestamp / 3600) * 3600;
-
-  let result = notional.getCurrencyAndRates(currencyId);
-  let ethRate = result.value2;
 
   ethExchangeRateHistoricalData.timestamp = roundedTimestamp;
   ethExchangeRateHistoricalData.value = ethRate.rate;
@@ -39,12 +40,13 @@ export function updateEthExchangeRateHistoricalData(notional: Notional, currency
 }
 
 export function updateAssetExchangeRateHistoricalData(notional: Notional, currencyId: i32, timestamp: i32): void {
+  let result = notional.try_getCurrencyAndRates(currencyId);
+  if (result.reverted) return;
+  let assetRate = result.value.value3;
+
   let historicalId = createHourlyId(currencyId, timestamp);
   let assetExchangeRateHistoricalData = getAssetExchangeRateHistoricalData(historicalId);
   let roundedTimestamp = (timestamp / 3600) * 3600;
-
-  let result = notional.getCurrencyAndRates(currencyId);
-  let assetRate = result.value3;
 
   assetExchangeRateHistoricalData.timestamp = roundedTimestamp;
   assetExchangeRateHistoricalData.value = assetRate.rate;
