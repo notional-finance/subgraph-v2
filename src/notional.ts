@@ -52,12 +52,15 @@ import {
 
 import {updateMarkets} from './markets';
 import {convertAssetToUnderlying, getBalance, updateAccount, updateNTokenPortfolio} from './accounts';
-import { updateAssetExchangeRateHistoricalData, updateEthExchangeRateHistoricalData, updateNTokenPresentValueHistoricalData } from './timeseriesUpdate';
+import { updateAssetExchangeRateHistoricalData, updateEthExchangeRateHistoricalData, updateNTokenPresentValueHistoricalData, updateTlvHistoricalData } from './timeseriesUpdate';
 
 const LocalCurrency = 'LocalCurrency';
 const LocalFcash = 'LocalFcash';
 const CollateralCurrency = 'CollateralCurrency';
 const CrossCurrencyFcash = 'CrossCurrencyFcash';
+
+const BI_HOURLY_BLOCK_UPDATE = 138;
+const BI_DAILY_BLOCK_UPDATE = 3300;
 
 function getCurrency(id: string): Currency {
   let entity = Currency.load(id);
@@ -104,10 +107,26 @@ function getMarketInitialization(currencyId: i32, tRef: i32): MarketInitializati
 
 export function getNTokenPresentValueHistoricalData(id: string): NTokenPresentValueHistoricalData {
   let entity = NTokenPresentValueHistoricalData.load(id);
-    if (entity == null) {
-        entity = new NTokenPresentValueHistoricalData(id);
-    }
+  if (entity == null) {
+      entity = new NTokenPresentValueHistoricalData(id);
+  }
   return entity as NTokenPresentValueHistoricalData;
+}
+
+export function getTvlHistoricalData(id: string): TlvHistoricalData {
+  let entity = TlvHistoricalData.load(id);
+  if (entity == null) {
+    entity = new updateTlvHistoricalData(id);
+  }
+  return entity as TlvHistoricalData;
+}
+
+export function getTlvCurrency(id: string): TlvCurency {
+  let entity = TlvCurency.load(id);
+  if (entity == null) {
+    entity = new updateTlvCurency(id);
+  }
+  return entity as TlvCurency;
 }
 
 function getTokenNameAndSymbol(tokenAddress: Address): string[] {
@@ -143,8 +162,13 @@ function getTokenTypeString(tokenType: i32): string {
 }
 
 export function handleBlockUpdates(event: ethereum.Block): void {
-  if (event.number.toI32() % 138 != 0) {
-      return;
+  handleHourlyUpdates(event);
+  handleDailyUpdates(event);
+}
+
+function handleHourlyUpdates(event: ethereum.Block): void {
+  if (event.number.toI32() % BI_HOURLY_BLOCK_UPDATE != 0) {
+    return;
   }
 
   let notional = Notional.bind(dataSource.address());
@@ -157,6 +181,17 @@ export function handleBlockUpdates(event: ethereum.Block): void {
     updateEthExchangeRateHistoricalData(notional, currencyId, event.timestamp.toI32());
     updateNTokenPresentValueHistoricalData(notional, currencyId, event.timestamp.toI32());
   }
+}
+
+function handleDailyUpdates(event: ethereum.Block): void {
+  if (event.number.toI32() % BI_DAILY_BLOCK_UPDATE != 0) {
+    return;
+  }
+
+  let notional = Notional.bind(dataSource.address());
+  let maxCurrencyId = notional.getMaxCurrencyId();
+
+  updateTlvHistoricalData(notional, maxCurrencyId, event.timestamp.toI32());
 }
 
 export function handleListCurrency(event: ListCurrency): void {

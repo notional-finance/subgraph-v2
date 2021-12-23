@@ -549,6 +549,18 @@ type NTokenPresentValueHistoricalData @entity {
   currency: Currency!
 }
 
+type TlvHistoricalData @entity {
+  id: ID!
+  timestamp: Int!
+  tlvCurrencies: [CurrencyTlv!]!
+}
+
+type CurrencyTlv @entity {
+  id: ID!
+  currency: Currency!
+  usdValue: BigInt! 
+}
+
 type AssetTransfer @entity {
   "from:to:assetId:Transaction hash"
   id: ID!

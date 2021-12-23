@@ -1,17 +1,20 @@
 import { log } from '@graphprotocol/graph-ts';
 import { Notional } from '../generated/Notional/Notional';
+import { ERC20 } from '../generated/Notional/ERC20';
+import { convertAssetToUnderlying } from './accounts';
 
 import { 
   getAssetExchangeRateHistoricalData,
   getEthExchangeRateHistoricalData
 } from './exchange_rates/utils'
 
-import { getNTokenPresentValueHistoricalData } from './notional';
+import { getNTokenPresentValueHistoricalData, getTvlHistoricalData } from './notional';
 
-/* 
-    Historical data is stored on an hourly basis to keep it lean, this could be changed in the future
-    or be kept as multiple time periods. New values during the timespan updates the hourly value
-*/
+function createDailyTlvId(timestamp: i32): string {
+  let uniqueDayIndex = timestamp / 86400;
+
+  return 'tlv:'.concat(uniqueDayIndex.toString());
+}
 
 function createHourlyId(currencyId: number, timestamp: i32): string {
   let uniqueHourIndex = timestamp / 3600; // Integer division will always floor result
@@ -72,4 +75,23 @@ export function updateNTokenPresentValueHistoricalData(notional: Notional, curre
 
   log.debug('Updated nTokenPresentValueHistoricalData variables for entity {}', [nTokenPresentValueHistoricalData.id]);
   nTokenPresentValueHistoricalData.save();
+}
+
+export function updateTlvHistoricalData(notional: Notional, maxCurrencyId: i32, timestamp: i32): void {
+  let tlvCurrencies = new Array<TlvCurrency>();
+
+  for (let currencyId: i32 = 1; currencyId <= maxCurrencyId; currencyId++) {
+    let currency = notional.getCurrency(currencyId);
+    let assetToken = currency.value0;
+    let erc20 = ERC20.bind(assetToken.tokenAddress);
+    let assetTokenBalance = erc20.balanceOf(notional._address);
+    let underlyingToken = convertAssetToUnderlying(notional, currencyId, assetTokenBalance);
+  }
+
+  let historicalId = createDailyTlvId(timestamp);
+  let tlvHistoricalData = getTvlHistoricalData(historicalId);
+  let roundedTimestamp = (timestamp / 86400) * 86400;
+
+  tlvHistoricalData.timestamp = roundedTimestamp;
+  tlvHistoricalData.tlvCurrencies = tlvCurrencies;
 }
