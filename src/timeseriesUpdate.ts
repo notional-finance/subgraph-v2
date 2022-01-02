@@ -94,7 +94,7 @@ export function updateTvlHistoricalData(notional: Notional, maxCurrencyId: i32, 
   let tvlCurrencies = new Array<string>();
   let usdTotal = BigInt.fromI32(0);
 
-  for (let currencyId: i32 = 1; currencyId <= 4; currencyId++) {
+  for (let currencyId: i32 = 1; currencyId <= maxCurrencyId; currencyId++) {
     let result = notional.try_getCurrencyAndRates(currencyId);
     if (!result.reverted) {
       let assetToken = result.value.value0;
