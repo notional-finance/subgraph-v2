@@ -553,12 +553,13 @@ type CurrencyTvl @entity {
   id: ID!
   currency: Currency!
   underlyingValue: BigInt!
-  usdValue: BigInt! 
+  usdValue: BigInt!
 }
 
 type TvlHistoricalData @entity {
   id: ID!
   timestamp: Int!
+  usdTotal: BigInt!
   tvlCurrencies: [CurrencyTvl!]!
 }
 

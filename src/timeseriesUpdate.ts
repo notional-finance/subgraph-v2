@@ -92,7 +92,7 @@ export function updateNTokenPresentValueHistoricalData(notional: Notional, curre
 
 export function updateTvlHistoricalData(notional: Notional, maxCurrencyId: i32, timestamp: i32): void {
   let tvlCurrencies = new Array<string>();
-  let currenciesTotal = BigInt.fromI32(0);
+  let usdTotal = BigInt.fromI32(0);
 
   for (let currencyId: i32 = 1; currencyId <= 4; currencyId++) {
     let result = notional.try_getCurrencyAndRates(currencyId);
@@ -117,17 +117,18 @@ export function updateTvlHistoricalData(notional: Notional, maxCurrencyId: i32, 
         log.debug('Updated tvlCurrency variables for entity {}', [currencyTvl.id]);
         currencyTvl.save();
         tvlCurrencies.push(currencyTvl.id);
-        currenciesTotal = currenciesTotal.plus(underlyingValue);
+        usdTotal = usdTotal.plus(usdValue);
       }
     }
   }
 
-  if (tvlCurrencies.length > 0 && currenciesTotal.gt(BigInt.fromI32(0))) {
+  if (tvlCurrencies.length > 0 && usdTotal.gt(BigInt.fromI32(0))) {
     let historicalId = createDailyTvlId(timestamp);
     let tvlHistoricalData = getTvlHistoricalData(historicalId);
     let roundedTimestamp = (timestamp / 86400) * 86400;
   
     tvlHistoricalData.timestamp = roundedTimestamp;
+    tvlHistoricalData.usdTotal = usdTotal;
     tvlHistoricalData.tvlCurrencies = tvlCurrencies;
 
     log.debug('Updated tvlHistoricalData variables for entity {}', [tvlHistoricalData.id]);
