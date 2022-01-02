@@ -41,7 +41,9 @@ import {
   Account,
   Liquidation,
   AuthorizedCallbackContract,
-  NTokenPresentValueHistoricalData
+  NTokenPresentValueHistoricalData,
+  TvlHistoricalData,
+  CurrencyTvl
 } from '../generated/schema';
 import {BASIS_POINTS, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, getTrade, QUARTER} from './common';
 
@@ -52,7 +54,7 @@ import {
 
 import {updateMarkets} from './markets';
 import {convertAssetToUnderlying, getBalance, updateAccount, updateNTokenPortfolio} from './accounts';
-import { updateAssetExchangeRateHistoricalData, updateEthExchangeRateHistoricalData, updateNTokenPresentValueHistoricalData, updateTlvHistoricalData } from './timeseriesUpdate';
+import { updateAssetExchangeRateHistoricalData, updateEthExchangeRateHistoricalData, updateNTokenPresentValueHistoricalData, updateTvlHistoricalData } from './timeseriesUpdate';
 
 const LocalCurrency = 'LocalCurrency';
 const LocalFcash = 'LocalFcash';
@@ -113,20 +115,20 @@ export function getNTokenPresentValueHistoricalData(id: string): NTokenPresentVa
   return entity as NTokenPresentValueHistoricalData;
 }
 
-export function getTvlHistoricalData(id: string): TlvHistoricalData {
-  let entity = TlvHistoricalData.load(id);
+export function getTvlHistoricalData(id: string): TvlHistoricalData {
+  let entity = TvlHistoricalData.load(id);
   if (entity == null) {
-    entity = new updateTlvHistoricalData(id);
+    entity = new TvlHistoricalData(id);
   }
-  return entity as TlvHistoricalData;
+  return entity as TvlHistoricalData;
 }
 
-export function getTlvCurrency(id: string): TlvCurency {
-  let entity = TlvCurency.load(id);
+export function getCurrencyTvl(id: string): CurrencyTvl {
+  let entity = CurrencyTvl.load(id);
   if (entity == null) {
-    entity = new updateTlvCurency(id);
+    entity = new CurrencyTvl(id);
   }
-  return entity as TlvCurency;
+  return entity as CurrencyTvl;
 }
 
 function getTokenNameAndSymbol(tokenAddress: Address): string[] {
@@ -173,8 +175,8 @@ function handleHourlyUpdates(event: ethereum.Block): void {
 
   let notional = Notional.bind(dataSource.address());
   let result = notional.try_getMaxCurrencyId();
-  if (result.reverted) return
-  let maxCurrencyId = result.value
+  if (result.reverted) return;
+  let maxCurrencyId = result.value;
 
   for (let currencyId: i32 = 1; currencyId <= maxCurrencyId; currencyId++) {
     updateAssetExchangeRateHistoricalData(notional, currencyId, event.timestamp.toI32());
@@ -189,9 +191,11 @@ function handleDailyUpdates(event: ethereum.Block): void {
   }
 
   let notional = Notional.bind(dataSource.address());
-  let maxCurrencyId = notional.getMaxCurrencyId();
+  let result = notional.try_getMaxCurrencyId();
+  if (result.reverted) return;
+  let maxCurrencyId = result.value;
 
-  updateTlvHistoricalData(notional, maxCurrencyId, event.timestamp.toI32());
+  updateTvlHistoricalData(notional, maxCurrencyId, event.timestamp.toI32());
 }
 
 export function handleListCurrency(event: ListCurrency): void {

@@ -21,7 +21,7 @@ services:
             postgres_pass: let-me-in
             postgres_db: graph-node
             ipfs: "ipfs:5001"
-            ethereum: "kovan:https://kovan.infura.io/v3/bca7447cd0a64014983d2795437ea0ca"
+            ethereum: "unknown:http://ganache:8545"
             RUST_LOG: info
             GRAPH_LOG: debug
     ipfs:

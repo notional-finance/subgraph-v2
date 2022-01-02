@@ -549,16 +549,17 @@ type NTokenPresentValueHistoricalData @entity {
   currency: Currency!
 }
 
-type TlvHistoricalData @entity {
-  id: ID!
-  timestamp: Int!
-  tlvCurrencies: [CurrencyTlv!]!
-}
-
-type CurrencyTlv @entity {
+type CurrencyTvl @entity {
   id: ID!
   currency: Currency!
+  underlyingValue: BigInt!
   usdValue: BigInt! 
+}
+
+type TvlHistoricalData @entity {
+  id: ID!
+  timestamp: Int!
+  tvlCurrencies: [CurrencyTvl!]!
 }
 
 type AssetTransfer @entity {

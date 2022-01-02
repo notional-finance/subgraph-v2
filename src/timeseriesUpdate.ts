@@ -1,19 +1,32 @@
-import { log } from '@graphprotocol/graph-ts';
+import { BigInt, log } from '@graphprotocol/graph-ts';
 import { Notional } from '../generated/Notional/Notional';
 import { ERC20 } from '../generated/Notional/ERC20';
 import { convertAssetToUnderlying } from './accounts';
+import { Currency } from '../generated/schema';
 
 import { 
   getAssetExchangeRateHistoricalData,
   getEthExchangeRateHistoricalData
 } from './exchange_rates/utils'
 
-import { getNTokenPresentValueHistoricalData, getTvlHistoricalData } from './notional';
+import { getCurrencyTvl, getNTokenPresentValueHistoricalData, getTvlHistoricalData } from './notional';
 
-function createDailyTlvId(timestamp: i32): string {
+
+const USDC_CURRENCY_ID = 3;
+
+function createDailyTvlId(timestamp: i32): string {
   let uniqueDayIndex = timestamp / 86400;
 
-  return 'tlv:'.concat(uniqueDayIndex.toString());
+  return 'tvl:'.concat(uniqueDayIndex.toString());
+}
+
+function createCurrencyDailyTvlId(timestamp: i32, currencyId: i32): string {
+  let uniqueDayIndex = timestamp / 86400;
+
+  return 'tvl:'
+    .concat(currencyId.toString())
+    .concat(':')
+    .concat(uniqueDayIndex.toString());
 }
 
 function createHourlyId(currencyId: number, timestamp: i32): string {
@@ -77,21 +90,58 @@ export function updateNTokenPresentValueHistoricalData(notional: Notional, curre
   nTokenPresentValueHistoricalData.save();
 }
 
-export function updateTlvHistoricalData(notional: Notional, maxCurrencyId: i32, timestamp: i32): void {
-  let tlvCurrencies = new Array<TlvCurrency>();
+export function updateTvlHistoricalData(notional: Notional, maxCurrencyId: i32, timestamp: i32): void {
+  let tvlCurrencies = new Array<string>();
+  let currenciesTotal = BigInt.fromI32(0);
 
-  for (let currencyId: i32 = 1; currencyId <= maxCurrencyId; currencyId++) {
-    let currency = notional.getCurrency(currencyId);
-    let assetToken = currency.value0;
-    let erc20 = ERC20.bind(assetToken.tokenAddress);
-    let assetTokenBalance = erc20.balanceOf(notional._address);
-    let underlyingToken = convertAssetToUnderlying(notional, currencyId, assetTokenBalance);
+  for (let currencyId: i32 = 1; currencyId <= 4; currencyId++) {
+    let result = notional.try_getCurrencyAndRates(currencyId);
+    if (!result.reverted) {
+      let assetToken = result.value.value0;
+      let erc20 = ERC20.bind(assetToken.tokenAddress);
+      let assetTokenBalance = erc20.balanceOf(notional._address);
+      let underlyingValue = convertAssetToUnderlying(notional, currencyId, assetTokenBalance);
+      let ethRate = result.value.value2;
+      let ethRateDecimals = result.value.value2.rateDecimals;
+      let ethValue = underlyingValue.times(ethRate.rate).div(ethRateDecimals).div(assetToken.decimals);
+      let usdValue = ethToUsd(notional, ethValue);
+      let currencyTvlId = createCurrencyDailyTvlId(timestamp, currencyId);
+      let currencyTvl = getCurrencyTvl(currencyTvlId);
+      let currencyEntity = Currency.load(currencyId.toString());
+      
+      if (currencyEntity != null) {
+        currencyTvl.currency = currencyId.toString();
+        currencyTvl.underlyingValue = underlyingValue;
+        currencyTvl.usdValue = usdValue;
+  
+        log.debug('Updated tvlCurrency variables for entity {}', [currencyTvl.id]);
+        currencyTvl.save();
+        tvlCurrencies.push(currencyTvl.id);
+        currenciesTotal = currenciesTotal.plus(underlyingValue);
+      }
+    }
   }
 
-  let historicalId = createDailyTlvId(timestamp);
-  let tlvHistoricalData = getTvlHistoricalData(historicalId);
-  let roundedTimestamp = (timestamp / 86400) * 86400;
+  if (tvlCurrencies.length > 0 && currenciesTotal.gt(BigInt.fromI32(0))) {
+    let historicalId = createDailyTvlId(timestamp);
+    let tvlHistoricalData = getTvlHistoricalData(historicalId);
+    let roundedTimestamp = (timestamp / 86400) * 86400;
+  
+    tvlHistoricalData.timestamp = roundedTimestamp;
+    tvlHistoricalData.tvlCurrencies = tvlCurrencies;
 
-  tlvHistoricalData.timestamp = roundedTimestamp;
-  tlvHistoricalData.tlvCurrencies = tlvCurrencies;
+    log.debug('Updated tvlHistoricalData variables for entity {}', [tvlHistoricalData.id]);
+    tvlHistoricalData.save();
+  }
+}
+
+function ethToUsd(notional: Notional, ethValue: BigInt): BigInt {
+  let result = notional.try_getCurrencyAndRates(USDC_CURRENCY_ID);
+  if (result.reverted) return BigInt.fromI32(0);
+
+  let usdcEthRate = result.value.value2.rate;
+  let rateDecimals = result.value.value2.rateDecimals
+  let usdcValue = ethValue.times(rateDecimals).div(usdcEthRate);
+
+  return usdcValue;
 }
