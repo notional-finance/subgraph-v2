@@ -1,17 +1,33 @@
-import { log } from '@graphprotocol/graph-ts';
+import { BigInt, log } from '@graphprotocol/graph-ts';
 import { Notional } from '../generated/Notional/Notional';
+import { ERC20 } from '../generated/Notional/ERC20';
+import { convertAssetToUnderlying } from './accounts';
+import { Currency } from '../generated/schema';
 
 import { 
   getAssetExchangeRateHistoricalData,
   getEthExchangeRateHistoricalData
 } from './exchange_rates/utils'
 
-import { getNTokenPresentValueHistoricalData } from './notional';
+import { getCurrencyTvl, getNTokenPresentValueHistoricalData, getTvlHistoricalData } from './notional';
 
-/* 
-    Historical data is stored on an hourly basis to keep it lean, this could be changed in the future
-    or be kept as multiple time periods. New values during the timespan updates the hourly value
-*/
+
+const USDC_CURRENCY_ID = 3;
+
+function createDailyTvlId(timestamp: i32): string {
+  let uniqueDayIndex = timestamp / 86400;
+
+  return 'tvl:'.concat(uniqueDayIndex.toString());
+}
+
+function createCurrencyDailyTvlId(timestamp: i32, currencyId: i32): string {
+  let uniqueDayIndex = timestamp / 86400;
+
+  return 'tvl:'
+    .concat(currencyId.toString())
+    .concat(':')
+    .concat(uniqueDayIndex.toString());
+}
 
 function createHourlyId(currencyId: number, timestamp: i32): string {
   let uniqueHourIndex = timestamp / 3600; // Integer division will always floor result
@@ -72,4 +88,61 @@ export function updateNTokenPresentValueHistoricalData(notional: Notional, curre
 
   log.debug('Updated nTokenPresentValueHistoricalData variables for entity {}', [nTokenPresentValueHistoricalData.id]);
   nTokenPresentValueHistoricalData.save();
+}
+
+export function updateTvlHistoricalData(notional: Notional, maxCurrencyId: i32, timestamp: i32): void {
+  let perCurrencyTvl = new Array<string>();
+  let usdTotal = BigInt.fromI32(0);
+
+  for (let currencyId: i32 = 1; currencyId <= maxCurrencyId; currencyId++) {
+    let result = notional.try_getCurrencyAndRates(currencyId);
+    if (!result.reverted) {
+      let assetToken = result.value.value0;
+      let erc20 = ERC20.bind(assetToken.tokenAddress);
+      let assetTokenBalance = erc20.balanceOf(notional._address);
+      let underlyingValue = convertAssetToUnderlying(notional, currencyId, assetTokenBalance);
+      let ethRate = result.value.value2;
+      let ethRateDecimals = result.value.value2.rateDecimals;
+      let ethValue = underlyingValue.times(ethRate.rate).div(ethRateDecimals);
+      let usdValue = ethToUsd(notional, ethValue);
+      let currencyTvlId = createCurrencyDailyTvlId(timestamp, currencyId);
+      let currencyTvl = getCurrencyTvl(currencyTvlId);
+      let currencyEntity = Currency.load(currencyId.toString());
+      
+      if (currencyEntity != null) {
+        currencyTvl.currency = currencyId.toString();
+        currencyTvl.underlyingValue = underlyingValue;
+        currencyTvl.usdValue = usdValue;
+  
+        log.debug('Updated tvlCurrency variables for entity {}', [currencyTvl.id]);
+        currencyTvl.save();
+        perCurrencyTvl.push(currencyTvl.id);
+        usdTotal = usdTotal.plus(usdValue);
+      }
+    }
+  }
+
+  if (perCurrencyTvl.length > 0 && usdTotal.gt(BigInt.fromI32(0))) {
+    let historicalId = createDailyTvlId(timestamp);
+    let tvlHistoricalData = getTvlHistoricalData(historicalId);
+    let roundedTimestamp = (timestamp / 86400) * 86400;
+  
+    tvlHistoricalData.timestamp = roundedTimestamp;
+    tvlHistoricalData.usdTotal = usdTotal;
+    tvlHistoricalData.perCurrencyTvl = perCurrencyTvl;
+
+    log.debug('Updated tvlHistoricalData variables for entity {}', [tvlHistoricalData.id]);
+    tvlHistoricalData.save();
+  }
+}
+
+function ethToUsd(notional: Notional, ethValue: BigInt): BigInt {
+  let result = notional.try_getCurrencyAndRates(USDC_CURRENCY_ID);
+  if (result.reverted) return BigInt.fromI32(0);
+
+  let usdcEthRate = result.value.value2.rate;
+  let rateDecimals = result.value.value2.rateDecimals
+  let usdcValue = ethValue.times(rateDecimals).div(usdcEthRate);
+
+  return usdcValue;
 }
