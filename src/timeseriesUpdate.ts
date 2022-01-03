@@ -91,7 +91,7 @@ export function updateNTokenPresentValueHistoricalData(notional: Notional, curre
 }
 
 export function updateTvlHistoricalData(notional: Notional, maxCurrencyId: i32, timestamp: i32): void {
-  let tvlCurrencies = new Array<string>();
+  let perCurrencyTvl = new Array<string>();
   let usdTotal = BigInt.fromI32(0);
 
   for (let currencyId: i32 = 1; currencyId <= maxCurrencyId; currencyId++) {
@@ -103,7 +103,7 @@ export function updateTvlHistoricalData(notional: Notional, maxCurrencyId: i32, 
       let underlyingValue = convertAssetToUnderlying(notional, currencyId, assetTokenBalance);
       let ethRate = result.value.value2;
       let ethRateDecimals = result.value.value2.rateDecimals;
-      let ethValue = underlyingValue.times(ethRate.rate).div(ethRateDecimals).div(assetToken.decimals);
+      let ethValue = underlyingValue.times(ethRate.rate).div(ethRateDecimals);
       let usdValue = ethToUsd(notional, ethValue);
       let currencyTvlId = createCurrencyDailyTvlId(timestamp, currencyId);
       let currencyTvl = getCurrencyTvl(currencyTvlId);
@@ -116,20 +116,20 @@ export function updateTvlHistoricalData(notional: Notional, maxCurrencyId: i32, 
   
         log.debug('Updated tvlCurrency variables for entity {}', [currencyTvl.id]);
         currencyTvl.save();
-        tvlCurrencies.push(currencyTvl.id);
+        perCurrencyTvl.push(currencyTvl.id);
         usdTotal = usdTotal.plus(usdValue);
       }
     }
   }
 
-  if (tvlCurrencies.length > 0 && usdTotal.gt(BigInt.fromI32(0))) {
+  if (perCurrencyTvl.length > 0 && usdTotal.gt(BigInt.fromI32(0))) {
     let historicalId = createDailyTvlId(timestamp);
     let tvlHistoricalData = getTvlHistoricalData(historicalId);
     let roundedTimestamp = (timestamp / 86400) * 86400;
   
     tvlHistoricalData.timestamp = roundedTimestamp;
     tvlHistoricalData.usdTotal = usdTotal;
-    tvlHistoricalData.tvlCurrencies = tvlCurrencies;
+    tvlHistoricalData.perCurrencyTvl = perCurrencyTvl;
 
     log.debug('Updated tvlHistoricalData variables for entity {}', [tvlHistoricalData.id]);
     tvlHistoricalData.save();

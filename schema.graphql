@@ -560,7 +560,7 @@ type TvlHistoricalData @entity {
   id: ID!
   timestamp: Int!
   usdTotal: BigInt!
-  tvlCurrencies: [CurrencyTvl!]!
+  perCurrencyTvl: [CurrencyTvl!]!
 }
 
 type AssetTransfer @entity {
