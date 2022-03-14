@@ -144,4 +144,6 @@ dataSources:
           handler: handleLiquidateCollateralCurrency
         - event: LiquidatefCashEvent(indexed address,indexed address,uint16,uint16,int256,uint256[],int256[])
           handler: handleLiquidatefCash
+        - event: IncentivesMigrated(uint16,uint256,uint256,uint256)
+          handler: handleIncentivesMigrated
       file: ./src/notional.ts

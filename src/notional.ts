@@ -26,6 +26,7 @@ import {
   LiquidateLocalCurrency,
   LiquidateCollateralCurrency,
   LiquidatefCashEvent,
+  IncentivesMigrated,
 } from '../generated/Notional/Notional';
 import {ERC20} from '../generated/Notional/ERC20';
 
@@ -43,7 +44,8 @@ import {
   AuthorizedCallbackContract,
   NTokenPresentValueHistoricalData,
   TvlHistoricalData,
-  CurrencyTvl
+  CurrencyTvl,
+  IncentiveMigration
 } from '../generated/schema';
 import {BASIS_POINTS, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, getTrade, QUARTER} from './common';
 
@@ -775,4 +777,21 @@ export function handleLiquidatefCash(event: LiquidatefCashEvent): void {
   liq.save();
 
   log.debug('Logged liquidate fcash event at {}', [liq.id]);
+}
+
+export function handleIncentiveMigration(event: IncentivesMigrated): void {
+  let currencyId = event.params.currencyId as i32;
+  let migration = new IncentiveMigration(currencyId.toString())
+  migration.migrationEmissionRate = event.params.migrationEmissionRate;
+  migration.migrationTime = event.params.migrationTime;
+  migration.finalIntegralTotalSupply = event.params.finalIntegralTotalSupply;
+  migration.save();
+
+  let nToken = getNToken(currencyId.toString());
+  // Update these parameters to the snapshot
+  nToken.integralTotalSupply = migration.finalIntegralTotalSupply;
+  nToken.lastSupplyChangeTime = migration.migrationTime;
+  nToken.save();
+
+  log.debug('Logged incentive migration event event at {}', [migration.id]);
 }

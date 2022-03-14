@@ -1,6 +1,6 @@
 import { Address, BigInt, ethereum, log } from "@graphprotocol/graph-ts";
 
-import { Trade } from '../generated/schema';
+import { IncentiveMigration, Trade } from '../generated/schema';
 
 export const RATE_PRECISION = 1000000000;
 export const BASIS_POINTS = 100000;
@@ -64,4 +64,10 @@ export function getMarketMaturityLengthSeconds(maxMarketIndex: i32): i32 {
   if (maxMarketIndex == 7) return 20 * YEAR;
 
   return 0;
+}
+
+export function hasMigrationOccured(currencyId: i32): boolean {
+  let migration = IncentiveMigration.load(currencyId.toString())
+  if (migration == null) return false
+  return true
 }

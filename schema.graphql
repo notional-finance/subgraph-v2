@@ -576,9 +576,6 @@ type AssetTransfer @entity {
   toAssetChange: AssetChange!
 }
 
-# type IncentivesClaimed @entity {
-# }
-
 enum LiquidationType {
   LocalCurrency
   LocalFcash
@@ -619,4 +616,16 @@ type DailyLendBorrowVolume @entity {
   totalVolumeNetAssetCash: BigInt!
   totalVolumeNetfCash: BigInt!
   txCount: BigInt!
+}
+
+# One off migration for incentive calculation, snapshot values stored here
+type IncentiveMigration @entity {
+  "Currency ID of the migrated entity"
+  id: ID!
+  "Snapshot of the incentive emission rate at migration"
+  migrationEmissionRate: BigInt!
+  "Snapshot of the integral total supply at migration"
+  finalIntegralTotalSupply: BigInt!
+  "Time when the currency was migrated"
+  migrationTime: BigInt!
 }
