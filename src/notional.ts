@@ -46,9 +46,10 @@ import {
   NTokenPresentValueHistoricalData,
   TvlHistoricalData,
   CurrencyTvl,
-  IncentiveMigration
+  IncentiveMigration,
+  SecondaryIncentiveRewarder
 } from '../generated/schema';
-import {BASIS_POINTS, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, getTrade, QUARTER} from './common';
+import {ADDRESS_ZERO, BASIS_POINTS, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, getTrade, QUARTER} from './common';
 
 import {
   getEthExchangeRate,
@@ -220,7 +221,7 @@ export function handleListCurrency(event: ListCurrency): void {
   currency.hasTransferFee = assetToken.hasTransferFee;
   currency.maxCollateralBalance = assetToken.maxCollateralBalance;
 
-  if (underlyingToken.tokenAddress != Address.fromHexString('0x0000000000000000000000000000000000000000')) {
+  if (underlyingToken.tokenAddress != ADDRESS_ZERO()) {
     let underlyingTokenNameAndSymbol = getTokenNameAndSymbol(underlyingToken.tokenAddress);
     currency.underlyingName = underlyingTokenNameAndSymbol[0];
     currency.underlyingSymbol = underlyingTokenNameAndSymbol[1];
@@ -540,20 +541,21 @@ export function handleUpdateAuthorizedCallbackContract(event: UpdateAuthorizedCa
 }
 
 export function handleUpdateSecondaryIncentiveRewarder(event: UpdateSecondaryIncentiveRewarder): void {
-  // let operator = SecondaryIncentiveRewarder.load(event.params.operator.toHexString());
-  // if (event.params.approved && operator == null) {
-  //   operator = new AuthorizedCallbackContract(event.params.operator.toHexString());
-  //   operator.name = getTokenNameAndSymbol(event.params.operator)[0];
-  //   operator.lastUpdateBlockNumber = event.block.number.toI32();
-  //   operator.lastUpdateTimestamp = event.block.timestamp.toI32();
-  //   operator.lastUpdateBlockHash = event.block.hash;
-  //   operator.lastUpdateTransactionHash = event.transaction.hash;
-  //   log.debug('Created authorized callback contract {}', [operator.id]);
-  //   operator.save();
-  // } else if (!event.params.approved && operator != null) {
-  //   log.debug('Deleted authorized callback contract {}', [operator.id]);
-  //   store.remove('AuthorizedCallbackContract', event.params.operator.toHexString());
-  // }
+  let currencyId = event.params.currencyId as i32;
+  if (event.params.rewarder == ADDRESS_ZERO()) {
+    log.debug('Deleted secondary incentive rewarder {}', [currencyId.toString()]);
+    store.remove('SecondaryIncentiveRewarder', currencyId.toString());
+  } else {
+    let rewarder = new SecondaryIncentiveRewarder(currencyId.toString());
+    rewarder.currency = currencyId.toString();
+    rewarder.nToken = currencyId.toString();
+    rewarder.lastUpdateBlockNumber = event.block.number.toI32();
+    rewarder.lastUpdateTimestamp = event.block.timestamp.toI32();
+    rewarder.lastUpdateBlockHash = event.block.hash;
+    rewarder.lastUpdateTransactionHash = event.transaction.hash;
+    log.debug('Created secondary rewarder callback contract {}', [rewarder.id]);
+    rewarder.save();
+  }
 }
 
 export function handleSetSettlementRate(event: SetSettlementRate): void {

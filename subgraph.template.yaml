@@ -116,6 +116,8 @@ dataSources:
           handler: handleMarketsInitialized
         - event: SweepCashIntoMarkets(uint16,int256)
           handler: handleSweepCashIntoMarkets
+        - event: UpdateSecondaryIncentiveRewarder(uint16,address)
+          handler: handleUpdateSecondaryIncentiveRewarder
         # These two events update the whole account
         - event: AccountContextUpdate(indexed address)
           handler: handleAccountContextUpdate

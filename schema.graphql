@@ -293,6 +293,17 @@ type AuthorizedCallbackContract @entity {
   lastUpdateTransactionHash: Bytes!
 }
 
+type SecondaryIncentiveRewarder @entity {
+  "Address of the rewarder contract"
+  id: ID!
+  currency: Currency!
+  nToken: nToken!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+}
+
 enum AssetType {
   fCash
   LiquidityToken_3Month
