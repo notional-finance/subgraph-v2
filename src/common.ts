@@ -66,8 +66,8 @@ export function getMarketMaturityLengthSeconds(maxMarketIndex: i32): i32 {
   return 0;
 }
 
-export function hasMigrationOccured(currencyId: i32): boolean {
-  let migration = IncentiveMigration.load(currencyId.toString())
+export function hasIncentiveMigrationOccurred(currencyId: string): boolean {
+  let migration = IncentiveMigration.load(currencyId)
   if (migration == null) return false
   return true
 }

@@ -239,6 +239,7 @@ type nToken @entity {
   decimals: BigInt!
   totalSupply: BigInt!
   integralTotalSupply: BigInt!
+  accumulatedNOTEPerNToken: BigInt
   lastSupplyChangeTime: BigInt!
 
   "Cash group that governs this nToken"
@@ -351,8 +352,12 @@ type Balance @entity {
   nTokenBalance: BigInt!
   "Last time token incentives were claimed on this balance"
   lastClaimTime: Int!
-  "Last stored integral total supply amount, used to calculate incentives"
-  lastClaimIntegralSupply: BigInt!
+  "Last stored integral total supply amount, used to calculate incentives in the original method"
+  lastClaimIntegralSupply: BigInt
+  "Accumulator for incentive calculation"
+  accountIncentiveDebt: BigInt!
+  "True if the account has migrated to the new incentive scheme"
+  didMigrateIncentives: Boolean
 }
 
 type Asset @entity {
@@ -479,8 +484,10 @@ type BalanceChange @entity {
 
   lastClaimTimeBefore: Int!
   lastClaimTimeAfter: Int!
-  lastClaimIntegralSupplyBefore: BigInt!
-  lastClaimIntegralSupplyAfter: BigInt!
+  lastClaimIntegralSupplyBefore: BigInt
+  lastClaimIntegralSupplyAfter: BigInt
+  accountIncentiveDebtBefore: BigInt
+  accountIncentiveDebtAfter: BigInt
 }
 
 type AssetChange @entity {
@@ -521,10 +528,15 @@ type nTokenChange @entity {
 
   totalSupplyBefore: BigInt!
   totalSupplyAfter: BigInt!
-  integralTotalSupplyBefore: BigInt!
-  integralTotalSupplyAfter: BigInt!
+  "Deprecated integral total supply before and after"
+  integralTotalSupplyBefore: BigInt
+  integralTotalSupplyAfter: BigInt
+  "Last supply change time before and after, equivalent to last accumulated time"
   lastSupplyChangeTimeBefore: BigInt!
   lastSupplyChangeTimeAfter: BigInt!
+  "Represents the accumulated NOTE incentives on the nToken"
+  accumulatedNOTEPerNTokenBefore: BigInt
+  accumulatedNOTEPerNTokenAfter: BigInt
 }
 
 type EthExchangeRateHistoricalData @entity {

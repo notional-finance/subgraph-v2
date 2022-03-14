@@ -27,6 +27,7 @@ import {
   LiquidateCollateralCurrency,
   LiquidatefCashEvent,
   IncentivesMigrated,
+  UpdateSecondaryIncentiveRewarder,
 } from '../generated/Notional/Notional';
 import {ERC20} from '../generated/Notional/ERC20';
 
@@ -536,6 +537,23 @@ export function handleUpdateAuthorizedCallbackContract(event: UpdateAuthorizedCa
     log.debug('Deleted authorized callback contract {}', [operator.id]);
     store.remove('AuthorizedCallbackContract', event.params.operator.toHexString());
   }
+}
+
+export function handleUpdateSecondaryIncentiveRewarder(event: UpdateSecondaryIncentiveRewarder): void {
+  // let operator = SecondaryIncentiveRewarder.load(event.params.operator.toHexString());
+  // if (event.params.approved && operator == null) {
+  //   operator = new AuthorizedCallbackContract(event.params.operator.toHexString());
+  //   operator.name = getTokenNameAndSymbol(event.params.operator)[0];
+  //   operator.lastUpdateBlockNumber = event.block.number.toI32();
+  //   operator.lastUpdateTimestamp = event.block.timestamp.toI32();
+  //   operator.lastUpdateBlockHash = event.block.hash;
+  //   operator.lastUpdateTransactionHash = event.transaction.hash;
+  //   log.debug('Created authorized callback contract {}', [operator.id]);
+  //   operator.save();
+  // } else if (!event.params.approved && operator != null) {
+  //   log.debug('Deleted authorized callback contract {}', [operator.id]);
+  //   store.remove('AuthorizedCallbackContract', event.params.operator.toHexString());
+  // }
 }
 
 export function handleSetSettlementRate(event: SetSettlementRate): void {
