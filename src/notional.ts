@@ -823,14 +823,7 @@ export function handleIncentiveMigration(event: IncentivesMigrated): void {
   log.debug('Logged incentive migration event event at {}', [migration.id]);
 }
 
-export function handleReserveFeeAccrued(event: ReserveFeeAccrued): void {
-  let currencyId = event.params.currencyId as i32;
-  let cashGroup = getCashGroup(currencyId.toString())
-  cashGroup.reserveBalance = cashGroup.reserveBalance.plus(event.params.fee)
-  cashGroup.save();
-  log.debug('Reserve fee accrued to cash group', [cashGroup.id]);
-}
-
+/* Reserve balances are updated in updateMarkets, here we just handle treasury manager actions */
 export function handleReserveBalanceUpdated(event: ReserveBalanceUpdated): void {
   let currencyId = event.params.currencyId as i32;
   let cashGroup = getCashGroup(currencyId.toString())
