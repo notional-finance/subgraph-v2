@@ -148,4 +148,15 @@ dataSources:
           handler: handleLiquidatefCash
         - event: IncentivesMigrated(uint16,uint256,uint256,uint256)
           handler: handleIncentivesMigrated
+        # Reserve balances
+        - event: ReserveFeeAccrued(indexed uint16,int256)
+          handler: handleReserveFeeAccrued
+        - event: ReserveBalanceUpdated(indexed uint16,int256)
+          handler: handleReserveBalanceUpdated
+        - event: ExcessReserveBalanceHarvested(indexed uint16,int256)
+          handler: handleExcessReserveBalanceHarvested
+        - event: TreasuryManagerChanged(indexed address,indexed address)
+          handler: handleTreasuryManagerChanged
+        - event: ReserveBufferUpdated(uint16,uint256);
+          handler: handleReserveBufferUpdated
       file: ./src/notional.ts

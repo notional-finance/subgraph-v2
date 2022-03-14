@@ -28,6 +28,11 @@ import {
   LiquidatefCashEvent,
   IncentivesMigrated,
   UpdateSecondaryIncentiveRewarder,
+  ReserveFeeAccrued,
+  ReserveBalanceUpdated,
+  ExcessReserveBalanceHarvested,
+  TreasuryManagerChanged,
+  ReserveBufferUpdated,
 } from '../generated/Notional/Notional';
 import {ERC20} from '../generated/Notional/ERC20';
 
@@ -47,7 +52,8 @@ import {
   TvlHistoricalData,
   CurrencyTvl,
   IncentiveMigration,
-  SecondaryIncentiveRewarder
+  SecondaryIncentiveRewarder,
+  TreasuryManager
 } from '../generated/schema';
 import {ADDRESS_ZERO, BASIS_POINTS, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, getTrade, QUARTER} from './common';
 
@@ -81,6 +87,7 @@ export function getCashGroup(id: string): CashGroup {
   if (entity == null) {
     entity = new CashGroup(id);
     entity.reserveBalance = BigInt.fromI32(0);
+    entity.reserveBuffer = BigInt.fromI32(0);
   }
   return entity as CashGroup;
 }
@@ -814,4 +821,52 @@ export function handleIncentiveMigration(event: IncentivesMigrated): void {
   nToken.save();
 
   log.debug('Logged incentive migration event event at {}', [migration.id]);
+}
+
+export function handleReserveFeeAccrued(event: ReserveFeeAccrued): void {
+  let currencyId = event.params.currencyId as i32;
+  let cashGroup = getCashGroup(currencyId.toString())
+  cashGroup.reserveBalance = cashGroup.reserveBalance.plus(event.params.fee)
+  cashGroup.save();
+  log.debug('Reserve fee accrued to cash group', [cashGroup.id]);
+}
+
+export function handleReserveBalanceUpdated(event: ReserveBalanceUpdated): void {
+  let currencyId = event.params.currencyId as i32;
+  let cashGroup = getCashGroup(currencyId.toString())
+  cashGroup.reserveBalance = event.params.newBalance;
+  cashGroup.save();
+  log.debug('Reserve balance updated in cash group', [cashGroup.id]);
+}
+
+export function handleExcessReserveBalanceHarvested(event: ExcessReserveBalanceHarvested): void {
+  let currencyId = event.params.currencyId as i32;
+  let cashGroup = getCashGroup(currencyId.toString())
+  cashGroup.reserveBalance = cashGroup.reserveBalance.minus(event.params.harvestAmount)
+  cashGroup.save();
+  log.debug('Reserve balance updated in cash group', [cashGroup.id]);
+}
+
+export function handleTreasuryManagerChanged(event: TreasuryManagerChanged): void {
+  let id = "0"
+  let manager = TreasuryManager.load(id)
+  if (manager == null) {
+    manager = new TreasuryManager(id)
+  }
+
+  manager.contractAddress = event.params.newManager;
+  manager.lastUpdateBlockNumber = event.block.number.toI32();
+  manager.lastUpdateTimestamp = event.block.timestamp.toI32();
+  manager.lastUpdateBlockHash = event.block.hash;
+  manager.lastUpdateTransactionHash = event.transaction.hash;
+  manager.save()
+  log.debug('Updated treasury manager address', []);
+}
+
+export function handleReserveBufferUpdated(event: ReserveBufferUpdated): void {
+  let currencyId = event.params.currencyId as i32;
+  let cashGroup = getCashGroup(currencyId.toString())
+  cashGroup.reserveBuffer = event.params.bufferAmount;
+  cashGroup.save();
+  log.debug('Reserve buffer updated in cash group', [cashGroup.id]);
 }

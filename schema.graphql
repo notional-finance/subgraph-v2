@@ -220,6 +220,8 @@ type CashGroup @entity {
 
   "Current size of reserves accumulated for this cash group"
   reserveBalance: BigInt!
+  "The minimum threshold of the reserve before they are harvested for buybacks"
+  reserveBuffer: BigInt!
 
   nToken: nToken! @derivedFrom(field: "cashGroup")
 }
@@ -298,6 +300,16 @@ type SecondaryIncentiveRewarder @entity {
   id: ID!
   currency: Currency!
   nToken: nToken!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+}
+
+type TreasuryManager @entity {
+  "ID is hardcoded to 0"
+  id: ID!
+  contractAddress: Bytes!
   lastUpdateBlockHash: Bytes!
   lastUpdateBlockNumber: Int!
   lastUpdateTimestamp: Int!
