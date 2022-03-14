@@ -116,7 +116,7 @@ dataSources:
           handler: handleMarketsInitialized
         - event: SweepCashIntoMarkets(uint16,int256)
           handler: handleSweepCashIntoMarkets
-        - event: UpdateSecondaryIncentiveRewarder(uint16,address)
+        - event: UpdateSecondaryIncentiveRewarder(indexed uint16,address)
           handler: handleUpdateSecondaryIncentiveRewarder
         # These two events update the whole account
         - event: AccountContextUpdate(indexed address)
@@ -157,6 +157,6 @@ dataSources:
           handler: handleExcessReserveBalanceHarvested
         - event: TreasuryManagerChanged(indexed address,indexed address)
           handler: handleTreasuryManagerChanged
-        - event: ReserveBufferUpdated(uint16,uint256);
+        - event: ReserveBufferUpdated(uint16,uint256)
           handler: handleReserveBufferUpdated
       file: ./src/notional.ts
