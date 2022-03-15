@@ -135,7 +135,7 @@ dataSources:
           handler: handleSettledCashDebt
         - event: nTokenResidualPurchase(indexed uint16,indexed uint40,indexed address,int256,int256)
           handler: handleNTokenResidualPurchase
-        # fCash Transfers
+        # fCash Transfers: only need to mark Trade events
         # - event: TransferSingle(indexed address,indexed address,indexed address,uint256,uint256)
         #   handler: handleERC115Transfer
         # - event: TransferBatch(indexed address,indexed address,indexed address,uint256[],uint256[])
@@ -149,8 +149,6 @@ dataSources:
         - event: IncentivesMigrated(uint16,uint256,uint256,uint256)
           handler: handleIncentivesMigrated
         # Reserve balances
-        - event: ReserveFeeAccrued(indexed uint16,int256)
-          handler: handleReserveFeeAccrued
         - event: ReserveBalanceUpdated(indexed uint16,int256)
           handler: handleReserveBalanceUpdated
         - event: ExcessReserveBalanceHarvested(indexed uint16,int256)

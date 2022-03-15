@@ -806,7 +806,7 @@ export function handleLiquidatefCash(event: LiquidatefCashEvent): void {
   log.debug('Logged liquidate fcash event at {}', [liq.id]);
 }
 
-export function handleIncentiveMigration(event: IncentivesMigrated): void {
+export function handleIncentivesMigrated(event: IncentivesMigrated): void {
   let currencyId = event.params.currencyId as i32;
   let migration = new IncentiveMigration(currencyId.toString())
   migration.migrationEmissionRate = event.params.migrationEmissionRate;
