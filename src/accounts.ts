@@ -131,7 +131,7 @@ function getAssetChange(accountAddress: string, asset: Asset, event: ethereum.Ev
   return entity;
 }
 
-function getNTokenChange(nTokenAccount: nToken, event: ethereum.Event): nTokenChange {
+export function getNTokenChange(nTokenAccount: nToken, event: ethereum.Event): nTokenChange {
   let id =
     nTokenAccount.tokenAddress.toHexString() +
     ':' +
