@@ -1,4 +1,4 @@
-import {Address, BigInt, ethereum, log, store} from '@graphprotocol/graph-ts';
+import {Address, BigInt, dataSource, ethereum, log, store} from '@graphprotocol/graph-ts';
 import {
   Notional,
   Notional__getAccountResultAccountBalancesStruct,
@@ -20,6 +20,12 @@ function convertNTokenToAsset(notional: Notional, currencyId: i32, nTokenBalance
   let nTokenPV = notional.nTokenPresentValueAssetDenominated(currencyId);
   let nTokenAddress = notional.nTokenAddress(currencyId);
   let nTokenTotalSupply = notional.nTokenTotalSupply(nTokenAddress);
+
+  if (dataSource.network() == "kovan" && currencyId == 5 && nTokenTotalSupply.isZero()) {
+    // This is to handle an error when migrating incentives on Kovan
+    return BigInt.fromI32(0);
+  }
+
   return nTokenBalance.times(nTokenPV).div(nTokenTotalSupply);
 }
 
