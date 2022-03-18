@@ -28,7 +28,6 @@ import {
   LiquidatefCashEvent,
   IncentivesMigrated,
   UpdateSecondaryIncentiveRewarder,
-  ReserveFeeAccrued,
   ReserveBalanceUpdated,
   ExcessReserveBalanceHarvested,
   TreasuryManagerChanged,
@@ -817,6 +816,7 @@ export function handleLiquidatefCash(event: LiquidatefCashEvent): void {
 export function handleIncentivesMigrated(event: IncentivesMigrated): void {
   let currencyId = event.params.currencyId as i32;
   let migration = new IncentiveMigration(currencyId.toString())
+  migration.currency = currencyId.toString();
   migration.migrationEmissionRate = event.params.migrationEmissionRate;
   migration.migrationTime = event.params.migrationTime;
   migration.finalIntegralTotalSupply = event.params.finalIntegralTotalSupply;

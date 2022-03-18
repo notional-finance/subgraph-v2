@@ -657,6 +657,7 @@ type DailyLendBorrowVolume @entity {
 type IncentiveMigration @entity {
   "Currency ID of the migrated entity"
   id: ID!
+  currency: Currency!
   "Snapshot of the incentive emission rate at migration"
   migrationEmissionRate: BigInt!
   "Snapshot of the integral total supply at migration"
