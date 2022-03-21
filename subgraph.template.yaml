@@ -1,6 +1,11 @@
-specVersion: 0.0.2
+specVersion: 0.0.4
 description: Notional V2 Subgraph
 repository: https://github.com/notional-finance/notional
+features:
+  - grafting
+graft:
+  base: QmWQJPRtugQ6iBgKYbCXN9VeWiJGEuqwNACSBYxqhioivQ
+  block: 30460000
 schema:
   file: ./schema.graphql
 dataSources:

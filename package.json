@@ -12,7 +12,7 @@
     "codegen": "graph codegen",
     "build": "graph build",
     "deploy:local": "graph create --node http://127.0.0.1:8020 notional-finance/local-v2 && graph deploy notional-finance/local-v2 ./subgraph.yaml --ipfs http://localhost:5001 --node http://127.0.0.1:8020",
-    "deploy:kovan": "yarn run prepare:kovan && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/kovan-v2",
+    "deploy:kovan": "yarn run prepare:kovan && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/kovan-v2-graft",
     "deploy:goerli": "yarn run prepare:goerli && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/goerli-v2",
     "deploy:mainnet": "yarn run prepare:mainnet && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/mainnet-v2",
     "testenv:up": "cd ../subgraph && ./start.sh",
