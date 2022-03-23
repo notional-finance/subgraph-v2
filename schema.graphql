@@ -546,7 +546,7 @@ type nTokenChange @entity {
   "Account that mints or redeems nTokens, set to null on initialize markets"
   account: Account
 
-  assetChanges: [AssetChange!]!
+  assetChanges: [AssetChange!]
   balanceChange: BalanceChange
 
   totalSupplyBefore: BigInt!
