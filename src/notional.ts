@@ -577,6 +577,11 @@ export function handleSetSettlementRate(event: SetSettlementRate): void {
   let maturity = event.params.maturity.toI32();
   let settlementRate = getSettlementRate(currencyId, maturity);
 
+  // Deletes settlement rates from the Notional V21 fix
+  if (event.params.rate.isZero() && (maturity == 1648512000 || maturity == 1664064000)) {
+    store.remove('SettlementRate', settlementRate.id)
+  }
+
   settlementRate.currency = currencyId.toString();
   settlementRate.assetExchangeRate = currencyId.toString();
   settlementRate.maturity = maturity;

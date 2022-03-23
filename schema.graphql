@@ -113,6 +113,8 @@ type Currency @entity {
   cashGroup: CashGroup @derivedFrom(field: "currency")
   "nToken for a currency, if exists"
   nToken: nToken @derivedFrom(field: "currency")
+  "Incentive Migration for a currency, if exists"
+  incentiveMigration: IncentiveMigration @derivedFrom(field: "currency")
 
   "Hourly data for this currency"
   ethExchangeRateHistoricalData: [EthExchangeRateHistoricalData!]
