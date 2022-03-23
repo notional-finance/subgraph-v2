@@ -221,7 +221,7 @@ type CashGroup @entity {
   "Current size of reserves accumulated for this cash group"
   reserveBalance: BigInt!
   "The minimum threshold of the reserve before they are harvested for buybacks"
-  reserveBuffer: BigInt!
+  reserveBuffer: BigInt
 
   nToken: nToken! @derivedFrom(field: "cashGroup")
 }
@@ -378,7 +378,7 @@ type Balance @entity {
   "Last stored integral total supply amount, used to calculate incentives in the original method"
   lastClaimIntegralSupply: BigInt
   "Accumulator for incentive calculation"
-  accountIncentiveDebt: BigInt!
+  accountIncentiveDebt: BigInt
   "True if the account has migrated to the new incentive scheme"
   didMigrateIncentives: Boolean
 }
