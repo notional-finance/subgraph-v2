@@ -1,4 +1,7 @@
 {
+    "compound": {
+        "comptroller": "0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B"
+    },
     "airdrop": "0xa40aedAac28F9574124D7c8EFf59732cC77f1DD4",
     "chainId": 1,
     "deployer": "0x8B64fA5Fd129df9c755eB82dB1e16D6D0Bdf5Bc3",

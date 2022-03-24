@@ -60,6 +60,28 @@ dataSources:
           handler: handleTransfer
       file: ./src/noteERC20.ts
   - kind: ethereum/contract
+    name: Comptroller
+    network: {{networkName}}
+    source:
+      address: '{{ compound.comptroller }}'
+      abi: Comptroller
+      startBlock: {{startBlock}}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.4
+      language: wasm/assemblyscript
+      entities:
+        - TvlHistoricalData
+      abis:
+        - name: Comptroller
+          file: ./abi/Comptroller.json
+      eventHandlers:
+        - event: DistributedSupplierComp(indexed address,indexed address,uint256,uint256)
+          handler: handleDistributedSupplierComp
+      blockHandlers:
+        - handler: handleBlockUpdates
+      file: ./src/comptroller.ts
+  - kind: ethereum/contract
     name: Notional
     network: {{networkName}}
     source:

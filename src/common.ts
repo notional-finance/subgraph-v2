@@ -14,6 +14,12 @@ export function ADDRESS_ZERO(): Address {
   return Address.fromHexString('0x0000000000000000000000000000000000000000') as Address;
 }
 
+export function createDailyTvlId(timestamp: i32): string {
+  let uniqueDayIndex = timestamp / 86400;
+
+  return 'tvl:'.concat(uniqueDayIndex.toString());
+}
+
 export function getTimeRef(timestamp: i32): i32 {
   return timestamp - (timestamp % QUARTER);
 }

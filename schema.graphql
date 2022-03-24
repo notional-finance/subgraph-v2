@@ -591,11 +591,18 @@ type CurrencyTvl @entity {
   usdValue: BigInt!
 }
 
+type COMPBalance @entity {
+  id: ID!
+  value: BigInt!
+  usdValue: BigInt!
+}
+
 type TvlHistoricalData @entity {
   id: ID!
   timestamp: Int!
   usdTotal: BigInt!
   perCurrencyTvl: [CurrencyTvl!]!
+  compBalance: COMPBalance!
 }
 
 type AssetTransfer @entity {

@@ -3,6 +3,7 @@ import { Notional } from '../generated/Notional/Notional';
 import { ERC20 } from '../generated/Notional/ERC20';
 import { convertAssetToUnderlying } from './accounts';
 import { Currency } from '../generated/schema';
+import { createDailyTvlId } from './common';
 
 import { 
   getAssetExchangeRateHistoricalData,
@@ -13,12 +14,6 @@ import { getCurrencyTvl, getNTokenPresentValueHistoricalData, getTvlHistoricalDa
 
 
 const USDC_CURRENCY_ID = 3;
-
-function createDailyTvlId(timestamp: i32): string {
-  let uniqueDayIndex = timestamp / 86400;
-
-  return 'tvl:'.concat(uniqueDayIndex.toString());
-}
 
 function createCurrencyDailyTvlId(timestamp: i32, currencyId: i32): string {
   let uniqueDayIndex = timestamp / 86400;
