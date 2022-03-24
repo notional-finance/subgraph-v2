@@ -75,6 +75,10 @@ dataSources:
       abis:
         - name: Comptroller
           file: ./abi/Comptroller.json
+        - name: Aggregator
+          file: ./abi/Aggregator.json
+        - name: Notional
+          file: ./abi/Notional.json
       eventHandlers:
         - event: DistributedSupplierComp(indexed address,indexed address,uint256,uint256)
           handler: handleDistributedSupplierComp

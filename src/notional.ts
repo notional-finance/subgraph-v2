@@ -67,8 +67,7 @@ import {
   updateAssetExchangeRateHistoricalData, 
   updateEthExchangeRateHistoricalData, 
   updateNTokenPresentValueHistoricalData, 
-  updateTvlHistoricalData,
-  updateCOMPHistoricalData
+  updateTvlHistoricalData
 } from './timeseriesUpdate';
 
 const LocalCurrency = 'LocalCurrency';

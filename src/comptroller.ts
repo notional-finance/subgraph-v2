@@ -9,21 +9,37 @@ import {
     store
 } from '@graphprotocol/graph-ts';
 import { Comptroller, DistributedSupplierComp } from '../generated/Comptroller/Comptroller';
-import { COMPBalance } from '../generated/schema';
-import { createDailyTvlId } from './common';
+import { Aggregator } from '../generated/Comptroller/Aggregator';
+import { COMPBalance, TvlHistoricalData } from '../generated/schema';
+import { createDailyTvlId, createHourlyId, ethToUsd } from './timeseriesUpdate';
 import { getTvlHistoricalData } from './notional';
+import { Notional } from '../generated/Notional/Notional';
 
 const BI_HOURLY_BLOCK_UPDATE = 138;
 const BI_DAILY_BLOCK_UPDATE = 3300;
 
-function getNotionalAddress(network: string): Address {
+class Addresses {
+    notional: Address;
+    compOracle: Address;
+}
+
+function getAddresses(network: string): Addresses {
     if (network == "goerli") {
-        return Address.fromHexString("0xD8229B55bD73c61D840d339491219ec6Fa667B0a") as Address;
+        return {
+            notional: Address.fromHexString("0xD8229B55bD73c61D840d339491219ec6Fa667B0a") as Address,
+            compOracle: Address.fromHexString("0xD8229B55bD73c61D840d339491219ec6Fa667B0a") as Address
+        }
     }
     if (network == "mainnet") {
-        return Address.fromHexString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369") as Address;
+        return {
+            notional: Address.fromHexString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369") as Address,
+            compOracle: Address.fromHexString("0xD14b0FDC8Dd3a3ECFec8ad538aE1621fF6F3Dc1F") as Address
+        }
     }
-    return Address.fromHexString("0xfa5f002555eb670019bD938604802f901208aE71") as Address;
+    return {
+        notional: Address.fromHexString("0xfa5f002555eb670019bD938604802f901208aE71") as Address,
+        compOracle: Address.fromHexString("0xfa5f002555eb670019bD938604802f901208aE71") as Address
+    }
 }
 
 export function handleBlockUpdates(event: ethereum.Block): void {
@@ -32,22 +48,44 @@ export function handleBlockUpdates(event: ethereum.Block): void {
 
 function saveCOMPBalance(timestamp: i32): void {
     let historicalId = createDailyTvlId(timestamp);
-    let tvlHistoricalData = getTvlHistoricalData(historicalId);
-    let comptroller = Comptroller.bind(dataSource.address());
-    let addr = getNotionalAddress(dataSource.network());
 
-    let compBalance = COMPBalance.load(tvlHistoricalData.compBalance);
+    let entity = TvlHistoricalData.load(historicalId);
+    if (entity == null) {
+        entity = new TvlHistoricalData(historicalId);
+        entity.timestamp = (timestamp / 86400) * 86400;
+        entity.usdTotal = BigInt.fromI32(0);
+        entity.perCurrencyTvl = new Array<string>();
+    }
+    let tvlHistoricalData = entity as TvlHistoricalData;
+
+    let comptroller = Comptroller.bind(dataSource.address());
+    let addr = getAddresses(dataSource.network());
+    let oracle = Aggregator.bind(addr.compOracle)
+    let notional = Notional.bind(addr.notional);
+
+    let compBalance = COMPBalance.load(historicalId);
     if (compBalance == null) {
         compBalance = new COMPBalance(historicalId)
     }
 
-    compBalance.value = comptroller.compAccrued(addr);
+    let comp = comptroller.compAccrued(addr.notional);
+    let answer = oracle.try_latestAnswer();
+    let ethValue = BigInt.fromI32(0);
+    if (!answer.reverted)
+        ethValue = answer.value.times(comp).div(BigInt.fromI32(10).pow(18));
 
+    log.info("compAccrued={}", [comp.toString()]);
+
+    compBalance.value = comp;
+    compBalance.usdValue = ethToUsd(notional, ethValue);
     compBalance.save()
+
+    tvlHistoricalData.compBalance = compBalance.id;
+    tvlHistoricalData.save()
 }
 
 function handleDailyUpdates(event: ethereum.Block): void {
-    if (event.number.toI32() % BI_HOURLY_BLOCK_UPDATE != 0) {
+    if (event.number.toI32() % BI_DAILY_BLOCK_UPDATE != 0) {
         return;
     }
 
@@ -55,9 +93,10 @@ function handleDailyUpdates(event: ethereum.Block): void {
 }
 
 export function handleDistributedSupplierComp(event: DistributedSupplierComp): void {
-    if (event.params.supplier == getNotionalAddress(dataSource.network())) {
+    let addr = getAddresses(dataSource.network());
+    if (event.params.supplier == addr.notional) {
         log.info("CToken addr = {}", [event.params.cToken.toHexString()]);
         log.info("CompDelta = {}", [event.params.compDelta.toString()])
-        saveCOMPBalance(Math.floor(event.block.timestamp.toI32() / BI_HOURLY_BLOCK_UPDATE) as i32)
+        saveCOMPBalance(Math.floor(event.block.timestamp.toI32() / BI_DAILY_BLOCK_UPDATE) as i32)
     }
 }
