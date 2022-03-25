@@ -81,8 +81,6 @@ function saveCOMPBalance(timestamp: i32): void {
     if (!answer.reverted)
         ethValue = answer.value.times(comp).div(BigInt.fromI32(10).pow(18));
 
-    log.info("compAccrued={}", [comp.toString()]);
-
     compBalance.value = comp;
     compBalance.usdValue = ethToUsd(notional, ethValue);
     compBalance.save()
@@ -102,8 +100,6 @@ function handleDailyUpdates(event: ethereum.Block): void {
 export function handleDistributedSupplierComp(event: DistributedSupplierComp): void {
     let addr = getAddresses(dataSource.network());
     if (event.params.supplier == addr.notional) {
-        log.info("CToken addr = {}", [event.params.cToken.toHexString()]);
-        log.info("CompDelta = {}", [event.params.compDelta.toString()])
         saveCOMPBalance(Math.floor(event.block.timestamp.toI32() / BI_DAILY_BLOCK_UPDATE) as i32)
     }
 }
