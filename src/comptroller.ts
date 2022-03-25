@@ -14,6 +14,7 @@ import { COMPBalance, TvlHistoricalData } from '../generated/schema';
 import { createDailyTvlId, createHourlyId, ethToUsd } from './timeseriesUpdate';
 import { getTvlHistoricalData } from './notional';
 import { Notional } from '../generated/Notional/Notional';
+import { ADDRESS_ZERO } from './common';
 
 const BI_HOURLY_BLOCK_UPDATE = 138;
 const BI_DAILY_BLOCK_UPDATE = 3300;
@@ -27,7 +28,13 @@ function getAddresses(network: string): Addresses {
     if (network == "goerli") {
         return {
             notional: Address.fromHexString("0xD8229B55bD73c61D840d339491219ec6Fa667B0a") as Address,
-            compOracle: Address.fromHexString("0xD8229B55bD73c61D840d339491219ec6Fa667B0a") as Address
+            compOracle: Address.fromHexString("0x51D73fdd11555a5aCF0af8218264f0d96ec5fc3d") as Address
+        }
+    }
+    if (network == "kovan") {
+        return {
+            notional: Address.fromHexString("0x0EAE7BAdEF8f95De91fDDb74a89A786cF891Eb0e") as Address,
+            compOracle: Address.fromHexString("0x9657Eb0e7c57afE5049eB8802f3811860069B31A") as Address
         }
     }
     if (network == "mainnet") {
@@ -37,8 +44,8 @@ function getAddresses(network: string): Addresses {
         }
     }
     return {
-        notional: Address.fromHexString("0xfa5f002555eb670019bD938604802f901208aE71") as Address,
-        compOracle: Address.fromHexString("0xfa5f002555eb670019bD938604802f901208aE71") as Address
+        notional: ADDRESS_ZERO(),
+        compOracle: ADDRESS_ZERO()
     }
 }
 
