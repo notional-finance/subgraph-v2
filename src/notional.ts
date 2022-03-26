@@ -26,6 +26,12 @@ import {
   LiquidateLocalCurrency,
   LiquidateCollateralCurrency,
   LiquidatefCashEvent,
+  IncentivesMigrated,
+  UpdateSecondaryIncentiveRewarder,
+  ReserveBalanceUpdated,
+  ExcessReserveBalanceHarvested,
+  TreasuryManagerChanged,
+  ReserveBufferUpdated,
 } from '../generated/Notional/Notional';
 import {ERC20} from '../generated/Notional/ERC20';
 
@@ -43,9 +49,12 @@ import {
   AuthorizedCallbackContract,
   NTokenPresentValueHistoricalData,
   TvlHistoricalData,
-  CurrencyTvl
+  CurrencyTvl,
+  IncentiveMigration,
+  SecondaryIncentiveRewarder,
+  TreasuryManager
 } from '../generated/schema';
-import {BASIS_POINTS, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, getTrade, QUARTER} from './common';
+import {ADDRESS_ZERO, BASIS_POINTS, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, getTrade, QUARTER} from './common';
 
 import {
   getEthExchangeRate,
@@ -53,7 +62,7 @@ import {
 } from './exchange_rates/utils'
 
 import {updateMarkets} from './markets';
-import {convertAssetToUnderlying, getBalance, updateAccount, updateNTokenPortfolio} from './accounts';
+import {convertAssetToUnderlying, getBalance, getNTokenChange, updateAccount, updateNTokenPortfolio} from './accounts';
 import { updateAssetExchangeRateHistoricalData, updateEthExchangeRateHistoricalData, updateNTokenPresentValueHistoricalData, updateTvlHistoricalData } from './timeseriesUpdate';
 
 const LocalCurrency = 'LocalCurrency';
@@ -77,6 +86,7 @@ export function getCashGroup(id: string): CashGroup {
   if (entity == null) {
     entity = new CashGroup(id);
     entity.reserveBalance = BigInt.fromI32(0);
+    entity.reserveBuffer = BigInt.fromI32(0);
   }
   return entity as CashGroup;
 }
@@ -217,7 +227,7 @@ export function handleListCurrency(event: ListCurrency): void {
   currency.hasTransferFee = assetToken.hasTransferFee;
   currency.maxCollateralBalance = assetToken.maxCollateralBalance;
 
-  if (underlyingToken.tokenAddress != Address.fromHexString('0x0000000000000000000000000000000000000000')) {
+  if (underlyingToken.tokenAddress != ADDRESS_ZERO()) {
     let underlyingTokenNameAndSymbol = getTokenNameAndSymbol(underlyingToken.tokenAddress);
     currency.underlyingName = underlyingTokenNameAndSymbol[0];
     currency.underlyingSymbol = underlyingTokenNameAndSymbol[1];
@@ -464,8 +474,16 @@ export function handleUpdateIncentiveEmissionRate(event: UpdateIncentiveEmission
   let nTokenEntity = getNToken(id.toString());
   let nTokenAccountResult = notional.getNTokenAccount(nTokenEntity.tokenAddress as Address);
 
+  // When incentives change, the nToken accumulated NOTE also changes to bring the values up to date
+  let nTokenChangeObject = getNTokenChange(nTokenEntity, event);
+  nTokenChangeObject.accumulatedNOTEPerNTokenAfter = nTokenAccountResult.value6
+  nTokenChangeObject.lastSupplyChangeTimeAfter = nTokenAccountResult.value7
+  nTokenChangeObject.save()
+
   // This is saved as uint32 on chain
   nTokenEntity.incentiveEmissionRate = nTokenAccountResult.value2.times(BigInt.fromI32(10).pow(8));
+  nTokenEntity.accumulatedNOTEPerNToken = nTokenAccountResult.value6;
+  nTokenEntity.lastSupplyChangeTime = nTokenAccountResult.value7;
 
   nTokenEntity.lastUpdateBlockNumber = event.block.number.toI32();
   nTokenEntity.lastUpdateTimestamp = event.block.timestamp.toI32();
@@ -536,10 +554,33 @@ export function handleUpdateAuthorizedCallbackContract(event: UpdateAuthorizedCa
   }
 }
 
+export function handleUpdateSecondaryIncentiveRewarder(event: UpdateSecondaryIncentiveRewarder): void {
+  let currencyId = event.params.currencyId as i32;
+  if (event.params.rewarder == ADDRESS_ZERO()) {
+    log.debug('Deleted secondary incentive rewarder {}', [currencyId.toString()]);
+    store.remove('SecondaryIncentiveRewarder', currencyId.toString());
+  } else {
+    let rewarder = new SecondaryIncentiveRewarder(currencyId.toString());
+    rewarder.currency = currencyId.toString();
+    rewarder.nToken = currencyId.toString();
+    rewarder.lastUpdateBlockNumber = event.block.number.toI32();
+    rewarder.lastUpdateTimestamp = event.block.timestamp.toI32();
+    rewarder.lastUpdateBlockHash = event.block.hash;
+    rewarder.lastUpdateTransactionHash = event.transaction.hash;
+    log.debug('Created secondary rewarder callback contract {}', [rewarder.id]);
+    rewarder.save();
+  }
+}
+
 export function handleSetSettlementRate(event: SetSettlementRate): void {
   let currencyId = event.params.currencyId.toI32();
   let maturity = event.params.maturity.toI32();
   let settlementRate = getSettlementRate(currencyId, maturity);
+
+  // Deletes settlement rates from the Notional V21 fix
+  if (event.params.rate.isZero() && (maturity == 1648512000 || maturity == 1664064000)) {
+    store.remove('SettlementRate', settlementRate.id)
+  }
 
   settlementRate.currency = currencyId.toString();
   settlementRate.assetExchangeRate = currencyId.toString();
@@ -775,4 +816,63 @@ export function handleLiquidatefCash(event: LiquidatefCashEvent): void {
   liq.save();
 
   log.debug('Logged liquidate fcash event at {}', [liq.id]);
+}
+
+export function handleIncentivesMigrated(event: IncentivesMigrated): void {
+  let currencyId = event.params.currencyId as i32;
+  let migration = new IncentiveMigration(currencyId.toString())
+  migration.currency = currencyId.toString();
+  migration.migrationEmissionRate = event.params.migrationEmissionRate;
+  migration.migrationTime = event.params.migrationTime;
+  migration.finalIntegralTotalSupply = event.params.finalIntegralTotalSupply;
+  migration.save();
+
+  let nToken = getNToken(currencyId.toString());
+  // Update these parameters to the snapshot
+  nToken.integralTotalSupply = migration.finalIntegralTotalSupply;
+  nToken.lastSupplyChangeTime = migration.migrationTime;
+  nToken.save();
+
+  log.debug('Logged incentive migration event event at {}', [migration.id]);
+}
+
+/* Reserve balances are updated in updateMarkets, here we just handle treasury manager actions */
+export function handleReserveBalanceUpdated(event: ReserveBalanceUpdated): void {
+  let currencyId = event.params.currencyId as i32;
+  let cashGroup = getCashGroup(currencyId.toString())
+  cashGroup.reserveBalance = event.params.newBalance;
+  cashGroup.save();
+  log.debug('Reserve balance updated in cash group', [cashGroup.id]);
+}
+
+export function handleExcessReserveBalanceHarvested(event: ExcessReserveBalanceHarvested): void {
+  let currencyId = event.params.currencyId as i32;
+  let cashGroup = getCashGroup(currencyId.toString())
+  cashGroup.reserveBalance = cashGroup.reserveBalance.minus(event.params.harvestAmount)
+  cashGroup.save();
+  log.debug('Reserve balance updated in cash group', [cashGroup.id]);
+}
+
+export function handleTreasuryManagerChanged(event: TreasuryManagerChanged): void {
+  let id = "0"
+  let manager = TreasuryManager.load(id)
+  if (manager == null) {
+    manager = new TreasuryManager(id)
+  }
+
+  manager.contractAddress = event.params.newManager;
+  manager.lastUpdateBlockNumber = event.block.number.toI32();
+  manager.lastUpdateTimestamp = event.block.timestamp.toI32();
+  manager.lastUpdateBlockHash = event.block.hash;
+  manager.lastUpdateTransactionHash = event.transaction.hash;
+  manager.save()
+  log.debug('Updated treasury manager address', []);
+}
+
+export function handleReserveBufferUpdated(event: ReserveBufferUpdated): void {
+  let currencyId = event.params.currencyId as i32;
+  let cashGroup = getCashGroup(currencyId.toString())
+  cashGroup.reserveBuffer = event.params.bufferAmount;
+  cashGroup.save();
+  log.debug('Reserve buffer updated in cash group', [cashGroup.id]);
 }

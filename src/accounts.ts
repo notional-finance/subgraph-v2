@@ -1,11 +1,11 @@
-import {Address, BigInt, ethereum, log, store} from '@graphprotocol/graph-ts';
+import {Address, BigInt, dataSource, ethereum, log, store} from '@graphprotocol/graph-ts';
 import {
   Notional,
   Notional__getAccountResultAccountBalancesStruct,
   Notional__getAccountResultPortfolioStruct,
 } from '../generated/Notional/Notional';
 import {Account, Asset, AssetChange, Balance, BalanceChange, nToken, nTokenChange} from '../generated/schema';
-import {getSettlementDate} from './common';
+import {getSettlementDate, hasIncentiveMigrationOccurred} from './common';
 import {updateMarkets} from './markets';
 
 export function convertAssetToUnderlying(notional: Notional, currencyId: i32, assetAmount: BigInt): BigInt {
@@ -20,6 +20,12 @@ function convertNTokenToAsset(notional: Notional, currencyId: i32, nTokenBalance
   let nTokenPV = notional.nTokenPresentValueAssetDenominated(currencyId);
   let nTokenAddress = notional.nTokenAddress(currencyId);
   let nTokenTotalSupply = notional.nTokenTotalSupply(nTokenAddress);
+
+  if (dataSource.network() == "kovan" && currencyId == 5 && nTokenTotalSupply.isZero()) {
+    // This is to handle an error when migrating incentives on Kovan
+    return BigInt.fromI32(0);
+  }
+
   return nTokenBalance.times(nTokenPV).div(nTokenTotalSupply);
 }
 
@@ -44,6 +50,7 @@ export function getBalance(accountAddress: string, currencyId: string): Balance 
     entity.nTokenBalance = BigInt.fromI32(0);
     entity.lastClaimTime = 0;
     entity.lastClaimIntegralSupply = BigInt.fromI32(0);
+    entity.accountIncentiveDebt = BigInt.fromI32(0);
   }
 
   return entity as Balance;
@@ -82,8 +89,11 @@ function getBalanceChange(
 
   entity.lastClaimTimeBefore = balanceBefore.lastClaimTime;
   entity.lastClaimTimeAfter = balanceBefore.lastClaimTime;
+  // After the migration these values will be set to null
   entity.lastClaimIntegralSupplyBefore = balanceBefore.lastClaimIntegralSupply;
   entity.lastClaimIntegralSupplyAfter = balanceBefore.lastClaimIntegralSupply;
+  entity.accountIncentiveDebtBefore = balanceBefore.accountIncentiveDebt;
+  entity.accountIncentiveDebtAfter = balanceBefore.accountIncentiveDebt;
 
   return entity as BalanceChange;
 }
@@ -127,7 +137,7 @@ function getAssetChange(accountAddress: string, asset: Asset, event: ethereum.Ev
   return entity;
 }
 
-function getNTokenChange(nTokenAccount: nToken, event: ethereum.Event): nTokenChange {
+export function getNTokenChange(nTokenAccount: nToken, event: ethereum.Event): nTokenChange {
   let id =
     nTokenAccount.tokenAddress.toHexString() +
     ':' +
@@ -144,8 +154,13 @@ function getNTokenChange(nTokenAccount: nToken, event: ethereum.Event): nTokenCh
   entity.nToken = nTokenAccount.id;
   entity.totalSupplyBefore = nTokenAccount.totalSupply;
   entity.totalSupplyAfter = nTokenAccount.totalSupply;
-  entity.integralTotalSupplyBefore = nTokenAccount.integralTotalSupply;
-  entity.integralTotalSupplyAfter = nTokenAccount.integralTotalSupply;
+  if (hasIncentiveMigrationOccurred(nTokenAccount.id)) {
+    entity.accumulatedNOTEPerNTokenBefore = nTokenAccount.accumulatedNOTEPerNToken;
+    entity.accumulatedNOTEPerNTokenAfter = nTokenAccount.accumulatedNOTEPerNToken;
+  } else {
+    entity.integralTotalSupplyBefore = nTokenAccount.integralTotalSupply;
+    entity.integralTotalSupplyAfter = nTokenAccount.integralTotalSupply;
+  }
   entity.lastSupplyChangeTimeBefore = nTokenAccount.lastSupplyChangeTime;
   entity.lastSupplyChangeTimeAfter = nTokenAccount.lastSupplyChangeTime;
 
@@ -243,11 +258,18 @@ export function updateNTokenPortfolio(nTokenObj: nToken, event: ethereum.Event, 
   // Update total supply
   if (nTokenObj.totalSupply.notEqual(nTokenAccountResult.value1)) {
     nTokenObj.totalSupply = nTokenAccountResult.value1;
-    nTokenObj.integralTotalSupply = nTokenAccountResult.value6;
     nTokenObj.lastSupplyChangeTime = nTokenAccountResult.value7;
     nTokenChangeObject.totalSupplyAfter = nTokenAccountResult.value1;
-    nTokenChangeObject.integralTotalSupplyAfter = nTokenAccountResult.value6;
     nTokenChangeObject.lastSupplyChangeTimeAfter = nTokenAccountResult.value7;
+
+    if (hasIncentiveMigrationOccurred(currencyId.toString())) {
+      // After the incentive migration we set these values instead
+      nTokenObj.accumulatedNOTEPerNToken = nTokenAccountResult.value6;
+      nTokenChangeObject.accumulatedNOTEPerNTokenAfter = nTokenAccountResult.value6;
+    } else {
+      nTokenObj.integralTotalSupply = nTokenAccountResult.value6;
+      nTokenChangeObject.integralTotalSupplyAfter = nTokenAccountResult.value6;
+    }
 
     nTokenObj.lastUpdateBlockNumber = event.block.number.toI32();
     nTokenObj.lastUpdateTimestamp = event.block.timestamp.toI32();
@@ -324,10 +346,22 @@ function updateBalances(
       );
     }
 
-    if (balance.lastClaimIntegralSupply.notEqual(accountBalances[i].lastClaimIntegralSupply)) {
-      didUpdate = true;
-      balance.lastClaimIntegralSupply = accountBalances[i].lastClaimIntegralSupply;
-      balanceChange.lastClaimIntegralSupplyAfter = accountBalances[i].lastClaimIntegralSupply;
+    if (hasIncentiveMigrationOccurred(currencyId.toString())) {
+      if (balance.accountIncentiveDebt.notEqual(accountBalances[i].accountIncentiveDebt)) {
+        didUpdate = true;
+        balance.accountIncentiveDebt = accountBalances[i].accountIncentiveDebt;
+        balance.lastClaimIntegralSupply = null;
+        balance.didMigrateIncentives = true;
+        balanceChange.accountIncentiveDebtAfter = accountBalances[i].accountIncentiveDebt;
+      }
+    } else {
+      // Prior to the account migration, this will get the lastClaimIntegralSupply at the same
+      // location in the tuple
+      if (balance.lastClaimIntegralSupply.notEqual(accountBalances[i].accountIncentiveDebt)) {
+        didUpdate = true;
+        balance.lastClaimIntegralSupply = accountBalances[i].accountIncentiveDebt;
+        balanceChange.lastClaimIntegralSupplyAfter = accountBalances[i].accountIncentiveDebt;
+      }
     }
 
     if (balance.lastClaimTime != accountBalances[i].lastClaimTime.toI32()) {
@@ -375,8 +409,6 @@ function updateBalances(
         balanceChange.nTokenBalanceAfter = BigInt.fromI32(0);
         balanceChange.nTokenValueAssetAfter = BigInt.fromI32(0);
         balanceChange.nTokenValueUnderlyingAfter = BigInt.fromI32(0);
-        balanceChange.lastClaimTimeAfter = 0;
-        balanceChange.lastClaimIntegralSupplyAfter = BigInt.fromI32(0);
         balanceChange.save();
         store.remove('Balance', deletedBalance.id);
         log.debug('Balance entity deleted {}', [deletedBalance.id]);

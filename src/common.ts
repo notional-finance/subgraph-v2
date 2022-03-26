@@ -1,6 +1,6 @@
 import { Address, BigInt, ethereum, log } from "@graphprotocol/graph-ts";
 
-import { Trade } from '../generated/schema';
+import { IncentiveMigration, Trade } from '../generated/schema';
 
 export const RATE_PRECISION = 1000000000;
 export const BASIS_POINTS = 100000;
@@ -9,6 +9,10 @@ export const WEEK = DAY * 6;
 export const MONTH = DAY * 30;
 export const QUARTER = DAY * 90;
 export const YEAR = QUARTER * 4;
+
+export function ADDRESS_ZERO(): Address {
+  return Address.fromHexString('0x0000000000000000000000000000000000000000') as Address;
+}
 
 export function getTimeRef(timestamp: i32): i32 {
   return timestamp - (timestamp % QUARTER);
@@ -64,4 +68,10 @@ export function getMarketMaturityLengthSeconds(maxMarketIndex: i32): i32 {
   if (maxMarketIndex == 7) return 20 * YEAR;
 
   return 0;
+}
+
+export function hasIncentiveMigrationOccurred(currencyId: string): boolean {
+  let migration = IncentiveMigration.load(currencyId)
+  if (migration == null) return false
+  return true
 }

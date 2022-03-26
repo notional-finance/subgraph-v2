@@ -113,6 +113,8 @@ type Currency @entity {
   cashGroup: CashGroup @derivedFrom(field: "currency")
   "nToken for a currency, if exists"
   nToken: nToken @derivedFrom(field: "currency")
+  "Incentive Migration for a currency, if exists"
+  incentiveMigration: IncentiveMigration @derivedFrom(field: "currency")
 
   "Hourly data for this currency"
   ethExchangeRateHistoricalData: [EthExchangeRateHistoricalData!]
@@ -220,6 +222,8 @@ type CashGroup @entity {
 
   "Current size of reserves accumulated for this cash group"
   reserveBalance: BigInt!
+  "The minimum threshold of the reserve before they are harvested for buybacks"
+  reserveBuffer: BigInt
 
   nToken: nToken! @derivedFrom(field: "cashGroup")
 }
@@ -239,6 +243,7 @@ type nToken @entity {
   decimals: BigInt!
   totalSupply: BigInt!
   integralTotalSupply: BigInt!
+  accumulatedNOTEPerNToken: BigInt
   lastSupplyChangeTime: BigInt!
 
   "Cash group that governs this nToken"
@@ -286,6 +291,27 @@ type AuthorizedCallbackContract @entity {
   "Address of the callback contract"
   id: ID!
   name: String!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+}
+
+type SecondaryIncentiveRewarder @entity {
+  "Address of the rewarder contract"
+  id: ID!
+  currency: Currency!
+  nToken: nToken!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+}
+
+type TreasuryManager @entity {
+  "ID is hardcoded to 0"
+  id: ID!
+  contractAddress: Bytes!
   lastUpdateBlockHash: Bytes!
   lastUpdateBlockNumber: Int!
   lastUpdateTimestamp: Int!
@@ -351,8 +377,12 @@ type Balance @entity {
   nTokenBalance: BigInt!
   "Last time token incentives were claimed on this balance"
   lastClaimTime: Int!
-  "Last stored integral total supply amount, used to calculate incentives"
-  lastClaimIntegralSupply: BigInt!
+  "Last stored integral total supply amount, used to calculate incentives in the original method"
+  lastClaimIntegralSupply: BigInt
+  "Accumulator for incentive calculation"
+  accountIncentiveDebt: BigInt
+  "True if the account has migrated to the new incentive scheme"
+  didMigrateIncentives: Boolean
 }
 
 type Asset @entity {
@@ -479,8 +509,10 @@ type BalanceChange @entity {
 
   lastClaimTimeBefore: Int!
   lastClaimTimeAfter: Int!
-  lastClaimIntegralSupplyBefore: BigInt!
-  lastClaimIntegralSupplyAfter: BigInt!
+  lastClaimIntegralSupplyBefore: BigInt
+  lastClaimIntegralSupplyAfter: BigInt
+  accountIncentiveDebtBefore: BigInt
+  accountIncentiveDebtAfter: BigInt
 }
 
 type AssetChange @entity {
@@ -516,15 +548,20 @@ type nTokenChange @entity {
   "Account that mints or redeems nTokens, set to null on initialize markets"
   account: Account
 
-  assetChanges: [AssetChange!]!
+  assetChanges: [AssetChange!]
   balanceChange: BalanceChange
 
   totalSupplyBefore: BigInt!
   totalSupplyAfter: BigInt!
-  integralTotalSupplyBefore: BigInt!
-  integralTotalSupplyAfter: BigInt!
+  "Deprecated integral total supply before and after"
+  integralTotalSupplyBefore: BigInt
+  integralTotalSupplyAfter: BigInt
+  "Last supply change time before and after, equivalent to last accumulated time"
   lastSupplyChangeTimeBefore: BigInt!
   lastSupplyChangeTimeAfter: BigInt!
+  "Represents the accumulated NOTE incentives on the nToken"
+  accumulatedNOTEPerNTokenBefore: BigInt
+  accumulatedNOTEPerNTokenAfter: BigInt
 }
 
 type EthExchangeRateHistoricalData @entity {
@@ -576,9 +613,6 @@ type AssetTransfer @entity {
   toAssetChange: AssetChange!
 }
 
-# type IncentivesClaimed @entity {
-# }
-
 enum LiquidationType {
   LocalCurrency
   LocalFcash
@@ -619,4 +653,17 @@ type DailyLendBorrowVolume @entity {
   totalVolumeNetAssetCash: BigInt!
   totalVolumeNetfCash: BigInt!
   txCount: BigInt!
+}
+
+# One off migration for incentive calculation, snapshot values stored here
+type IncentiveMigration @entity {
+  "Currency ID of the migrated entity"
+  id: ID!
+  currency: Currency!
+  "Snapshot of the incentive emission rate at migration"
+  migrationEmissionRate: BigInt!
+  "Snapshot of the integral total supply at migration"
+  finalIntegralTotalSupply: BigInt!
+  "Time when the currency was migrated"
+  migrationTime: BigInt!
 }
