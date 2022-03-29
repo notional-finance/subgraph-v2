@@ -40,7 +40,7 @@ export function handleProposalCreated(event: ProposalCreated): void {
   let proposal = getProposal(event.params.id.toString());
   let delegate = getDelegate(event.params.proposer.toHexString());
   let proposalState = new ProposalState(event.params.id.toString() + ":" + event.block.timestamp.toString()); 
-  let proposalStateHistory = proposal.history || [];
+  let proposalStateHistory: string[] = proposal.history ? proposal.history! : new Array<string>();
 
   proposalState.state = 'PENDING';
   proposalState.lastUpdateTimestamp = event.block.timestamp.toI32();
@@ -108,7 +108,7 @@ export function handleProposalCreated(event: ProposalCreated): void {
 export function handleProposalExecuted(event: ProposalExecuted): void {
   let proposal = getProposal(event.params.id.toString());
   let proposalState = new ProposalState(event.params.id.toString() + ":" + event.block.timestamp.toString()); 
-  let proposalStateHistory = proposal.history || [];
+  let proposalStateHistory: string[] = proposal.history ? proposal.history! : new Array<string>();
 
   proposalState.state = 'EXECUTED';
   proposalState.lastUpdateTimestamp = event.block.timestamp.toI32();
@@ -130,7 +130,7 @@ export function handleProposalExecuted(event: ProposalExecuted): void {
 export function handleProposalCanceled(event: ProposalCanceled): void {
   let proposal = getProposal(event.params.id.toString());
   let proposalState = new ProposalState(event.params.id.toString() + ":" + event.block.timestamp.toString()); 
-  let proposalStateHistory = proposal.history || [];
+  let proposalStateHistory: string[] = proposal.history ? proposal.history! : new Array<string>();
 
   proposalState.state = 'CANCELLED';
   proposalState.lastUpdateTimestamp = event.block.timestamp.toI32();
@@ -184,7 +184,7 @@ export function handleVoteCast(event: VoteCast): void {
 export function handleProposalQueued(event: ProposalQueued): void {
   let proposal = getProposal(event.params.id.toString());
   let proposalState = new ProposalState(event.params.id.toString() + ":" + event.block.timestamp.toString()); 
-  let proposalStateHistory = proposal.history || [];
+  let proposalStateHistory: string[] = proposal.history ? proposal.history! : new Array<string>();
 
   proposalState.state = 'QUEUED';
   proposalState.lastUpdateTimestamp = event.block.timestamp.toI32();

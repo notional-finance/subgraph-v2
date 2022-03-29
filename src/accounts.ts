@@ -281,15 +281,16 @@ export function updateNTokenPortfolio(nTokenObj: nToken, event: ethereum.Event, 
   }
 
   // Update portfolio. This casting works because the underlying type returned from solidity is the same
-  let mergedAssetArray = new Array<Notional__getAccountResultPortfolioStruct>();
+  let mergedAssetArray = new Array<ethereum.Tuple>();
   let liquidityTokens = nTokenPortfolioResult.value0;
   let fCashAssets = nTokenPortfolioResult.value1;
+
   for (let i: i32 = 0; i < liquidityTokens.length; i++) {
-    mergedAssetArray.push(liquidityTokens[i] as Notional__getAccountResultPortfolioStruct);
+    mergedAssetArray.push(liquidityTokens[i]);
   }
 
   for (let i: i32 = 0; i < fCashAssets.length; i++) {
-    mergedAssetArray.push(fCashAssets[i] as Notional__getAccountResultPortfolioStruct);
+    mergedAssetArray.push(fCashAssets[i]);
   }
 
   nTokenChangeObject.assetChanges = updateAssets(account, mergedAssetArray, event);
@@ -347,7 +348,7 @@ function updateBalances(
     }
 
     if (hasIncentiveMigrationOccurred(currencyId.toString())) {
-      if (balance.accountIncentiveDebt.notEqual(accountBalances[i].accountIncentiveDebt)) {
+      if (balance.accountIncentiveDebt && balance.accountIncentiveDebt!.notEqual(accountBalances[i].accountIncentiveDebt)) {
         didUpdate = true;
         balance.accountIncentiveDebt = accountBalances[i].accountIncentiveDebt;
         balance.lastClaimIntegralSupply = null;
@@ -357,7 +358,7 @@ function updateBalances(
     } else {
       // Prior to the account migration, this will get the lastClaimIntegralSupply at the same
       // location in the tuple
-      if (balance.lastClaimIntegralSupply.notEqual(accountBalances[i].accountIncentiveDebt)) {
+      if (balance.lastClaimIntegralSupply && balance.lastClaimIntegralSupply!.notEqual(accountBalances[i].accountIncentiveDebt)) {
         didUpdate = true;
         balance.lastClaimIntegralSupply = accountBalances[i].accountIncentiveDebt;
         balanceChange.lastClaimIntegralSupplyAfter = accountBalances[i].accountIncentiveDebt;
@@ -399,7 +400,7 @@ function updateBalances(
       } else {
         let balanceChange = getBalanceChange(
           account.id,
-          parseI32(deletedBalance.currency, 10),
+          parseInt(deletedBalance.currency, 10) as i32,
           event,
           deletedBalance as Balance,
           notional,

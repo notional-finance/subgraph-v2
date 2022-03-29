@@ -2435,7 +2435,7 @@
                     },
                     {
                         "internalType": "int256",
-                        "name": "buffer",
+                        "name": "rateBuffer",
                         "type": "int256"
                     },
                     {
@@ -2901,7 +2901,7 @@
                     },
                     {
                         "internalType": "uint8",
-                        "name": "buffer",
+                        "name": "rateBuffer",
                         "type": "uint8"
                     },
                     {
@@ -4275,7 +4275,7 @@
             },
             {
                 "internalType": "uint8",
-                "name": "buffer",
+                "name": "rateBuffer",
                 "type": "uint8"
             },
             {
