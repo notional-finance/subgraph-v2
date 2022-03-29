@@ -221,7 +221,7 @@ type CashGroup @entity {
   "Current size of reserves accumulated for this cash group"
   reserveBalance: BigInt!
   "The minimum threshold of the reserve before they are harvested for buybacks"
-  reserveBuffer: BigInt!
+  reserveBuffer: BigInt
 
   nToken: nToken! @derivedFrom(field: "cashGroup")
 }
@@ -378,7 +378,7 @@ type Balance @entity {
   "Last stored integral total supply amount, used to calculate incentives in the original method"
   lastClaimIntegralSupply: BigInt
   "Accumulator for incentive calculation"
-  accountIncentiveDebt: BigInt!
+  accountIncentiveDebt: BigInt
   "True if the account has migrated to the new incentive scheme"
   didMigrateIncentives: Boolean
 }
@@ -602,7 +602,7 @@ type TvlHistoricalData @entity {
   timestamp: Int!
   usdTotal: BigInt!
   perCurrencyTvl: [CurrencyTvl!]!
-  compBalance: COMPBalance!
+  compBalance: COMPBalance
 }
 
 type AssetTransfer @entity {
@@ -671,4 +671,13 @@ type IncentiveMigration @entity {
   finalIntegralTotalSupply: BigInt!
   "Time when the currency was migrated"
   migrationTime: BigInt!
+}
+
+type StakedNoteChange @entity {
+  "Account address"
+  id: ID!
+  timestamp: Int!
+  wethAmount: BigInt!
+  noteAmount: BigInt!
+  bptAmount: BigInt!
 }

@@ -1,5 +1,8 @@
 specVersion: 0.0.2
 description: Notional V2 Subgraph
+graft:
+  base: QmQFAksNkZxyY6XdkEHAoWogYzouKRaq8pUCdVJoj6t2DL
+  block: 14459146
 repository: https://github.com/notional-finance/notional
 schema:
   file: ./schema.graphql
@@ -85,6 +88,28 @@ dataSources:
       blockHandlers:
         - handler: handleBlockUpdates
       file: ./src/comptroller.ts
+  - kind: ethereum/contract
+    name: StakedNote
+    network: {{networkName}}
+    source:
+      address: '{{ staking.sNoteProxy }}'
+      abi: sNOTE
+      startBlock: {{startBlock}}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.4
+      language: wasm/assemblyscript
+      entities:
+        - StakedNoteChange
+      abis:
+        - name: sNOTE
+          file: ./abi/sNOTE.json
+      eventHandlers:
+        - event: SNoteMinted(indexed address,uint256,uint256,uint256)
+          handler: handleSNoteMinted
+        - event: SNoteRedeemed(indexed address,uint256,uint256,uint256)
+          handler: handleSNoteRedeemed
+      file: ./src/staking.ts
   - kind: ethereum/contract
     name: Notional
     network: {{networkName}}
