@@ -2,11 +2,30 @@ import {Address, BigInt, dataSource, ethereum, log, store} from '@graphprotocol/
 import {
   Notional,
   Notional__getAccountResultAccountBalancesStruct,
-  Notional__getAccountResultPortfolioStruct,
 } from '../generated/Notional/Notional';
 import {Account, Asset, AssetChange, Balance, BalanceChange, nToken, nTokenChange} from '../generated/schema';
 import {getSettlementDate, hasIncentiveMigrationOccurred} from './common';
 import {updateMarkets} from './markets';
+
+// This class is required to get around typing errors between account portfolio objects
+class GenericAsset extends ethereum.Tuple {
+  get currencyId(): BigInt {
+    return this[0].toBigInt();
+  }
+
+  get maturity(): BigInt {
+    return this[1].toBigInt();
+  }
+
+  get assetType(): BigInt {
+    return this[2].toBigInt();
+  }
+
+  get notional(): BigInt {
+    return this[3].toBigInt();
+  }
+}
+
 
 export function convertAssetToUnderlying(notional: Notional, currencyId: i32, assetAmount: BigInt): BigInt {
   let rateResult = notional.getCurrencyAndRates(currencyId);
@@ -207,8 +226,12 @@ export function updateAccount(accountAddress: Address, event: ethereum.Event): v
     account.assetBitmapCurrency = null;
   }
 
+  let portfolio = new Array<ethereum.Tuple>()
+  for (let i = 0; i < accountResult.value2.length; i++) {
+      portfolio.push(accountResult.value2[i])
+  }
   updateBalances(account, accountResult.value1, event, notional);
-  updateAssets(account, accountResult.value2, event);
+  updateAssets(account, portfolio, event);
 
   account.lastUpdateBlockNumber = event.block.number.toI32();
   account.lastUpdateTimestamp = event.block.timestamp.toI32();
@@ -426,23 +449,25 @@ function updateBalances(
 
 function updateAssets(
   account: Account,
-  portfolio: Notional__getAccountResultPortfolioStruct[],
+  portfolio: ethereum.Tuple[],
   event: ethereum.Event,
 ): string[] {
   let newAssetIds = new Array<string>();
   let assetChangeIds = new Array<string>();
 
   for (let i: i32 = 0; i < portfolio.length; i++) {
-    let currencyId = portfolio[i].currencyId.toI32();
-    let maturity = portfolio[i].maturity;
-    let asset = getAsset(account.id, currencyId.toString(), portfolio[i].assetType.toI32(), maturity);
+    // This casting is required to get around type errors in AssemblyScript
+    let genericAsset = portfolio[i] as GenericAsset
+    let currencyId = genericAsset.currencyId.toI32();
+    let maturity = genericAsset.maturity;
+    let asset = getAsset(account.id, currencyId.toString(), genericAsset.assetType.toI32(), maturity);
 
-    if (asset.notional.notEqual(portfolio[i].notional)) {
+    if (asset.notional.notEqual(genericAsset.notional)) {
       let assetChange = getAssetChange(account.id, asset, event);
-      assetChange.notionalAfter = portfolio[i].notional;
+      assetChange.notionalAfter = genericAsset.notional;
       assetChange.save();
 
-      asset.notional = portfolio[i].notional;
+      asset.notional = genericAsset.notional;
       asset.lastUpdateBlockNumber = event.block.number.toI32();
       asset.lastUpdateTimestamp = event.block.timestamp.toI32();
       asset.lastUpdateBlockHash = event.block.hash;
