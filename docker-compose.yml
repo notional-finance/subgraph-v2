@@ -1,7 +1,7 @@
 version: "3"
 services:
     graph-node:
-        image: graphprotocol/graph-node:v0.25.2
+        image: jeffywu/graph-node:forking
         ports:
             - "8000:8000"
             - "8001:8001"
@@ -18,6 +18,8 @@ services:
             postgres_db: graph-node
             ipfs: "ipfs:5001"
             ethereum: "${SUBGRAPH_NETWORK}:${SUBGRAPH_NODE}"
+            FORK_BASE: https://api.thegraph.com/subgraphs/id/
+            DEBUG_FORK: QmQFAksNkZxyY6XdkEHAoWogYzouKRaq8pUCdVJoj6t2DL
             RUST_LOG: warn
             GRAPH_LOG: debug
     ipfs:
