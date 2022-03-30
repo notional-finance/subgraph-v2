@@ -1,8 +1,8 @@
 specVersion: 0.0.2
 description: Notional V2 Subgraph
-graft:
-  base: QmQFAksNkZxyY6XdkEHAoWogYzouKRaq8pUCdVJoj6t2DL
-  block: 14459146
+# graft:
+#   base: QmQFAksNkZxyY6XdkEHAoWogYzouKRaq8pUCdVJoj6t2DL
+#   block: 14459146
 repository: https://github.com/notional-finance/notional
 schema:
   file: ./schema.graphql
