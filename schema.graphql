@@ -717,3 +717,30 @@ type StakedNoteChange @entity {
   noteAmountChange: BigInt!
   bptAmountChange: BigInt!
 }
+
+type StakedNotePool @entity {
+  "Staked NOTE address"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  totalBPTTokens: BigInt!
+  totalSupply: BigInt!
+  bptPerSNOTE: BigInt!
+}
+
+type StakedNoteInvestment @entity {
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+
+  bptPerSNOTEBefore: BigInt!
+  bptPerSNOTEAfter: BigInt!
+  totalETHInvested: BigInt!
+  totalNOTEInvested: BigInt!
+  totalSNOTESupply: BigInt!
+}

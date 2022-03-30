@@ -100,15 +100,40 @@ dataSources:
       apiVersion: 0.0.4
       language: wasm/assemblyscript
       entities:
+        - StakedNoteBalance
         - StakedNoteChange
       abis:
         - name: sNOTE
           file: ./abi/sNOTE.json
+        - name: ERC20
+          file: ./abi/ERC20.json
       eventHandlers:
         - event: SNoteMinted(indexed address,uint256,uint256,uint256)
           handler: handleSNoteMinted
         - event: SNoteRedeemed(indexed address,uint256,uint256,uint256)
           handler: handleSNoteRedeemed
+      file: ./src/staking.ts
+  - kind: ethereum/contract
+    name: TreasuryManager
+    network: {{networkName}}
+    source:
+      address: '{{ staking.treasuryManager }}'
+      abi: TreasuryManager
+      startBlock: {{startBlock}}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.4
+      language: wasm/assemblyscript
+      entities:
+        - StakedNoteBuyback
+      abis:
+        - name: sNOTE
+          file: ./abi/sNOTE.json
+        - name: TreasuryManager
+          file: ./abi/TreasuryManager.json
+      eventHandlers:
+        - event: AssetsInvested(uint256,uint256)
+          handler: handleAssetsInvested
       file: ./src/staking.ts
   - kind: ethereum/contract
     name: Notional
