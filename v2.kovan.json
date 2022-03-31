@@ -9,6 +9,7 @@
     "notional": "0x0EAE7BAdEF8f95De91fDDb74a89A786cF891Eb0e",
     "startBlock": 27189640,
     "staking": {
-        "sNoteProxy": "0x99aFEF3C58a5375824b7bE7fFf4080244Aa445aD"
+        "sNoteProxy": "0x99aFEF3C58a5375824b7bE7fFf4080244Aa445aD",
+        "treasuryManager": "0x049bbb3868850AEb8d606c4080A92D02CfC0b042"
     }
 }
