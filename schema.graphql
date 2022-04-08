@@ -358,6 +358,9 @@ type Account @entity {
   balanceChanges: [BalanceChange!] @derivedFrom(field: "account")
   assetChanges: [AssetChange!] @derivedFrom(field: "account")
   nTokenChanges: [nTokenChange!] @derivedFrom(field: "account")
+
+  stakedNoteBalance: StakedNoteBalance @derivedFrom(field: "account")
+  stakedNoteChanges: [StakedNoteChange!] @derivedFrom(field: "account")
 }
 
 type Balance @entity {
@@ -593,11 +596,18 @@ type CurrencyTvl @entity {
   usdValue: BigInt!
 }
 
+type COMPBalance @entity {
+  id: ID!
+  value: BigInt!
+  usdValue: BigInt!
+}
+
 type TvlHistoricalData @entity {
   id: ID!
   timestamp: Int!
   usdTotal: BigInt!
   perCurrencyTvl: [CurrencyTvl!]!
+  compBalance: COMPBalance
 }
 
 type AssetTransfer @entity {
@@ -666,4 +676,73 @@ type IncentiveMigration @entity {
   finalIntegralTotalSupply: BigInt!
   "Time when the currency was migrated"
   migrationTime: BigInt!
+}
+
+type StakedNoteBalance @entity {
+  "Account address"
+  id: ID!
+  "Provides a link to a staker's Notional accounts (if they exist)"
+  account: Account!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  "Current sNOTE balance of the account"
+  sNOTEBalance: BigInt!
+  "Total amount of ETH/WETH used to join the pool"
+  ethAmountJoined: BigInt!
+  "Total amount of NOTE used to join the pool"
+  noteAmountJoined: BigInt!
+
+  "Total amount of ethRedeemed from the pool"
+  ethAmountRedeemed: BigInt!
+  "Total amount of noteRedeemed from the pool"
+  noteAmountRedeemed: BigInt!
+
+  stakedNoteChanges: [StakedNoteChange!]! @derivedFrom(field: "stakedNoteBalance")
+}
+
+type StakedNoteChange @entity {
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+
+  account: Account!
+  stakedNoteBalance: StakedNoteBalance!
+
+  sNOTEAmountBefore: BigInt!
+  sNOTEAmountAfter: BigInt!
+  ethAmountChange: BigInt!
+  noteAmountChange: BigInt!
+  bptAmountChange: BigInt!
+}
+
+type StakedNotePool @entity {
+  "Staked NOTE address"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  totalBPTTokens: BigInt!
+  totalSupply: BigInt!
+  bptPerSNOTE: BigInt!
+}
+
+type StakedNoteInvestment @entity {
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+
+  bptPerSNOTEBefore: BigInt!
+  bptPerSNOTEAfter: BigInt!
+  totalETHInvested: BigInt!
+  totalNOTEInvested: BigInt!
+  totalSNOTESupply: BigInt!
 }

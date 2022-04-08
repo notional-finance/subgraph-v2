@@ -67,6 +67,81 @@ dataSources:
           handler: handleTransfer
       file: ./src/noteERC20.ts
   - kind: ethereum/contract
+    name: Comptroller
+    network: {{networkName}}
+    source:
+      address: '{{ compound.comptroller }}'
+      abi: Comptroller
+      startBlock: {{startBlock}}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.4
+      language: wasm/assemblyscript
+      entities:
+        - TvlHistoricalData
+      abis:
+        - name: Comptroller
+          file: ./abi/Comptroller.json
+        - name: Aggregator
+          file: ./abi/Aggregator.json
+        - name: Notional
+          file: ./abi/Notional.json
+      eventHandlers:
+        - event: DistributedSupplierComp(indexed address,indexed address,uint256,uint256)
+          handler: handleDistributedSupplierComp
+      blockHandlers:
+        - handler: handleBlockUpdates
+      file: ./src/comptroller.ts
+  - kind: ethereum/contract
+    name: StakedNote
+    network: {{networkName}}
+    source:
+      address: '{{ staking.sNoteProxy }}'
+      abi: sNOTE
+      startBlock: {{startBlock}}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.4
+      language: wasm/assemblyscript
+      entities:
+        - StakedNoteBalance
+        - StakedNoteChange
+      abis:
+        - name: sNOTE
+          file: ./abi/sNOTE.json
+        - name: ERC20
+          file: ./abi/ERC20.json
+      eventHandlers:
+        - event: SNoteMinted(indexed address,uint256,uint256,uint256)
+          handler: handleSNoteMinted
+        - event: SNoteRedeemed(indexed address,uint256,uint256,uint256)
+          handler: handleSNoteRedeemed
+      file: ./src/staking.ts
+  - kind: ethereum/contract
+    name: TreasuryManager
+    network: {{networkName}}
+    source:
+      address: '{{ staking.treasuryManager }}'
+      abi: TreasuryManager
+      startBlock: {{startBlock}}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.4
+      language: wasm/assemblyscript
+      entities:
+        - StakedNoteBuyback
+      abis:
+        - name: sNOTE
+          file: ./abi/sNOTE.json
+        - name: TreasuryManager
+          file: ./abi/TreasuryManager.json
+        - name: ERC20
+          file: ./abi/ERC20.json
+      eventHandlers:
+        - event: AssetsInvested(uint256,uint256)
+          handler: handleAssetsInvested
+      file: ./src/staking.ts
+  - kind: ethereum/contract
     name: Notional
     network: {{networkName}}
     source:

@@ -1,4 +1,4 @@
-import {Address, BigInt, ByteArray, Bytes, dataSource, ethereum, log, store} from '@graphprotocol/graph-ts';
+import { Address, BigInt, ByteArray, Bytes, dataSource, ethereum, log, store } from '@graphprotocol/graph-ts';
 import {
   ListCurrency,
   UpdateETHRate,
@@ -33,9 +33,9 @@ import {
   TreasuryManagerChanged,
   ReserveBufferUpdated,
 } from '../generated/Notional/Notional';
-import {ERC20} from '../generated/Notional/ERC20';
+import { ERC20 } from '../generated/Notional/ERC20';
 
-import {updateDailyLendBorrowVolume} from './utils/intervalUpdates'
+import { updateDailyLendBorrowVolume } from './utils/intervalUpdates'
 
 import {
   Currency,
@@ -54,16 +54,21 @@ import {
   SecondaryIncentiveRewarder,
   TreasuryManager
 } from '../generated/schema';
-import {ADDRESS_ZERO, BASIS_POINTS, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, getTrade, QUARTER} from './common';
+import { ADDRESS_ZERO, BASIS_POINTS, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, getTrade, QUARTER } from './common';
 
 import {
   getEthExchangeRate,
   getAssetExchangeRate
 } from './exchange_rates/utils'
 
-import {updateMarkets} from './markets';
-import {convertAssetToUnderlying, getBalance, getNTokenChange, updateAccount, updateNTokenPortfolio} from './accounts';
-import { updateAssetExchangeRateHistoricalData, updateEthExchangeRateHistoricalData, updateNTokenPresentValueHistoricalData, updateTvlHistoricalData } from './timeseriesUpdate';
+import { updateMarkets } from './markets';
+import { convertAssetToUnderlying, getBalance, getNTokenChange, updateAccount, updateNTokenPortfolio } from './accounts';
+import { 
+  updateAssetExchangeRateHistoricalData, 
+  updateEthExchangeRateHistoricalData, 
+  updateNTokenPresentValueHistoricalData, 
+  updateTvlHistoricalData
+} from './timeseriesUpdate';
 
 const LocalCurrency = 'LocalCurrency';
 const LocalFcash = 'LocalFcash';
@@ -120,7 +125,7 @@ function getMarketInitialization(currencyId: i32, tRef: i32): MarketInitializati
 export function getNTokenPresentValueHistoricalData(id: string): NTokenPresentValueHistoricalData {
   let entity = NTokenPresentValueHistoricalData.load(id);
   if (entity == null) {
-      entity = new NTokenPresentValueHistoricalData(id);
+    entity = new NTokenPresentValueHistoricalData(id);
   }
   return entity as NTokenPresentValueHistoricalData;
 }
@@ -188,7 +193,7 @@ function handleHourlyUpdates(event: ethereum.Block): void {
   if (result.reverted) return;
   let maxCurrencyId = result.value;
 
-  for (let currencyId: i32 = 1; currencyId <= maxCurrencyId; currencyId++) {
+  for (let currencyId: i32 = 1; currencyId <= maxCurrencyId; currencyId++) {
     updateAssetExchangeRateHistoricalData(notional, currencyId, event.timestamp.toI32());
     updateEthExchangeRateHistoricalData(notional, currencyId, event.timestamp.toI32());
     updateNTokenPresentValueHistoricalData(notional, currencyId, event.timestamp.toI32());
