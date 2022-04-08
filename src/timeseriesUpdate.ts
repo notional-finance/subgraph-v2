@@ -14,13 +14,13 @@ import { getCurrencyTvl, getNTokenPresentValueHistoricalData, getTvlHistoricalDa
 
 const USDC_CURRENCY_ID = 3;
 
-function createDailyTvlId(timestamp: i32): string {
+export function createDailyTvlId(timestamp: i32): string {
   let uniqueDayIndex = timestamp / 86400;
 
   return 'tvl:'.concat(uniqueDayIndex.toString());
 }
 
-function createCurrencyDailyTvlId(timestamp: i32, currencyId: i32): string {
+export function createCurrencyDailyTvlId(timestamp: i32, currencyId: i32): string {
   let uniqueDayIndex = timestamp / 86400;
 
   return 'tvl:'
@@ -29,7 +29,7 @@ function createCurrencyDailyTvlId(timestamp: i32, currencyId: i32): string {
     .concat(uniqueDayIndex.toString());
 }
 
-function createHourlyId(currencyId: number, timestamp: i32): string {
+export function createHourlyId(currencyId: number, timestamp: i32): string {
   let uniqueHourIndex = timestamp / 3600; // Integer division will always floor result
 
   return currencyId
@@ -136,7 +136,7 @@ export function updateTvlHistoricalData(notional: Notional, maxCurrencyId: i32, 
   }
 }
 
-function ethToUsd(notional: Notional, ethValue: BigInt): BigInt {
+export function ethToUsd(notional: Notional, ethValue: BigInt): BigInt {
   let result = notional.try_getCurrencyAndRates(USDC_CURRENCY_ID);
   if (result.reverted) return BigInt.fromI32(0);
 
