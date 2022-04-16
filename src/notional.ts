@@ -52,7 +52,6 @@ import {
   CurrencyTvl,
   IncentiveMigration,
   SecondaryIncentiveRewarder,
-  TreasuryManager
 } from '../generated/schema';
 import { ADDRESS_ZERO, BASIS_POINTS, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, getTrade, QUARTER } from './common';
 
@@ -69,6 +68,7 @@ import {
   updateNTokenPresentValueHistoricalData, 
   updateTvlHistoricalData
 } from './timeseriesUpdate';
+import { getTreasury } from './treasury';
 
 const LocalCurrency = 'LocalCurrency';
 const LocalFcash = 'LocalFcash';
@@ -148,7 +148,7 @@ export function getCurrencyTvl(id: string): CurrencyTvl {
   return entity as CurrencyTvl;
 }
 
-function getTokenNameAndSymbol(tokenAddress: Address): string[] {
+export function getTokenNameAndSymbol(tokenAddress: Address): string[] {
   log.debug('Fetching token symbol and name at {}', [tokenAddress.toHexString()]);
   let erc20 = ERC20.bind(tokenAddress);
   let nameResult = erc20.try_name();
@@ -862,18 +862,12 @@ export function handleExcessReserveBalanceHarvested(event: ExcessReserveBalanceH
 }
 
 export function handleTreasuryManagerChanged(event: TreasuryManagerChanged): void {
-  let id = "0"
-  let manager = TreasuryManager.load(id)
-  if (manager == null) {
-    manager = new TreasuryManager(id)
-  }
-
-  manager.contractAddress = event.params.newManager;
-  manager.lastUpdateBlockNumber = event.block.number.toI32();
-  manager.lastUpdateTimestamp = event.block.timestamp.toI32();
-  manager.lastUpdateBlockHash = event.block.hash;
-  manager.lastUpdateTransactionHash = event.transaction.hash;
-  manager.save()
+  let treasury = getTreasury(event.params.newManager)
+  treasury.lastUpdateBlockNumber = event.block.number.toI32();
+  treasury.lastUpdateTimestamp = event.block.timestamp.toI32();
+  treasury.lastUpdateBlockHash = event.block.hash;
+  treasury.lastUpdateTransactionHash = event.transaction.hash;
+  treasury.save()
   log.debug('Updated treasury manager address', []);
 }
 

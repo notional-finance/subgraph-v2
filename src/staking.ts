@@ -7,10 +7,10 @@ import { sNOTE, SNoteMinted, SNoteRedeemed } from "../generated/StakedNote/sNOTE
 import { BI_DAILY_BLOCK_UPDATE, getTvlHistoricalData } from "./notional";
 
 export function handleBlockUpdates(event: ethereum.Block): void {
-  handleHourlyUpdates(event);
+  handleDailyUpdates(event);
 }
 
-function getStakedNOTETvl(id: string, timestamp: i32) {
+function getStakedNOTETvl(id: string, timestamp: i32): StakedNoteTvl {
   let entity = StakedNoteTvl.load(id);
   if (entity == null) {
     entity = new StakedNoteTvl(id);
@@ -20,7 +20,7 @@ function getStakedNOTETvl(id: string, timestamp: i32) {
 
 }
 
-function handleHourlyUpdates(event: ethereum.Block): void {
+function handleDailyUpdates(event: ethereum.Block): void {
   if (event.number.toI32() % BI_DAILY_BLOCK_UPDATE != 0) {
       return;
   }

@@ -308,16 +308,6 @@ type SecondaryIncentiveRewarder @entity {
   lastUpdateTransactionHash: Bytes!
 }
 
-type TreasuryManager @entity {
-  "ID is hardcoded to 0"
-  id: ID!
-  contractAddress: Bytes!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
-}
-
 enum AssetType {
   fCash
   LiquidityToken_3Month
@@ -763,10 +753,65 @@ type StakedNoteInvestment @entity {
   blockNumber: Int!
   timestamp: Int!
   transactionHash: Bytes!
+  "The treasury manager who executed the investment"
+  manager: TreasuryManager!
 
   bptPerSNOTEBefore: BigInt!
   bptPerSNOTEAfter: BigInt!
   totalETHInvested: BigInt!
   totalNOTEInvested: BigInt!
   totalSNOTESupply: BigInt!
+}
+
+type Treasury @entity {
+  "ID hardcoded to zero"
+  id: ID!
+  contractAddress: Bytes!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  activeManager: TreasuryManager
+  investmentCoolDownInSeconds: BigInt
+  NOTEPurchaseLimit: BigInt
+  tradingLimits: [TreasuryManagerTradingLimit!] @derivedFrom(field: "treasury")
+
+  "A list of all treasury managers"
+  managers: [TreasuryManager!] @derivedFrom(field: "treasury")
+}
+
+type TreasuryManager @entity {
+  "ID is the manager's ethereum address"
+  id: ID!
+  startedBlockHash: Bytes!
+  startedBlockNumber: Int!
+  startedTimestamp: Int!
+  startedTransactionHash: Bytes!
+
+  endedBlockHash: Bytes!
+  endedBlockNumber: Int!
+  endedTimestamp: Int!
+  endedTransactionHash: Bytes!
+
+  "Set to true for the manager who is currently active"
+  isActiveManager: Boolean!
+  treasury: Treasury!
+  sNOTEInvestments: [StakedNoteInvestment!] @derivedFrom(field: "manager")
+}
+
+type TreasuryManagerTradingLimit @entity {
+  "ID is the token address"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  treasury: Treasury!
+  tokenAddress: Bytes!
+  symbol: String!
+  name: String!
+  oracle: Bytes
+  slippageLimit: BigInt
 }

@@ -147,6 +147,16 @@ dataSources:
       eventHandlers:
         - event: AssetsInvested(uint256,uint256)
           handler: handleAssetsInvested
+        - event: SlippageLimitUpdated(address,uint256)
+          handler: handleSlippageLimitUpdated
+        - event: PriceOracleUpdated(address,address)
+          handler: handlePriceOracleUpdated
+        - event: ManagementTransferred(address,address)
+          handler: handleManagementTransferred
+        - event: NOTEPurchaseLimitUpdated(uint256)
+          handler: handleNOTEPurchaseLimitUpdated
+        - event: InvestmentCoolDownUpdated(uint256)
+          handler: handleInvestmentCoolDownUpdated
       file: ./src/treasury.ts
   - kind: ethereum/contract
     name: Notional
