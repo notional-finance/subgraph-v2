@@ -2,7 +2,8 @@ import {
     AssetExchangeRate,
     AssetExchangeRateHistoricalData,
     EthExchangeRate,
-    EthExchangeRateHistoricalData
+    EthExchangeRateHistoricalData,
+    MarketHistoricalData
 } from '../../generated/schema';
 
 export function getEthExchangeRate(id: string): EthExchangeRate {
@@ -35,4 +36,12 @@ export function getAssetExchangeRateHistoricalData(id: string): AssetExchangeRat
         entity = new AssetExchangeRateHistoricalData(id);
     }
     return entity as AssetExchangeRateHistoricalData;
+}
+
+export function getMarketHistoricalData(id: string): MarketHistoricalData {
+    let entity = MarketHistoricalData.load(id);
+    if (entity == null) {
+        entity = new MarketHistoricalData(id);
+    }
+    return entity as MarketHistoricalData;
 }

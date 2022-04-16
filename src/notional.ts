@@ -65,6 +65,7 @@ import { convertAssetToUnderlying, getBalance, getNTokenChange, updateAccount, u
 import { 
   updateAssetExchangeRateHistoricalData, 
   updateEthExchangeRateHistoricalData, 
+  updateMarketHistoricalData, 
   updateNTokenPresentValueHistoricalData, 
   updateTvlHistoricalData
 } from './timeseriesUpdate';
@@ -199,6 +200,7 @@ function handleHourlyUpdates(event: ethereum.Block): void {
     updateAssetExchangeRateHistoricalData(notional, currencyId, event.timestamp.toI32());
     updateEthExchangeRateHistoricalData(notional, currencyId, event.timestamp.toI32());
     updateNTokenPresentValueHistoricalData(notional, currencyId, event.timestamp.toI32());
+    updateMarketHistoricalData(notional, currencyId, event.timestamp.toI32());
   }
 }
 

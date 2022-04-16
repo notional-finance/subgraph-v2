@@ -429,6 +429,27 @@ type Market @entity {
   oracleRate: Int!
   "Last time when a trade occurred on the market"
   previousTradeTime: Int!
+
+  historicalData: [MarketHistoricalData!] @derivedFrom(field: "market")
+}
+
+type MarketHistoricalData @entity {
+  "MarketID:Hourly ID for this particular market"
+  id: ID!
+  market: Market!
+
+  "Total fCash available in the market"
+  totalfCash: BigInt!
+  "Total asset cash available in the market"
+  totalAssetCash: BigInt!
+  "Total liquidity tokens available in the market"
+  totalLiquidity: BigInt!
+  "Last annualized interest rate the market traded at"
+  lastImpliedRate: Int!
+  "Oracle rate for the market, must be averaged in using previousTradeTime"
+  oracleRate: Int!
+  "Last time when a trade occurred on the market"
+  previousTradeTime: Int!
 }
 
 type MarketInitialization @entity {
@@ -621,7 +642,6 @@ type TvlHistoricalData @entity {
   perCurrencyTvl: [CurrencyTvl!]
   compBalance: COMPBalance
   sNOTETvl: StakedNoteTvl
-  # marketRates: [MarketRates!]
 }
 
 type AssetTransfer @entity {

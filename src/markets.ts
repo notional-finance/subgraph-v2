@@ -1,10 +1,10 @@
 import {Notional} from '../generated/Notional/Notional';
 import {BigInt, ethereum, log} from '@graphprotocol/graph-ts';
-import {getMarketMaturityLengthSeconds, getSettlementDate, QUARTER} from './common';
+import {getMarketMaturityLengthSeconds, getSettlementDate} from './common';
 import {Market} from '../generated/schema';
 import {getCashGroup} from './notional';
 
-function getMarket(currencyId: i32, settlementDate: BigInt, maturity: BigInt, marketIndex: i32): Market {
+export function getMarket(currencyId: i32, settlementDate: BigInt, maturity: BigInt, marketIndex: i32): Market {
   let id = currencyId.toString() + ':' + settlementDate.toString() + ':' + maturity.toString();
 
   let entity = Market.load(id);

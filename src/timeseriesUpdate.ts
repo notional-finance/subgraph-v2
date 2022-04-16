@@ -6,10 +6,13 @@ import { Currency } from '../generated/schema';
 
 import { 
   getAssetExchangeRateHistoricalData,
-  getEthExchangeRateHistoricalData
+  getEthExchangeRateHistoricalData,
+  getMarketHistoricalData
 } from './exchange_rates/utils'
 
 import { getCurrencyTvl, getNTokenPresentValueHistoricalData, getTvlHistoricalData } from './notional';
+import { getSettlementDate } from './common';
+import { getMarket } from './markets';
 
 
 const USDC_CURRENCY_ID = 3;
@@ -36,6 +39,26 @@ export function createHourlyId(currencyId: number, timestamp: i32): string {
     .toString()
     .concat(':')
     .concat(uniqueHourIndex.toString());
+}
+
+export function updateMarketHistoricalData(notional: Notional, currencyId: i32, timestamp: i32): void {
+  let marketsResult = notional.getActiveMarketsAtBlockTime(currencyId, BigInt.fromI32(timestamp));
+  for (let i: i32 = 0; i < marketsResult.length; i++) {
+    let marketIndex = i + 1;
+    let maturity = marketsResult[i].maturity;
+    let settlementDate = getSettlementDate(maturity, marketIndex);
+    // This is just used to get the id
+    let market = getMarket(currencyId, settlementDate, maturity, marketIndex);
+
+    let historicalData = getMarketHistoricalData(market.id + ":" + createHourlyId(currencyId, timestamp));
+    historicalData.totalAssetCash = marketsResult[i].totalAssetCash;
+    historicalData.totalfCash = marketsResult[i].totalfCash;
+    historicalData.totalLiquidity = marketsResult[i].totalLiquidity;
+    historicalData.lastImpliedRate = marketsResult[i].lastImpliedRate.toI32();
+    historicalData.oracleRate = marketsResult[i].oracleRate.toI32();
+    historicalData.previousTradeTime = marketsResult[i].previousTradeTime.toI32();
+    historicalData.save();
+  }
 }
 
 export function updateEthExchangeRateHistoricalData(notional: Notional, currencyId: i32, timestamp: i32): void {
