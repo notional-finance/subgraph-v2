@@ -86,6 +86,8 @@ dataSources:
           file: ./abi/Aggregator.json
         - name: Notional
           file: ./abi/Notional.json
+        - name: ERC20
+          file: ./abi/ERC20.json
       eventHandlers:
         - event: DistributedSupplierComp(indexed address,indexed address,uint256,uint256)
           handler: handleDistributedSupplierComp
