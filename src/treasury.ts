@@ -1,13 +1,14 @@
-import { Address, dataSource, ethereum } from "@graphprotocol/graph-ts";
-import { StakedNoteInvestment, StakedNotePool, Treasury, TreasuryManager as TreasuryManagerSchema, TreasuryManagerTradingLimit } from "../generated/schema";
+import { Address, Bytes, dataSource, ethereum } from "@graphprotocol/graph-ts";
+import { StakedNoteInvestment, StakedNotePool, Treasury, TreasuryManager as TreasuryManagerSchema, TreasuryManagerTradingLimit, TreasuryTokenTrade } from "../generated/schema";
 import { sNOTE } from "../generated/StakedNote/sNOTE";
+import { Fill } from "../generated/ExchangeV3/ExchangeV3";
 import { AssetsInvested, InvestmentCoolDownUpdated, ManagementTransferred, NOTEPurchaseLimitUpdated, PriceOracleUpdated, SlippageLimitUpdated, TreasuryManager } from "../generated/TreasuryManager/TreasuryManager"
 import { ADDRESS_ZERO } from "./common";
 import { getTokenNameAndSymbol } from "./notional";
 import { getStakedNotePool, updateStakedNotePool } from "./staking";
 
 export function getTreasury(contract: Address): Treasury {
-  let id = contract.toHexString()
+  let id = "0"
   let treasury = Treasury.load(id)
   if (treasury == null) {
     treasury = new Treasury(id)
@@ -137,4 +138,33 @@ export function handlePriceOracleUpdated(event: PriceOracleUpdated): void {
   limit.lastUpdateBlockHash = event.block.hash;
   limit.lastUpdateTransactionHash = event.transaction.hash;
   limit.save();
+}
+
+export function handleOrderFilled(event: Fill): void {
+  let treasury = Treasury.load("0")
+  if (treasury == null) return
+  // Filter orders that do not match the treasury contract
+  if (event.params.makerAddress != treasury.contractAddress) return
+  let treasuryContract = TreasuryManager.bind(Address.fromBytes(treasury.contractAddress));
+
+  let trade = new TreasuryTokenTrade(event.params.orderHash.toHexString());
+  trade.blockNumber = event.block.number.toI32();
+  trade.timestamp = event.block.timestamp.toI32();
+  trade.blockHash = event.block.hash;
+  trade.transactionHash = event.transaction.hash;
+  trade.manager = treasuryContract.manager().toHexString();
+  trade.takerAddress = event.params.takerAddress;
+  trade.makerAssetFilledAmount = event.params.makerAssetFilledAmount;
+  trade.takerAssetFilledAmount = event.params.takerAssetFilledAmount;
+
+  let takerAssetAddress = ethereum.decode("(address)", Bytes.fromHexString(event.params.takerAssetData.toHex().slice(8)))
+  if (takerAssetAddress !== null) {
+    trade.takerAsset = takerAssetAddress.toAddress()
+  }
+
+  let makerAssetAddress = ethereum.decode("(address)", Bytes.fromHexString(event.params.makerAssetData.toHex().slice(8)))
+  if (makerAssetAddress !== null) {
+    trade.makerAsset = makerAssetAddress.toAddress().toHexString()
+  }
+  trade.save()
 }

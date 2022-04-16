@@ -13,6 +13,7 @@
     "startBlock": 13094883,
     "staking": {
         "sNoteProxy": "0x38de42f4ba8a35056b33a746a6b45be9b1c3b9d2",
-        "treasuryManager": "0x53144559c0d4a3304e2dd9dafbd685247429216d"
+        "treasuryManager": "0x53144559c0d4a3304e2dd9dafbd685247429216d",
+        "exchangeV3": "0x61935cbdd02287b511119ddb11aeb42f1593b7ef"
     }
 }

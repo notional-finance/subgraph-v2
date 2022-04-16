@@ -818,6 +818,7 @@ type TreasuryManager @entity {
   isActiveManager: Boolean!
   treasury: Treasury!
   sNOTEInvestments: [StakedNoteInvestment!] @derivedFrom(field: "manager")
+  tokenTrades: [TreasuryTokenTrade!] @derivedFrom(field: "manager")
 }
 
 type TreasuryManagerTradingLimit @entity {
@@ -834,4 +835,25 @@ type TreasuryManagerTradingLimit @entity {
   name: String!
   oracle: Bytes
   slippageLimit: BigInt
+}
+
+type TreasuryTokenTrade @entity {
+  "ID is the 0x order hash"
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+
+  manager: TreasuryManager!
+  "Taker that filled the order"
+  takerAddress: Bytes!
+  "Token that the treasury sold"
+  makerAsset: TreasuryManagerTradingLimit!
+  "Token that the taker sent back to the treasury"
+  takerAsset: Bytes!
+  makerAssetFilledAmount: BigInt!
+  takerAssetFilledAmount: BigInt!
+
+  # Slippage from oracle price
 }

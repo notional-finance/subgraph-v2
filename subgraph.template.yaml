@@ -159,6 +159,29 @@ dataSources:
           handler: handleInvestmentCoolDownUpdated
       file: ./src/treasury.ts
   - kind: ethereum/contract
+    name: ExchangeV3
+    network: {{networkName}}
+    source:
+      address: '{{ staking.exchangeV3 }}'
+      abi: ExchangeV3
+      startBlock: {{startBlock}}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      entities:
+        - StakedNoteInvestment
+        - TreasuryManager
+      abis:
+        - name: ExchangeV3
+          file: ./abi/ExchangeV3.json
+        - name: TreasuryManager
+          file: ./abi/TreasuryManager.json
+      eventHandlers:
+        - event: Fill(indexed address,indexed address,bytes,bytes,bytes,bytes,indexed bytes32,address,address,uint256,uint256,uint256,uint256,uint256)
+          handler: handleOrderFilled
+      file: ./src/treasury.ts
+  - kind: ethereum/contract
     name: Notional
     network: {{networkName}}
     source:

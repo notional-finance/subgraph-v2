@@ -13,6 +13,7 @@
     },
     "staking": {
         "sNoteProxy": "0x99aFEF3C58a5375824b7bE7fFf4080244Aa445aD",
-        "treasuryManager": "0x049bbb3868850AEb8d606c4080A92D02CfC0b042"
+        "treasuryManager": "0x049bbb3868850AEb8d606c4080A92D02CfC0b042",
+        "exchangeV3": "0x61935cbdd02287b511119ddb11aeb42f1593b7ef"
     }
 }
