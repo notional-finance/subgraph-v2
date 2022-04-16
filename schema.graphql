@@ -598,6 +598,7 @@ type CurrencyTvl @entity {
 
 type COMPBalance @entity {
   id: ID!
+  timestamp: Int!
   value: BigInt!
   usdValue: BigInt!
 }

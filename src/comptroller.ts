@@ -1,22 +1,16 @@
 import {
     Address,
     BigInt,
-    ByteArray,
-    Bytes,
     dataSource,
     ethereum,
-    log,
-    store
 } from '@graphprotocol/graph-ts';
 import { Comptroller, DistributedSupplierComp } from '../generated/Comptroller/Comptroller';
 import { Aggregator } from '../generated/Comptroller/Aggregator';
 import { COMPBalance, TvlHistoricalData } from '../generated/schema';
-import { createDailyTvlId, createHourlyId, ethToUsd } from './timeseriesUpdate';
-import { getTvlHistoricalData } from './notional';
+import { createDailyTvlId, ethToUsd } from './timeseriesUpdate';
 import { Notional } from '../generated/Notional/Notional';
 import { ADDRESS_ZERO } from './common';
 
-const BI_HOURLY_BLOCK_UPDATE = 138;
 const BI_DAILY_BLOCK_UPDATE = 3300;
 
 class Addresses {
@@ -72,7 +66,8 @@ function saveCOMPBalance(timestamp: i32): void {
 
     let compBalance = COMPBalance.load(historicalId);
     if (compBalance == null) {
-        compBalance = new COMPBalance(historicalId)
+        compBalance = new COMPBalance(historicalId);
+        compBalance.timestamp = timestamp;
     }
 
     let comp = comptroller.compAccrued(addr.notional);
