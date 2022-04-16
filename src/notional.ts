@@ -284,7 +284,9 @@ export function handleUpdateETHRate(event: UpdateETHRate): void {
   ethExchangeRate.rateOracle = ethRate.rateOracle;
   ethExchangeRate.rateDecimalPlaces = ethRate.rateDecimalPlaces;
   ethExchangeRate.mustInvert = ethRate.mustInvert;
-  ethExchangeRate.buffer = ethRate.buffer;
+  // This is renamed from "buffer" in the abi to prevent clashes with AssemblyScript
+  // variable names
+  ethExchangeRate.buffer = ethRate.rateBuffer;
   ethExchangeRate.haircut = ethRate.haircut;
   ethExchangeRate.liquidationDiscount = ethRate.liquidationDiscount;
 
@@ -656,7 +658,6 @@ export function handleLendBorrowTrade(event: LendBorrowTrade): void {
   let marketIndex = getMarketIndex(maturity, event.block.timestamp)
   let settlementDate = getSettlementDate(maturity, marketIndex);
   trade.market = currencyId.toString() + ':' + settlementDate.toString() + ':' + maturity.toString();
-  log.debug('trade market set to {}', [trade.market]);
 
   if (event.params.netAssetCash.gt(BigInt.fromI32(0))) {
     trade.tradeType = 'Borrow';

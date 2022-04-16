@@ -2,11 +2,30 @@ import {Address, BigInt, dataSource, ethereum, log, store} from '@graphprotocol/
 import {
   Notional,
   Notional__getAccountResultAccountBalancesStruct,
-  Notional__getAccountResultPortfolioStruct,
 } from '../generated/Notional/Notional';
 import {Account, Asset, AssetChange, Balance, BalanceChange, nToken, nTokenChange} from '../generated/schema';
 import {getSettlementDate, hasIncentiveMigrationOccurred} from './common';
 import {updateMarkets} from './markets';
+
+// This class is required to get around typing errors between account portfolio objects
+class GenericAsset extends ethereum.Tuple {
+  get currencyId(): BigInt {
+    return this[0].toBigInt();
+  }
+
+  get maturity(): BigInt {
+    return this[1].toBigInt();
+  }
+
+  get assetType(): BigInt {
+    return this[2].toBigInt();
+  }
+
+  get notional(): BigInt {
+    return this[3].toBigInt();
+  }
+}
+
 
 export function convertAssetToUnderlying(notional: Notional, currencyId: i32, assetAmount: BigInt): BigInt {
   let rateResult = notional.getCurrencyAndRates(currencyId);
@@ -207,8 +226,12 @@ export function updateAccount(accountAddress: Address, event: ethereum.Event): v
     account.assetBitmapCurrency = null;
   }
 
+  let portfolio = new Array<ethereum.Tuple>()
+  for (let i = 0; i < accountResult.value2.length; i++) {
+      portfolio.push(accountResult.value2[i])
+  }
   updateBalances(account, accountResult.value1, event, notional);
-  updateAssets(account, accountResult.value2, event);
+  updateAssets(account, portfolio, event);
 
   account.lastUpdateBlockNumber = event.block.number.toI32();
   account.lastUpdateTimestamp = event.block.timestamp.toI32();
@@ -281,15 +304,16 @@ export function updateNTokenPortfolio(nTokenObj: nToken, event: ethereum.Event, 
   }
 
   // Update portfolio. This casting works because the underlying type returned from solidity is the same
-  let mergedAssetArray = new Array<Notional__getAccountResultPortfolioStruct>();
+  let mergedAssetArray = new Array<ethereum.Tuple>();
   let liquidityTokens = nTokenPortfolioResult.value0;
   let fCashAssets = nTokenPortfolioResult.value1;
+
   for (let i: i32 = 0; i < liquidityTokens.length; i++) {
-    mergedAssetArray.push(liquidityTokens[i] as Notional__getAccountResultPortfolioStruct);
+    mergedAssetArray.push(liquidityTokens[i]);
   }
 
   for (let i: i32 = 0; i < fCashAssets.length; i++) {
-    mergedAssetArray.push(fCashAssets[i] as Notional__getAccountResultPortfolioStruct);
+    mergedAssetArray.push(fCashAssets[i]);
   }
 
   nTokenChangeObject.assetChanges = updateAssets(account, mergedAssetArray, event);
@@ -347,7 +371,7 @@ function updateBalances(
     }
 
     if (hasIncentiveMigrationOccurred(currencyId.toString())) {
-      if (balance.accountIncentiveDebt.notEqual(accountBalances[i].accountIncentiveDebt)) {
+      if (balance.accountIncentiveDebt && balance.accountIncentiveDebt!.notEqual(accountBalances[i].accountIncentiveDebt)) {
         didUpdate = true;
         balance.accountIncentiveDebt = accountBalances[i].accountIncentiveDebt;
         balance.lastClaimIntegralSupply = null;
@@ -357,7 +381,7 @@ function updateBalances(
     } else {
       // Prior to the account migration, this will get the lastClaimIntegralSupply at the same
       // location in the tuple
-      if (balance.lastClaimIntegralSupply.notEqual(accountBalances[i].accountIncentiveDebt)) {
+      if (balance.lastClaimIntegralSupply && balance.lastClaimIntegralSupply!.notEqual(accountBalances[i].accountIncentiveDebt)) {
         didUpdate = true;
         balance.lastClaimIntegralSupply = accountBalances[i].accountIncentiveDebt;
         balanceChange.lastClaimIntegralSupplyAfter = accountBalances[i].accountIncentiveDebt;
@@ -399,7 +423,7 @@ function updateBalances(
       } else {
         let balanceChange = getBalanceChange(
           account.id,
-          parseI32(deletedBalance.currency, 10),
+          parseInt(deletedBalance.currency, 10) as i32,
           event,
           deletedBalance as Balance,
           notional,
@@ -425,23 +449,25 @@ function updateBalances(
 
 function updateAssets(
   account: Account,
-  portfolio: Notional__getAccountResultPortfolioStruct[],
+  portfolio: ethereum.Tuple[],
   event: ethereum.Event,
 ): string[] {
   let newAssetIds = new Array<string>();
   let assetChangeIds = new Array<string>();
 
   for (let i: i32 = 0; i < portfolio.length; i++) {
-    let currencyId = portfolio[i].currencyId.toI32();
-    let maturity = portfolio[i].maturity;
-    let asset = getAsset(account.id, currencyId.toString(), portfolio[i].assetType.toI32(), maturity);
+    // This casting is required to get around type errors in AssemblyScript
+    let genericAsset = portfolio[i] as GenericAsset
+    let currencyId = genericAsset.currencyId.toI32();
+    let maturity = genericAsset.maturity;
+    let asset = getAsset(account.id, currencyId.toString(), genericAsset.assetType.toI32(), maturity);
 
-    if (asset.notional.notEqual(portfolio[i].notional)) {
+    if (asset.notional.notEqual(genericAsset.notional)) {
       let assetChange = getAssetChange(account.id, asset, event);
-      assetChange.notionalAfter = portfolio[i].notional;
+      assetChange.notionalAfter = genericAsset.notional;
       assetChange.save();
 
-      asset.notional = portfolio[i].notional;
+      asset.notional = genericAsset.notional;
       asset.lastUpdateBlockNumber = event.block.number.toI32();
       asset.lastUpdateTimestamp = event.block.timestamp.toI32();
       asset.lastUpdateBlockHash = event.block.hash;

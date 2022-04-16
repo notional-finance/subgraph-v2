@@ -9,19 +9,20 @@
     "prepare:kovan": "hbs --stdout --helper ./helpers.js --data ./v2.kovan.json subgraph.template.yaml > subgraph.yaml",
     "prepare:goerli": "hbs --stdout --helper ./helpers.js --data ./v2.goerli.json subgraph.template.yaml > subgraph.yaml",
     "prepare:mainnet": "hbs --stdout --helper ./helpers.js --data ./v2.mainnet.json subgraph.template.yaml > subgraph.yaml",
-    "codegen": "graph codegen",
-    "build": "graph build",
+    "codegen": "yarn run graph codegen",
+    "build": "yarn run graph build",
     "deploy:local": "graph create --node http://127.0.0.1:8020 notional-finance/local-v2 && graph deploy notional-finance/local-v2 ./subgraph.yaml --ipfs http://localhost:5001 --node http://127.0.0.1:8020",
     "deploy:kovan": "yarn run prepare:kovan && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/kovan-v2-graft",
     "deploy:goerli": "yarn run prepare:goerli && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/goerli-v2",
     "deploy:mainnet": "yarn run prepare:mainnet && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/mainnet-v2",
+    "deploy:mainnet-fork": "yarn run prepare:mainnet && yarn run codegen && yarn run graph create --node http://127.0.0.1:8020 notional-finance/mainnet-v2 && yarn run graph deploy --node http://127.0.0.1:8020/ --ipfs http://localhost:5001/ --debug-fork QmQFAksNkZxyY6XdkEHAoWogYzouKRaq8pUCdVJoj6t2DL notional-finance/mainnet-v2",
     "testenv:up": "cd ../subgraph && ./start.sh",
     "testenv:down": "cd ../subgraph && docker-compose down",
     "compile:subgraph": "yarn run prepare:local && yarn run codegen && yarn run build && yarn run deploy:local"
   },
   "dependencies": {
-    "@graphprotocol/graph-cli": "^0.20",
-    "@graphprotocol/graph-ts": "^0.20"
+    "@graphprotocol/graph-cli": "^0.29.0",
+    "@graphprotocol/graph-ts": "^0.26.0"
   },
   "devDependencies": {
     "hbs-cli": "^1.4.0"
