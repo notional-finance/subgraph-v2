@@ -603,12 +603,35 @@ type COMPBalance @entity {
   usdValue: BigInt!
 }
 
+type StakedNoteTvl @entity {
+  id: ID!
+  timestamp: Int!
+
+  "Total sNOTE in the pool"
+  sNOTETotalSupply: BigInt!
+  "Total NOTE in the pool"
+  poolNOTEBalance: BigInt!
+  "Total ETH in the pool"
+  poolETHBalance: BigInt!
+  "Total BPT balance in the pool"
+  poolBPTBalance: BigInt!
+
+  "NOTE/ETH spot price of the pool"
+  spotPrice: BigInt!
+  
+  "Total pool value in each relevant denomination using historical spot prices"
+  totalPoolValueInNOTE: BigInt!
+  totalPoolValueInETH: BigInt!
+}
+
 type TvlHistoricalData @entity {
   id: ID!
   timestamp: Int!
-  usdTotal: BigInt!
-  perCurrencyTvl: [CurrencyTvl!]!
+  usdTotal: BigInt
+  perCurrencyTvl: [CurrencyTvl!]
   compBalance: COMPBalance
+  sNOTETvl: StakedNoteTvl
+  # marketRates: [MarketRates!]
 }
 
 type AssetTransfer @entity {

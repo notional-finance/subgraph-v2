@@ -124,10 +124,7 @@ export function updateTvlHistoricalData(notional: Notional, maxCurrencyId: i32, 
 
   if (perCurrencyTvl.length > 0 && usdTotal.gt(BigInt.fromI32(0))) {
     let historicalId = createDailyTvlId(timestamp);
-    let tvlHistoricalData = getTvlHistoricalData(historicalId);
-    let roundedTimestamp = (timestamp / 86400) * 86400;
-  
-    tvlHistoricalData.timestamp = roundedTimestamp;
+    let tvlHistoricalData = getTvlHistoricalData(historicalId, timestamp);
     tvlHistoricalData.usdTotal = usdTotal;
     tvlHistoricalData.perCurrencyTvl = perCurrencyTvl;
 

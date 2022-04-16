@@ -1,7 +1,78 @@
-import { Address, BigInt, ethereum } from "@graphprotocol/graph-ts"
+import { Address, BigInt, dataSource, ethereum } from "@graphprotocol/graph-ts"
 import { ERC20 } from "../generated/Notional/ERC20"
-import {  StakedNoteBalance, StakedNoteChange, StakedNotePool } from "../generated/schema"
+import { BalancerVault } from "../generated/StakedNote/BalancerVault"
+import { StakedNoteBalance, StakedNoteChange, StakedNotePool, StakedNoteTvl } from "../generated/schema"
+import { createDailyTvlId } from './timeseriesUpdate';
 import { sNOTE, SNoteMinted, SNoteRedeemed } from "../generated/StakedNote/sNOTE"
+import { BI_DAILY_BLOCK_UPDATE, getTvlHistoricalData } from "./notional";
+
+export function handleBlockUpdates(event: ethereum.Block): void {
+  handleHourlyUpdates(event);
+}
+
+function getStakedNOTETvl(id: string, timestamp: i32) {
+  let entity = StakedNoteTvl.load(id);
+  if (entity == null) {
+    entity = new StakedNoteTvl(id);
+    entity.timestamp = timestamp
+  }
+  return entity as StakedNoteTvl;
+
+}
+
+function handleHourlyUpdates(event: ethereum.Block): void {
+  if (event.number.toI32() % BI_DAILY_BLOCK_UPDATE != 0) {
+      return;
+  }
+  let timestamp = event.timestamp.toI32();
+  let historicalId = createDailyTvlId(timestamp);
+  let tvlHistoricalData = getTvlHistoricalData(historicalId, timestamp);
+  let sNOTETvl = getStakedNOTETvl(historicalId, tvlHistoricalData.timestamp);
+
+  let sNOTEContract = sNOTE.bind(dataSource.address())
+  let WETH_INDEX = sNOTEContract.WETH_INDEX().toI32()
+  let NOTE_INDEX = sNOTEContract.NOTE_INDEX().toI32()
+  let balancerPool = ERC20.bind(sNOTEContract.BALANCER_POOL_TOKEN())
+  let balancerVault = BalancerVault.bind(sNOTEContract.BALANCER_VAULT())
+  let poolTokens = balancerVault.getPoolTokens(sNOTEContract.NOTE_ETH_POOL_ID())
+
+  sNOTETvl.sNOTETotalSupply = sNOTEContract.totalSupply();
+  // Use this instead of balanceOf on the BPT Token to account for gauge staking
+  sNOTETvl.poolBPTBalance = sNOTEContract.getPoolTokenShare(sNOTETvl.sNOTETotalSupply);
+
+  let totalSupply = balancerPool.totalSupply()
+  sNOTETvl.poolNOTEBalance = poolTokens.value1[NOTE_INDEX].times(sNOTETvl.poolBPTBalance).div(totalSupply);
+  sNOTETvl.poolETHBalance = poolTokens.value1[WETH_INDEX].times(sNOTETvl.poolBPTBalance).div(totalSupply);
+
+  // Numerator: WETH * 5 * 1e18
+  let spotPriceNumerator = sNOTETvl.poolETHBalance
+    .times(BigInt.fromI32(10).pow(18))
+    .times(BigInt.fromI32(5));
+  // Denominator: NOTE * 1e10 * 1.25
+  let spotPriceDenominator = sNOTETvl.poolNOTEBalance
+    .times(BigInt.fromI32(10).pow(10))
+    .times(BigInt.fromI32(125))
+    .div(BigInt.fromI32(100));
+  sNOTETvl.spotPrice = spotPriceNumerator.div(spotPriceDenominator);
+
+  // (spotPrice * poolETHValue) / (1e18 * 1e10) + noteBalance
+  sNOTETvl.totalPoolValueInNOTE =  sNOTETvl.poolNOTEBalance.plus(
+    sNOTETvl.spotPrice
+      .times(sNOTETvl.poolETHBalance)
+      .div(BigInt.fromI32(10).pow(28))
+  );
+
+  // (poolNoteBalance * 1e10 * 1e18) / (spotPrice) + ethBalance
+  sNOTETvl.totalPoolValueInETH = sNOTETvl.poolETHBalance.plus(
+    sNOTETvl.poolNOTEBalance
+      .times(BigInt.fromI32(10).pow(28))
+      .div(sNOTETvl.spotPrice)
+  );
+
+  sNOTETvl.save();
+  tvlHistoricalData.sNOTETvl = sNOTETvl.id;
+  tvlHistoricalData.save();
+}
 
 export function getStakedNotePool(sNOTEAddress: string): StakedNotePool {
     let entity = StakedNotePool.load(sNOTEAddress);
@@ -84,15 +155,14 @@ function updateStakedNoteBalance(
 
 export function updateStakedNotePool(sNOTEAddress: Address, pool: StakedNotePool, event: ethereum.Event): BigInt {
   let sNOTEContract = sNOTE.bind(sNOTEAddress)
-  let balancerPool = ERC20.bind(sNOTEContract.BALANCER_POOL_TOKEN())
-
   pool.lastUpdateBlockHash = event.block.hash
   pool.lastUpdateBlockNumber = event.block.number.toI32()
   pool.lastUpdateTimestamp = event.block.timestamp.toI32()
   pool.lastUpdateTransactionHash = event.transaction.hash
 
-  pool.totalBPTTokens = balancerPool.balanceOf(sNOTEAddress)
   pool.totalSupply = sNOTEContract.totalSupply()
+  // Use this to account for gauge staking
+  pool.totalBPTTokens = sNOTEContract.getPoolTokenShare(pool.totalSupply)
   pool.bptPerSNOTE = sNOTEContract.getPoolTokenShare(BigInt.fromI32(10).pow(18))
   pool.save();
 

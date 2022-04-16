@@ -75,8 +75,8 @@ const LocalFcash = 'LocalFcash';
 const CollateralCurrency = 'CollateralCurrency';
 const CrossCurrencyFcash = 'CrossCurrencyFcash';
 
-const BI_HOURLY_BLOCK_UPDATE = 138;
-const BI_DAILY_BLOCK_UPDATE = 3300;
+export const BI_HOURLY_BLOCK_UPDATE = 138;
+export const BI_DAILY_BLOCK_UPDATE = 3300;
 
 function getCurrency(id: string): Currency {
   let entity = Currency.load(id);
@@ -130,10 +130,12 @@ export function getNTokenPresentValueHistoricalData(id: string): NTokenPresentVa
   return entity as NTokenPresentValueHistoricalData;
 }
 
-export function getTvlHistoricalData(id: string): TvlHistoricalData {
+export function getTvlHistoricalData(id: string, timestamp: i32): TvlHistoricalData {
   let entity = TvlHistoricalData.load(id);
   if (entity == null) {
     entity = new TvlHistoricalData(id);
+    let roundedTimestamp = (timestamp / 86400) * 86400;
+    entity.timestamp = roundedTimestamp;
   }
   return entity as TvlHistoricalData;
 }

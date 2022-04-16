@@ -6,13 +6,11 @@ import {
 } from '@graphprotocol/graph-ts';
 import { Comptroller, DistributedSupplierComp } from '../generated/Comptroller/Comptroller';
 import { Aggregator } from '../generated/Comptroller/Aggregator';
-import { COMPBalance, TvlHistoricalData } from '../generated/schema';
+import { COMPBalance } from '../generated/schema';
 import { createDailyTvlId } from './timeseriesUpdate';
-import { Notional } from '../generated/Notional/Notional';
 import { ADDRESS_ZERO } from './common';
 import { ERC20 } from '../generated/Notional/ERC20';
-
-const BI_DAILY_BLOCK_UPDATE = 3300;
+import { BI_DAILY_BLOCK_UPDATE, getTvlHistoricalData } from './notional';
 
 class Addresses {
     notional: Address;
@@ -58,15 +56,7 @@ export function handleBlockUpdates(event: ethereum.Block): void {
 
 function saveCOMPBalance(timestamp: i32): void {
     let historicalId = createDailyTvlId(timestamp);
-
-    let entity = TvlHistoricalData.load(historicalId);
-    if (entity == null) {
-        entity = new TvlHistoricalData(historicalId);
-        entity.timestamp = (timestamp / 86400) * 86400;
-        entity.usdTotal = BigInt.fromI32(0);
-        entity.perCurrencyTvl = new Array<string>();
-    }
-    let tvlHistoricalData = entity as TvlHistoricalData;
+    let tvlHistoricalData = getTvlHistoricalData(historicalId, timestamp);
 
     let comptroller = Comptroller.bind(dataSource.address());
     let compToken = ERC20.bind(comptroller.getCompAddress())
@@ -76,7 +66,7 @@ function saveCOMPBalance(timestamp: i32): void {
     let compBalance = COMPBalance.load(historicalId);
     if (compBalance == null) {
         compBalance = new COMPBalance(historicalId);
-        compBalance.timestamp = entity.timestamp;
+        compBalance.timestamp = tvlHistoricalData.timestamp;
     }
 
     let compAmount = comptroller.compAccrued(addr.notional);

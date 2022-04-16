@@ -113,6 +113,10 @@ dataSources:
           file: ./abi/sNOTE.json
         - name: ERC20
           file: ./abi/ERC20.json
+        - name: BalancerVault
+          file: ./abi/BalancerVault.json
+      blockHandlers:
+        - handler: handleBlockUpdates
       eventHandlers:
         - event: SNoteMinted(indexed address,uint256,uint256,uint256)
           handler: handleSNoteMinted
