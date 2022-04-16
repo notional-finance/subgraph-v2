@@ -75,7 +75,7 @@ dataSources:
       startBlock: {{startBlock}}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.4
+      apiVersion: 0.0.6
       language: wasm/assemblyscript
       entities:
         - TvlHistoricalData
@@ -101,7 +101,7 @@ dataSources:
       startBlock: {{startBlock}}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.4
+      apiVersion: 0.0.6
       language: wasm/assemblyscript
       entities:
         - StakedNoteBalance
@@ -126,10 +126,11 @@ dataSources:
       startBlock: {{startBlock}}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.4
+      apiVersion: 0.0.6
       language: wasm/assemblyscript
       entities:
-        - StakedNoteBuyback
+        - StakedNoteInvestment
+        - TreasuryManager
       abis:
         - name: sNOTE
           file: ./abi/sNOTE.json
@@ -140,7 +141,7 @@ dataSources:
       eventHandlers:
         - event: AssetsInvested(uint256,uint256)
           handler: handleAssetsInvested
-      file: ./src/staking.ts
+      file: ./src/treasury.ts
   - kind: ethereum/contract
     name: Notional
     network: {{networkName}}

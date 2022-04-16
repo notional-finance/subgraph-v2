@@ -1,10 +1,9 @@
 import { Address, BigInt, ethereum } from "@graphprotocol/graph-ts"
 import { ERC20 } from "../generated/Notional/ERC20"
-import {  StakedNoteBalance, StakedNoteChange, StakedNoteInvestment, StakedNotePool } from "../generated/schema"
+import {  StakedNoteBalance, StakedNoteChange, StakedNotePool } from "../generated/schema"
 import { sNOTE, SNoteMinted, SNoteRedeemed } from "../generated/StakedNote/sNOTE"
-import { AssetsInvested, TreasuryManager } from "../generated/TreasuryManager/TreasuryManager"
 
-function getStakedNotePool(sNOTEAddress: string): StakedNotePool {
+export function getStakedNotePool(sNOTEAddress: string): StakedNotePool {
     let entity = StakedNotePool.load(sNOTEAddress);
     if (entity == null) {
         entity = new StakedNotePool(sNOTEAddress)
@@ -49,22 +48,6 @@ function getStakedNoteChange(balance: StakedNoteBalance, event: ethereum.Event):
   return entity as StakedNoteChange
 }
 
-function getStakedNoteInvestment(pool: StakedNotePool, event: ethereum.Event): StakedNoteInvestment {
-  let id =
-    event.transaction.hash.toHexString() +
-    ":" +
-    event.transactionLogIndex.toString()
-
-  let entity = new StakedNoteInvestment(id)
-  entity.blockHash = event.block.hash
-  entity.blockNumber = event.block.number.toI32()
-  entity.timestamp = event.block.timestamp.toI32()
-  entity.transactionHash = event.transaction.hash
-  entity.bptPerSNOTEBefore = pool.bptPerSNOTE;
-
-  return entity;
-}
-
 function updateStakedNoteBalance(
   account: Address,
   stakedNoteBalance: StakedNoteBalance,
@@ -99,7 +82,7 @@ function updateStakedNoteBalance(
   return sNOTEAmountAfter
 }
 
-function updateStakedNotePool(sNOTEAddress: Address, pool: StakedNotePool, event: ethereum.Event): BigInt {
+export function updateStakedNotePool(sNOTEAddress: Address, pool: StakedNotePool, event: ethereum.Event): BigInt {
   let sNOTEContract = sNOTE.bind(sNOTEAddress)
   let balancerPool = ERC20.bind(sNOTEContract.BALANCER_POOL_TOKEN())
 
@@ -158,18 +141,4 @@ export function handleSNoteRedeemed(event: SNoteRedeemed): void {
   
   let pool = getStakedNotePool(event.address.toHexString())
   updateStakedNotePool(event.address, pool, event);
-}
-
-export function handleAssetsInvested(event: AssetsInvested): void {
-  let manager = TreasuryManager.bind(event.address);
-  let sNOTEAddress = manager.sNOTE();
-  let sNOTEContract = sNOTE.bind(sNOTEAddress);
-  let pool = getStakedNotePool(sNOTEAddress.toHexString());
-  let investment = getStakedNoteInvestment(pool, event);
-
-  investment.bptPerSNOTEAfter = updateStakedNotePool(sNOTEAddress, pool, event);
-  investment.totalETHInvested = event.params.wethAmount;
-  investment.totalNOTEInvested = event.params.noteAmount;
-  investment.totalSNOTESupply = sNOTEContract.totalSupply();
-  investment.save();
 }
