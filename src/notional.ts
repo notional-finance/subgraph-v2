@@ -53,7 +53,7 @@ import {
   IncentiveMigration,
   SecondaryIncentiveRewarder,
 } from '../generated/schema';
-import { ADDRESS_ZERO, BASIS_POINTS, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, getTrade, QUARTER } from './common';
+import { BASIS_POINTS, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, getTrade, QUARTER } from './common';
 
 import {
   getEthExchangeRate,
@@ -236,7 +236,7 @@ export function handleListCurrency(event: ListCurrency): void {
   currency.hasTransferFee = assetToken.hasTransferFee;
   currency.maxCollateralBalance = assetToken.maxCollateralBalance;
 
-  if (underlyingToken.tokenAddress != ADDRESS_ZERO()) {
+  if (underlyingToken.tokenAddress != Address.zero()) {
     let underlyingTokenNameAndSymbol = getTokenNameAndSymbol(underlyingToken.tokenAddress);
     currency.underlyingName = underlyingTokenNameAndSymbol[0];
     currency.underlyingSymbol = underlyingTokenNameAndSymbol[1];
@@ -250,15 +250,14 @@ export function handleListCurrency(event: ListCurrency): void {
     currency.underlyingHasTransferFee = false;
   }
 
-  if (currency.tokenAddress.equals(Address.fromHexString("0xc11b1268c1a384e55c48c2391d8d480264a3a7f4"))) {
+  if (currency.tokenAddress.equals(Address.fromString("0xc11b1268c1a384e55c48c2391d8d480264a3a7f4"))) {
     // There was a mistake during mainnet deployment where cWBTC1 was listed instead of cWBTC2, it was fixed
     // but there was no event emitted so we will hardcode a patch here.
-    currency.tokenAddress = Address.fromHexString("0xccf4429db6322d5c611ee964527d42e5d685dd6a") as Bytes;
-  } else if (currency.tokenAddress.equals(Address.fromHexString("0xed36a75a9ca4f72ad0fd8f3fb56b2c9aa8cea28d"))) {
+    currency.tokenAddress = Address.fromString("0xccf4429db6322d5c611ee964527d42e5d685dd6a") as Bytes;
+  } else if (currency.tokenAddress.equals(Address.fromString("0xed36a75a9ca4f72ad0fd8f3fb56b2c9aa8cea28d"))) {
     // On kovan there are two "DAI" tokens deployed. This token refers to the AAVE test DAI token. Renaming it here.
     currency.underlyingSymbol = 'aDAI';
   }
-
 
   currency.lastUpdateBlockNumber = event.block.number.toI32();
   currency.lastUpdateTimestamp = event.block.timestamp.toI32();
@@ -379,6 +378,10 @@ export function handleDeployNToken(event: DeployNToken): void {
   nTokenEntity.totalSupply = BigInt.fromI32(0);
   nTokenEntity.integralTotalSupply = BigInt.fromI32(0);
   nTokenEntity.lastSupplyChangeTime = BigInt.fromI32(0);
+  nTokenEntity.depositShares = [];
+  nTokenEntity.leverageThresholds = [];
+  nTokenEntity.annualizedAnchorRates = [];
+  nTokenEntity.proportions = [];
 
   nTokenEntity.lastUpdateBlockNumber = event.block.number.toI32();
   nTokenEntity.lastUpdateTimestamp = event.block.timestamp.toI32();
@@ -402,7 +405,7 @@ export function handleDeployNToken(event: DeployNToken): void {
   balance.lastUpdateTransactionHash = event.transaction.hash;
   balance.save();
 
-  let balanceArray = new Array<string>(1);
+  let balanceArray = new Array<string>();
   balanceArray.push(balance.id);
   nTokenAccount.balances = balanceArray;
 
