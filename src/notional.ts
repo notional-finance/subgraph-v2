@@ -486,7 +486,7 @@ export function handleUpdateIncentiveEmissionRate(event: UpdateIncentiveEmission
   let notional = Notional.bind(event.address);
   let id = event.params.currencyId as i32;
   let nTokenEntity = getNToken(id.toString());
-  let nTokenAccountResult = notional.getNTokenAccount(nTokenEntity.tokenAddress as Address);
+  let nTokenAccountResult = notional.getNTokenAccount(Address.fromBytes(nTokenEntity.tokenAddress));
 
   // When incentives change, the nToken accumulated NOTE also changes to bring the values up to date
   let nTokenChangeObject = getNTokenChange(nTokenEntity, event);
@@ -511,7 +511,7 @@ export function handleUpdateTokenCollateralParameters(event: UpdateTokenCollater
   let notional = Notional.bind(event.address);
   let id = event.params.currencyId as i32;
   let nTokenEntity = getNToken(id.toString());
-  let nTokenAccountResult = notional.getNTokenAccount(nTokenEntity.tokenAddress as Address);
+  let nTokenAccountResult = notional.getNTokenAccount(Address.fromBytes(nTokenEntity.tokenAddress));
   let parameters = ByteArray.fromHexString(nTokenAccountResult.value4.toHexString());
 
   // LIQUIDATION_HAIRCUT_PERCENTAGE = 0;

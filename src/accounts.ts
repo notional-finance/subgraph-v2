@@ -245,8 +245,8 @@ export function updateAccount(accountAddress: Address, event: ethereum.Event): v
 export function updateNTokenPortfolio(nTokenObj: nToken, event: ethereum.Event, minter: Address | null): void {
   let notional = Notional.bind(event.address);
   let account = getAccount(nTokenObj.tokenAddress.toHexString());
-  let nTokenAccountResult = notional.getNTokenAccount(nTokenObj.tokenAddress as Address);
-  let nTokenPortfolioResult = notional.getNTokenPortfolio(nTokenObj.tokenAddress as Address);
+  let nTokenAccountResult = notional.getNTokenAccount(Address.fromBytes(nTokenObj.tokenAddress));
+  let nTokenPortfolioResult = notional.getNTokenPortfolio(Address.fromBytes(nTokenObj.tokenAddress));
   let currencyId = nTokenAccountResult.value0;
   let nTokenChangeObject = getNTokenChange(nTokenObj, event);
 
