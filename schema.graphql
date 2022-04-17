@@ -798,6 +798,12 @@ type StakedNoteBalance @entity {
   stakedNoteChanges: [StakedNoteChange!]! @derivedFrom(field: "stakedNoteBalance")
 }
 
+enum sNOTEChangeType {
+  Transfer,
+  Stake,
+  Unstake
+}
+
 type StakedNoteChange @entity {
   id: ID!
   blockHash: Bytes!
@@ -808,11 +814,15 @@ type StakedNoteChange @entity {
   account: Account!
   stakedNoteBalance: StakedNoteBalance!
 
+  sNOTEChangeType: sNOTEChangeType!
   sNOTEAmountBefore: BigInt!
   sNOTEAmountAfter: BigInt!
   ethAmountChange: BigInt!
   noteAmountChange: BigInt!
   bptAmountChange: BigInt!
+
+  sender: Bytes
+  receiver: Bytes
 }
 
 type StakedNotePool @entity {

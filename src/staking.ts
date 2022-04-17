@@ -1,10 +1,11 @@
 import { Address, BigInt, dataSource, ethereum } from "@graphprotocol/graph-ts"
 import { ERC20 } from "../generated/Notional/ERC20"
 import { BalancerVault } from "../generated/StakedNote/BalancerVault"
-import { StakedNoteBalance, StakedNoteChange, StakedNotePool, StakedNoteTvl } from "../generated/schema"
+import { StakedNoteBalance, StakedNoteChange, StakedNotePool, StakedNoteTvl, VotingPowerChange } from "../generated/schema"
 import { createDailyTvlId } from './timeseriesUpdate';
-import { sNOTE, SNoteMinted, SNoteRedeemed } from "../generated/StakedNote/sNOTE"
+import { CoolDownEnded, CoolDownStarted, DelegateChanged, DelegateVotesChanged, sNOTE, SNoteMinted, SNoteRedeemed, Transfer } from "../generated/StakedNote/sNOTE"
 import { BI_DAILY_BLOCK_UPDATE, getTvlHistoricalData } from "./notional";
+import { getDelegate } from "./note";
 
 export function handleBlockUpdates(event: ethereum.Block): void {
   handleDailyUpdates(event);
@@ -44,6 +45,9 @@ function handleDailyUpdates(event: ethereum.Block): void {
   sNOTETvl.poolBPTBalance = sNOTEContract.getPoolTokenShare(sNOTETvl.sNOTETotalSupply);
 
   let totalSupply = balancerPool.totalSupply()
+  // Handle div by zero
+  if (totalSupply.isZero()) return;
+
   sNOTETvl.poolNOTEBalance = poolTokens.value1[NOTE_INDEX.value.toI32()]
     .times(sNOTETvl.poolBPTBalance)
     .div(totalSupply);
@@ -60,7 +64,13 @@ function handleDailyUpdates(event: ethereum.Block): void {
     .times(BigInt.fromI32(10).pow(10))
     .times(BigInt.fromI32(125))
     .div(BigInt.fromI32(100));
+
+  // Handle div by zero
+  if (spotPriceDenominator.isZero()) return;
   sNOTETvl.spotPrice = spotPriceNumerator.div(spotPriceDenominator);
+
+  // Handle div by zero
+  if (sNOTETvl.spotPrice.isZero()) return;
 
   // (spotPrice * poolETHValue) / (1e18 * 1e10) + noteBalance
   sNOTETvl.totalPoolValueInNOTE =  sNOTETvl.poolNOTEBalance.plus(
@@ -189,9 +199,10 @@ export function handleSNoteMinted(event: SNoteMinted): void {
     event
   )
 
-  change.ethAmountChange = event.params.wethChangeAmount
-  change.noteAmountChange = event.params.noteChangeAmount
-  change.bptAmountChange = event.params.bptChangeAmount
+  change.sNOTEChangeType = 'Stake';
+  change.ethAmountChange = event.params.wethChangeAmount;
+  change.noteAmountChange = event.params.noteChangeAmount;
+  change.bptAmountChange = event.params.bptChangeAmount;
   change.save()
 
   let pool = getStakedNotePool(event.address.toHexString())
@@ -211,6 +222,7 @@ export function handleSNoteRedeemed(event: SNoteRedeemed): void {
     event
   )
 
+  change.sNOTEChangeType = 'Unstake';
   change.ethAmountChange = event.params.wethChangeAmount.neg()
   change.noteAmountChange = event.params.noteChangeAmount.neg()
   change.bptAmountChange = event.params.bptChangeAmount.neg()
@@ -218,4 +230,91 @@ export function handleSNoteRedeemed(event: SNoteRedeemed): void {
   
   let pool = getStakedNotePool(event.address.toHexString())
   updateStakedNotePool(event.address, pool, event);
+}
+
+export function handleSNoteTransfer(event: Transfer): void {
+  // Don't log mint or redeem transfers
+  if (event.params.from == Address.zero() || event.params.to == Address.zero()) return;
+
+  let sender = getStakedNoteBalance(event.params.from.toHexString())
+  let receiver = getStakedNoteBalance(event.params.to.toHexString())
+  let sNOTEContract = sNOTE.bind(dataSource.address())
+  let senderBalanceAfter = sNOTEContract.balanceOf(event.params.from);
+  let receiverBalanceAfter = sNOTEContract.balanceOf(event.params.to);
+  let senderBalanceChange = getStakedNoteChange(sender, event);
+  let receiverBalanceChange = getStakedNoteChange(receiver, event);
+
+  senderBalanceChange.sNOTEChangeType = 'Transfer'
+  senderBalanceChange.sender = event.params.from
+  senderBalanceChange.receiver = event.params.to
+  senderBalanceChange.sNOTEAmountAfter = senderBalanceAfter;
+  senderBalanceChange.ethAmountChange = BigInt.fromI32(0);
+  senderBalanceChange.noteAmountChange = BigInt.fromI32(0);
+  senderBalanceChange.bptAmountChange = BigInt.fromI32(0);
+  senderBalanceChange.save()
+
+  sender.lastUpdateBlockNumber = event.block.number.toI32();
+  sender.lastUpdateTimestamp = event.block.timestamp.toI32();
+  sender.lastUpdateBlockHash = event.block.hash;
+  sender.lastUpdateTransactionHash = event.transaction.hash;
+  sender.sNOTEBalance = senderBalanceAfter;
+  sender.save();
+
+  receiverBalanceChange.sNOTEChangeType = 'Transfer'
+  receiverBalanceChange.sender = event.params.from
+  receiverBalanceChange.receiver = event.params.to
+  receiverBalanceChange.sNOTEAmountAfter = receiverBalanceAfter;
+  receiverBalanceChange.ethAmountChange = BigInt.fromI32(0);
+  receiverBalanceChange.noteAmountChange = BigInt.fromI32(0);
+  receiverBalanceChange.bptAmountChange = BigInt.fromI32(0);
+  receiverBalanceChange.save()
+
+  receiver.lastUpdateBlockNumber = event.block.number.toI32();
+  receiver.lastUpdateTimestamp = event.block.timestamp.toI32();
+  receiver.lastUpdateBlockHash = event.block.hash;
+  receiver.lastUpdateTransactionHash = event.transaction.hash;
+  receiver.sNOTEBalance = receiverBalanceAfter;
+  receiver.save();
+}
+
+export function handleCoolDownEnded(event: CoolDownEnded): void {
+}
+export function handleCoolDownStarted(event: CoolDownStarted): void {
+}
+
+
+export function handleDelegateChanged(event: DelegateChanged): void {
+  let sNoteBalance = getStakedNoteBalance(event.params.delegator.toHexString());
+  sNoteBalance.lastUpdateBlockNumber = event.block.number.toI32();
+  sNoteBalance.lastUpdateTimestamp = event.block.timestamp.toI32();
+  sNoteBalance.lastUpdateBlockHash = event.block.hash;
+  sNoteBalance.lastUpdateTransactionHash = event.transaction.hash;
+  sNoteBalance.delegate = event.params.toDelegate.toHexString();
+  sNoteBalance.save();
+}
+
+export function handleDelegateVotesChanged(event: DelegateVotesChanged): void {
+  let delegate = getDelegate(event.params.delegate.toHexString())
+  delegate.lastUpdateBlockNumber = event.block.number.toI32();
+  delegate.lastUpdateTimestamp = event.block.timestamp.toI32();
+  delegate.lastUpdateBlockHash = event.block.hash;
+  delegate.lastUpdateTransactionHash = event.transaction.hash;
+  delegate.sNOTEVotingPower = event.params.newBalance;
+  delegate.totalVotingPower = delegate.NOTEVotingPower.plus(delegate.sNOTEVotingPower);
+  delegate.save();
+
+  let id = event.address.toHexString() + ":" 
+    + delegate.id + ":"
+    + event.transaction.hash.toHexString() + ":"
+    + event.logIndex.toString();
+  let powerChange = new VotingPowerChange(id)
+  powerChange.blockNumber = event.block.number.toI32();
+  powerChange.timestamp = event.block.timestamp.toI32();
+  powerChange.blockHash = event.block.hash;
+  powerChange.transactionHash = event.transaction.hash;
+  powerChange.delegate = delegate.id;
+  powerChange.source = 'sNOTE';
+  powerChange.votingPowerBefore = event.params.previousBalance;
+  powerChange.votingPowerAfter = event.params.newBalance;
+  powerChange.save();
 }

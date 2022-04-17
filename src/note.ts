@@ -2,7 +2,7 @@ import { DelegateChanged, DelegateVotesChanged, NoteERC20, Transfer } from "../g
 import { BigInt, dataSource } from "@graphprotocol/graph-ts";
 import { Delegate, NoteBalance, NoteBalanceChange, VotingPowerChange } from "../generated/schema";
 
-function getDelegate(address: string): Delegate {
+export function getDelegate(address: string): Delegate {
   let delegate = Delegate.load(address);
 
   if (delegate === null) {
@@ -107,7 +107,7 @@ export function handleTransfer(event: Transfer): void {
   receiverBalanceChange.noteBalance = receiver.id;
   receiverBalanceChange.noteBalanceBefore = receiver.noteBalance;
   receiverBalanceChange.noteBalanceAfter = receiverBalanceAfter;
-  receiverBalanceChange.receiver = event.params.from;
+  receiverBalanceChange.sender = event.params.from;
   receiverBalanceChange.receiver = event.params.to;
   receiverBalanceChange.save();
 

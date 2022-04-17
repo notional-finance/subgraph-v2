@@ -122,6 +122,16 @@ dataSources:
           handler: handleSNoteMinted
         - event: SNoteRedeemed(indexed address,uint256,uint256,uint256)
           handler: handleSNoteRedeemed
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleSNoteTransfer
+        - event: DelegateChanged(indexed address,indexed address,indexed address)
+          handler: handleDelegateChanged
+        - event: DelegateVotesChanged(indexed address,uint256,uint256)
+          handler: handleDelegateVotesChanged
+        - event: CoolDownEnded(indexed address)
+          handler: handleCoolDownEnded
+        - event: CoolDownStarted(indexed address,uint256,uint256)
+          handler: handleCoolDownStarted
       file: ./src/staking.ts
   - kind: ethereum/contract
     name: TreasuryManager
