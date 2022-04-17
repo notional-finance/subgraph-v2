@@ -65,7 +65,7 @@ dataSources:
           handler: handleDelegateVotesChanged
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleTransfer
-      file: ./src/noteERC20.ts
+      file: ./src/note.ts
   - kind: ethereum/contract
     name: Comptroller
     network: {{networkName}}

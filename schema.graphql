@@ -39,8 +39,36 @@ type Delegate @entity {
   lastUpdateBlockNumber: Int!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
+
+  sNOTEVotingPower: BigInt!
+  NOTEVotingPower: BigInt!
+  totalVotingPower: BigInt!
+  account: Account!
+
+  delegatedNote: [NoteBalance!] @derivedFrom(field: "delegate")
+  delegatedStakedNote: [StakedNoteBalance!] @derivedFrom(field: "delegate")
+  votingPowerChange: [VotingPowerChange!] @derivedFrom(field: "delegate")
   votes: [Vote!] @derivedFrom(field: "delegate")
   proposals: [Proposal!] @derivedFrom(field: "proposer")
+}
+
+enum VotingPowerSource {
+  sNOTE,
+  NOTE
+}
+
+type VotingPowerChange @entity {
+  "TokenAddress:TxnHash:LogIndex"
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+
+  source: VotingPowerSource!
+  delegate: Delegate!
+  votingPowerBefore: BigInt!
+  votingPowerAfter: BigInt!
 }
 
 type ProposalState @entity {
@@ -712,6 +740,38 @@ type IncentiveMigration @entity {
   migrationTime: BigInt!
 }
 
+type NoteBalance @entity {
+  "Account address"
+  id: ID!
+  "Provides a link to a NOTE holder's Notional accounts (if they exist)"
+  account: Account!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  delegate: Delegate
+  noteBalance: BigInt!
+  noteBalanceChanges: [NoteBalanceChange!]! @derivedFrom(field: "noteBalance")
+}
+
+type NoteBalanceChange @entity {
+  "Account address:TransactionHash:LogIndex"
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+
+  account: Account!
+  noteBalance: NoteBalance!
+
+  noteAmountBefore: BigInt!
+  noteAmountAfter: BigInt!
+  sender: Bytes!
+  receiver: Bytes!
+}
+
 type StakedNoteBalance @entity {
   "Account address"
   id: ID!
@@ -721,6 +781,7 @@ type StakedNoteBalance @entity {
   lastUpdateBlockNumber: Int!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
+  delegate: Delegate
 
   "Current sNOTE balance of the account"
   sNOTEBalance: BigInt!
