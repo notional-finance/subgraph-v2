@@ -30,8 +30,11 @@ function handleDailyUpdates(event: ethereum.Block): void {
   let sNOTETvl = getStakedNOTETvl(historicalId, tvlHistoricalData.timestamp);
 
   let sNOTEContract = sNOTE.bind(dataSource.address())
-  let WETH_INDEX = sNOTEContract.WETH_INDEX().toI32()
-  let NOTE_INDEX = sNOTEContract.NOTE_INDEX().toI32()
+  let WETH_INDEX = sNOTEContract.try_WETH_INDEX();
+  let NOTE_INDEX = sNOTEContract.try_NOTE_INDEX();
+  // These values are unavailable in the first deployment on goerli
+  if (WETH_INDEX.reverted || NOTE_INDEX.reverted) return
+
   let balancerPool = ERC20.bind(sNOTEContract.BALANCER_POOL_TOKEN())
   let balancerVault = BalancerVault.bind(sNOTEContract.BALANCER_VAULT())
   let poolTokens = balancerVault.getPoolTokens(sNOTEContract.NOTE_ETH_POOL_ID())
@@ -41,8 +44,12 @@ function handleDailyUpdates(event: ethereum.Block): void {
   sNOTETvl.poolBPTBalance = sNOTEContract.getPoolTokenShare(sNOTETvl.sNOTETotalSupply);
 
   let totalSupply = balancerPool.totalSupply()
-  sNOTETvl.poolNOTEBalance = poolTokens.value1[NOTE_INDEX].times(sNOTETvl.poolBPTBalance).div(totalSupply);
-  sNOTETvl.poolETHBalance = poolTokens.value1[WETH_INDEX].times(sNOTETvl.poolBPTBalance).div(totalSupply);
+  sNOTETvl.poolNOTEBalance = poolTokens.value1[NOTE_INDEX.value.toI32()]
+    .times(sNOTETvl.poolBPTBalance)
+    .div(totalSupply);
+  sNOTETvl.poolETHBalance = poolTokens.value1[WETH_INDEX.value.toI32()]
+    .times(sNOTETvl.poolBPTBalance)
+    .div(totalSupply);
 
   // Numerator: WETH * 5 * 1e18
   let spotPriceNumerator = sNOTETvl.poolETHBalance
