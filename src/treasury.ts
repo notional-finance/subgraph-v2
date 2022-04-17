@@ -12,8 +12,6 @@ export function getTreasury(contract: Address): Treasury {
   if (treasury == null) {
     treasury = new Treasury(id)
     treasury.contractAddress = contract;
-    treasury.tradingLimits = [];
-    treasury.managers = []
   }
 
   return treasury as Treasury
