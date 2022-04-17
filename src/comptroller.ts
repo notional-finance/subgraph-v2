@@ -8,7 +8,6 @@ import { Comptroller, DistributedSupplierComp } from '../generated/Comptroller/C
 import { Aggregator } from '../generated/Comptroller/Aggregator';
 import { COMPBalance } from '../generated/schema';
 import { createDailyTvlId } from './timeseriesUpdate';
-import { ADDRESS_ZERO } from './common';
 import { ERC20 } from '../generated/Notional/ERC20';
 import { BI_DAILY_BLOCK_UPDATE, getTvlHistoricalData } from './notional';
 
@@ -21,32 +20,32 @@ class Addresses {
 function getAddresses(network: string): Addresses {
     if (network == "goerli") {
         return {
-            notional: Address.fromHexString("0xD8229B55bD73c61D840d339491219ec6Fa667B0a") as Address,
+            notional: Address.fromString("0xD8229B55bD73c61D840d339491219ec6Fa667B0a") as Address,
             // This testnet oracle returns COMP/ETH
-            compOracle: Address.fromHexString("0x51D73fdd11555a5aCF0af8218264f0d96ec5fc3d") as Address,
-            treasuryManager: Address.fromHexString("0x8638f94155c333fd7087c012Dc51B0528bb06035") as Address
+            compOracle: Address.fromString("0x51D73fdd11555a5aCF0af8218264f0d96ec5fc3d") as Address,
+            treasuryManager: Address.fromString("0x8638f94155c333fd7087c012Dc51B0528bb06035") as Address
         }
     }
     if (network == "kovan") {
         return {
-            notional: Address.fromHexString("0x0EAE7BAdEF8f95De91fDDb74a89A786cF891Eb0e") as Address,
+            notional: Address.fromString("0x0EAE7BAdEF8f95De91fDDb74a89A786cF891Eb0e") as Address,
             // This testnet oracle returns COMP/ETH
-            compOracle: Address.fromHexString("0x9657Eb0e7c57afE5049eB8802f3811860069B31A") as Address,
-            treasuryManager: Address.fromHexString("0x049bbb3868850AEb8d606c4080A92D02CfC0b042") as Address
+            compOracle: Address.fromString("0x9657Eb0e7c57afE5049eB8802f3811860069B31A") as Address,
+            treasuryManager: Address.fromString("0x049bbb3868850AEb8d606c4080A92D02CfC0b042") as Address
         }
     }
     if (network == "mainnet") {
         return {
-            notional: Address.fromHexString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369") as Address,
+            notional: Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369") as Address,
             // This is the Chainlink COMP/USD oracle
-            compOracle: Address.fromHexString("0xdbd020caef83efd542f4de03e3cf0c28a4428bd5") as Address,
-            treasuryManager: Address.fromHexString("0x53144559c0d4a3304e2dd9dafbd685247429216d") as Address
+            compOracle: Address.fromString("0xdbd020caef83efd542f4de03e3cf0c28a4428bd5") as Address,
+            treasuryManager: Address.fromString("0x53144559c0d4a3304e2dd9dafbd685247429216d") as Address
         }
     }
     return {
-        notional: ADDRESS_ZERO(),
-        compOracle: ADDRESS_ZERO(),
-        treasuryManager: ADDRESS_ZERO()
+        notional: Address.zero(),
+        compOracle: Address.zero(),
+        treasuryManager: Address.zero()
     }
 }
 

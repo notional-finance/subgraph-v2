@@ -567,7 +567,7 @@ export function handleUpdateAuthorizedCallbackContract(event: UpdateAuthorizedCa
 
 export function handleUpdateSecondaryIncentiveRewarder(event: UpdateSecondaryIncentiveRewarder): void {
   let currencyId = event.params.currencyId as i32;
-  if (event.params.rewarder == ADDRESS_ZERO()) {
+  if (event.params.rewarder == Address.zero()) {
     log.debug('Deleted secondary incentive rewarder {}', [currencyId.toString()]);
     store.remove('SecondaryIncentiveRewarder', currencyId.toString());
   } else {

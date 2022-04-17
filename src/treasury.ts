@@ -3,7 +3,6 @@ import { StakedNoteInvestment, StakedNotePool, Treasury, TreasuryManager as Trea
 import { sNOTE } from "../generated/StakedNote/sNOTE";
 import { Fill } from "../generated/ExchangeV3/ExchangeV3";
 import { AssetsInvested, InvestmentCoolDownUpdated, ManagementTransferred, NOTEPurchaseLimitUpdated, PriceOracleUpdated, SlippageLimitUpdated, TreasuryManager } from "../generated/TreasuryManager/TreasuryManager"
-import { ADDRESS_ZERO } from "./common";
 import { getTokenNameAndSymbol } from "./notional";
 import { getStakedNotePool, updateStakedNotePool } from "./staking";
 
@@ -81,7 +80,7 @@ export function handleAssetsInvested(event: AssetsInvested): void {
 
 export function handleManagementTransferred(event: ManagementTransferred): void {
   let treasury = getTreasury(dataSource.address());
-  if (event.params.prevManager != ADDRESS_ZERO()) {
+  if (event.params.prevManager != Address.zero()) {
     let oldManager = getTreasuryManager(event.params.prevManager, event);
     oldManager.endedBlockNumber = event.block.number.toI32();
     oldManager.endedTimestamp = event.block.timestamp.toI32();
