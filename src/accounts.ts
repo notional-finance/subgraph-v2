@@ -7,26 +7,6 @@ import {Account, Asset, AssetChange, Balance, BalanceChange, nToken, nTokenChang
 import {getSettlementDate, hasIncentiveMigrationOccurred} from './common';
 import {updateMarkets} from './markets';
 
-// This class is required to get around typing errors between account portfolio objects
-class GenericAsset extends ethereum.Tuple {
-  get currencyId(): BigInt {
-    return this[0].toBigInt();
-  }
-
-  get maturity(): BigInt {
-    return this[1].toBigInt();
-  }
-
-  get assetType(): BigInt {
-    return this[2].toBigInt();
-  }
-
-  get notional(): BigInt {
-    return this[3].toBigInt();
-  }
-}
-
-
 export function convertAssetToUnderlying(notional: Notional, currencyId: i32, assetAmount: BigInt): BigInt {
   let rateResult = notional.getCurrencyAndRates(currencyId);
   let assetRate = rateResult.value3;
@@ -456,18 +436,21 @@ function updateAssets(
   let assetChangeIds = new Array<string>();
 
   for (let i: i32 = 0; i < portfolio.length; i++) {
+    let genericAsset = portfolio[i];
     // This casting is required to get around type errors in AssemblyScript
-    let genericAsset = portfolio[i] as GenericAsset
-    let currencyId = genericAsset.currencyId.toI32();
-    let maturity = genericAsset.maturity;
-    let asset = getAsset(account.id, currencyId.toString(), genericAsset.assetType.toI32(), maturity);
+    let currencyId = genericAsset[0].toBigInt().toI32()
+    let maturity = genericAsset[1].toBigInt()
+    let assetType = genericAsset[2].toBigInt().toI32()
+    let notional = genericAsset[3].toBigInt()
 
-    if (asset.notional.notEqual(genericAsset.notional)) {
+    let asset = getAsset(account.id, currencyId.toString(), assetType, maturity);
+
+    if (asset.notional.notEqual(notional)) {
       let assetChange = getAssetChange(account.id, asset, event);
-      assetChange.notionalAfter = genericAsset.notional;
+      assetChange.notionalAfter = notional;
       assetChange.save();
 
-      asset.notional = genericAsset.notional;
+      asset.notional = notional;
       asset.lastUpdateBlockNumber = event.block.number.toI32();
       asset.lastUpdateTimestamp = event.block.timestamp.toI32();
       asset.lastUpdateBlockHash = event.block.hash;
