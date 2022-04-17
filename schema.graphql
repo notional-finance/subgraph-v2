@@ -795,7 +795,27 @@ type StakedNoteBalance @entity {
   "Total amount of noteRedeemed from the pool"
   noteAmountRedeemed: BigInt!
 
+  currentCoolDown: StakedNoteCoolDown
+  coolDowns: [StakedNoteCoolDown!] @derivedFrom(field: "stakedNoteBalance")
   stakedNoteChanges: [StakedNoteChange!]! @derivedFrom(field: "stakedNoteBalance")
+}
+
+type StakedNoteCoolDown @entity {
+  id: ID!
+  startedBlockHash: Bytes!
+  startedBlockNumber: Int!
+  startedTimestamp: Int!
+  startedTransactionHash: Bytes!
+
+  endedBlockHash: Bytes
+  endedBlockNumber: Int
+  endedTimestamp: Int
+  endedTransactionHash: Bytes
+
+  stakedNoteBalance: StakedNoteBalance!
+  userEndedCoolDown: Boolean
+  redeemWindowBegin: Int!
+  redeemWindowEnd: Int!
 }
 
 enum sNOTEChangeType {

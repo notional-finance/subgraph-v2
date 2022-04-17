@@ -1,7 +1,7 @@
 import { Address, BigInt, dataSource, ethereum } from "@graphprotocol/graph-ts"
 import { ERC20 } from "../generated/Notional/ERC20"
 import { BalancerVault } from "../generated/StakedNote/BalancerVault"
-import { StakedNoteBalance, StakedNoteChange, StakedNotePool, StakedNoteTvl, VotingPowerChange } from "../generated/schema"
+import { StakedNoteBalance, StakedNoteChange, StakedNoteCoolDown, StakedNotePool, StakedNoteTvl, VotingPowerChange } from "../generated/schema"
 import { createDailyTvlId } from './timeseriesUpdate';
 import { CoolDownEnded, CoolDownStarted, DelegateChanged, DelegateVotesChanged, sNOTE, SNoteMinted, SNoteRedeemed, Transfer } from "../generated/StakedNote/sNOTE"
 import { BI_DAILY_BLOCK_UPDATE, getTvlHistoricalData } from "./notional";
@@ -91,6 +91,7 @@ function handleDailyUpdates(event: ethereum.Block): void {
   tvlHistoricalData.save();
 }
 
+
 export function getStakedNotePool(sNOTEAddress: string): StakedNotePool {
     let entity = StakedNotePool.load(sNOTEAddress);
     if (entity == null) {
@@ -134,6 +135,22 @@ function getStakedNoteChange(balance: StakedNoteBalance, event: ethereum.Event):
   entity.sNOTEAmountBefore = balance.sNOTEBalance
 
   return entity as StakedNoteChange
+}
+
+function getStakedNoteCoolDown(balance: StakedNoteBalance, event: ethereum.Event): StakedNoteCoolDown {
+  let id =
+    balance.id +
+    ":" +
+    event.transaction.hash.toHexString() +
+    ":" +
+    event.transactionLogIndex.toString()
+  let entity = new StakedNoteCoolDown(id)
+  entity.startedBlockHash = event.block.hash
+  entity.startedBlockNumber = event.block.number.toI32()
+  entity.startedTimestamp = event.block.timestamp.toI32()
+  entity.startedTransactionHash = event.transaction.hash
+  entity.stakedNoteBalance = balance.id;
+  return entity as StakedNoteCoolDown
 }
 
 function updateStakedNoteBalance(
@@ -278,10 +295,38 @@ export function handleSNoteTransfer(event: Transfer): void {
 }
 
 export function handleCoolDownEnded(event: CoolDownEnded): void {
-}
-export function handleCoolDownStarted(event: CoolDownStarted): void {
+  let balance = getStakedNoteBalance(event.params.account.toHexString())
+  let coolDown = getStakedNoteCoolDown(balance, event);
+  balance.lastUpdateBlockNumber = event.block.number.toI32();
+  balance.lastUpdateTimestamp = event.block.timestamp.toI32();
+  balance.lastUpdateBlockHash = event.block.hash;
+  balance.lastUpdateTransactionHash = event.transaction.hash;
+  balance.currentCoolDown = null;
+  balance.save()
+
+  coolDown.userEndedCoolDown = true;
+  coolDown.endedBlockNumber = event.block.number.toI32();
+  coolDown.endedTimestamp = event.block.timestamp.toI32();
+  coolDown.endedBlockHash = event.block.hash;
+  coolDown.endedTransactionHash = event.transaction.hash;
+  coolDown.save()
 }
 
+export function handleCoolDownStarted(event: CoolDownStarted): void {
+  let balance = getStakedNoteBalance(event.params.account.toHexString())
+  let coolDown = getStakedNoteCoolDown(balance, event);
+  balance.lastUpdateBlockNumber = event.block.number.toI32();
+  balance.lastUpdateTimestamp = event.block.timestamp.toI32();
+  balance.lastUpdateBlockHash = event.block.hash;
+  balance.lastUpdateTransactionHash = event.transaction.hash;
+  balance.currentCoolDown = coolDown.id;
+  balance.save()
+
+  coolDown.userEndedCoolDown = false;
+  coolDown.redeemWindowBegin = event.params.redeemWindowBegin.toI32();
+  coolDown.redeemWindowEnd = event.params.redeemWindowEnd.toI32();
+  coolDown.save()
+}
 
 export function handleDelegateChanged(event: DelegateChanged): void {
   let sNoteBalance = getStakedNoteBalance(event.params.delegator.toHexString());
