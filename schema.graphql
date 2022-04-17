@@ -502,10 +502,11 @@ enum TradeType {
   RemoveLiquidity
   PurchaseNTokenResidual
   SettleCashDebt
+  Transfer
 }
 
 type Trade @entity {
-  "Currency ID:Account:Transaction hash:logIndex"
+  "Currency ID:Account:Transaction hash:logIndex:batchIndex"
   id: ID!
   blockHash: Bytes!
   blockNumber: Int!
@@ -523,6 +524,7 @@ type Trade @entity {
   netUnderlyingCash: BigInt!
   netfCash: BigInt!
   netLiquidityTokens: BigInt
+  transferOperator: Bytes
 }
 
 type BalanceChange @entity {

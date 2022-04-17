@@ -268,10 +268,10 @@ dataSources:
         - event: nTokenResidualPurchase(indexed uint16,indexed uint40,indexed address,int256,int256)
           handler: handleNTokenResidualPurchase
         # fCash Transfers: only need to mark Trade events
-        # - event: TransferSingle(indexed address,indexed address,indexed address,uint256,uint256)
-        #   handler: handleERC115Transfer
-        # - event: TransferBatch(indexed address,indexed address,indexed address,uint256[],uint256[])
-        #   handler: handleERC115BatchTransfer
+        - event: TransferSingle(indexed address,indexed address,indexed address,uint256,uint256)
+          handler: handleERC115Transfer
+        - event: TransferBatch(indexed address,indexed address,indexed address,uint256[],uint256[])
+          handler: handleERC115BatchTransfer
         - event: LiquidateLocalCurrency(indexed address,indexed address,uint16,int256)
           handler: handleLiquidateLocalCurrency
         - event: LiquidateCollateralCurrency(indexed address,indexed address,uint16,uint16,int256,int256,int256)

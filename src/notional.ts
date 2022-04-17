@@ -32,6 +32,8 @@ import {
   ExcessReserveBalanceHarvested,
   TreasuryManagerChanged,
   ReserveBufferUpdated,
+  TransferBatch,
+  TransferSingle,
 } from '../generated/Notional/Notional';
 import { ERC20 } from '../generated/Notional/ERC20';
 
@@ -53,7 +55,7 @@ import {
   IncentiveMigration,
   SecondaryIncentiveRewarder,
 } from '../generated/schema';
-import { BASIS_POINTS, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, getTrade, QUARTER } from './common';
+import { BASIS_POINTS, decodeERC1155Id, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, getTrade, QUARTER } from './common';
 
 import {
   getEthExchangeRate,
@@ -659,7 +661,7 @@ export function handleLendBorrowTrade(event: LendBorrowTrade): void {
   let notional = Notional.bind(event.address);
 
   let currencyId = event.params.currencyId as i32;
-  let trade = getTrade(currencyId, event.params.account, event);
+  let trade = getTrade(currencyId, event.params.account, event, 0);
 
   let maturity = event.params.maturity;
   let marketIndex = getMarketIndex(maturity, event.block.timestamp)
@@ -688,7 +690,7 @@ export function handleAddRemoveLiquidity(event: AddRemoveLiquidity): void {
   let notional = Notional.bind(event.address);
 
   let currencyId = event.params.currencyId as i32;
-  let trade = getTrade(currencyId, event.params.account, event);
+  let trade = getTrade(currencyId, event.params.account, event, 0);
 
   let maturity = event.params.maturity;
   let marketIndex = getMarketIndex(maturity, event.block.timestamp)
@@ -717,7 +719,7 @@ export function handleSettledCashDebt(event: SettledCashDebt): void {
   let currencyId = event.params.currencyId as i32;
   // Settle cash debt happens at the 3 month maturity
   let maturity = BigInt.fromI32(getTimeRef(event.block.timestamp.toI32()) + QUARTER);
-  let tradeSettledAccount = getTrade(currencyId, event.params.settledAccount, event);
+  let tradeSettledAccount = getTrade(currencyId, event.params.settledAccount, event, 0);
   tradeSettledAccount.tradeType = 'SettleCashDebt';
   tradeSettledAccount.netAssetCash = event.params.amountToSettleAsset;
   tradeSettledAccount.netUnderlyingCash = convertAssetToUnderlying(notional, currencyId, tradeSettledAccount.netAssetCash);
@@ -725,7 +727,7 @@ export function handleSettledCashDebt(event: SettledCashDebt): void {
   tradeSettledAccount.maturity = maturity;
   tradeSettledAccount.save();
 
-  let tradeSettler = getTrade(currencyId, event.params.settler, event);
+  let tradeSettler = getTrade(currencyId, event.params.settler, event, 0);
   tradeSettler.tradeType = 'SettleCashDebt';
   tradeSettler.netAssetCash = event.params.amountToSettleAsset.neg();
   tradeSettler.netUnderlyingCash = convertAssetToUnderlying(notional, currencyId, tradeSettler.netAssetCash);
@@ -742,7 +744,7 @@ export function handleNTokenResidualPurchase(event: nTokenResidualPurchase): voi
 
   let currencyId = event.params.currencyId as i32;
   let nTokenAddress = notional.nTokenAddress(currencyId);
-  let tradeNToken = getTrade(currencyId, nTokenAddress, event);
+  let tradeNToken = getTrade(currencyId, nTokenAddress, event, 0);
   tradeNToken.tradeType = 'PurchaseNTokenResidual';
   tradeNToken.netAssetCash = event.params.netAssetCashNToken;
   tradeNToken.netUnderlyingCash = convertAssetToUnderlying(notional, currencyId, tradeNToken.netAssetCash);
@@ -750,7 +752,7 @@ export function handleNTokenResidualPurchase(event: nTokenResidualPurchase): voi
   tradeNToken.maturity = event.params.maturity;
   tradeNToken.save();
 
-  let tradePurchaser = getTrade(currencyId, event.params.purchaser, event);
+  let tradePurchaser = getTrade(currencyId, event.params.purchaser, event, 0);
   tradePurchaser.tradeType = 'PurchaseNTokenResidual';
   tradePurchaser.netAssetCash = event.params.netAssetCashNToken.neg();
   tradePurchaser.netUnderlyingCash = convertAssetToUnderlying(notional, currencyId, tradePurchaser.netAssetCash);
@@ -882,4 +884,68 @@ export function handleReserveBufferUpdated(event: ReserveBufferUpdated): void {
   cashGroup.reserveBuffer = event.params.bufferAmount;
   cashGroup.save();
   log.debug('Reserve buffer updated in cash group', [cashGroup.id]);
+}
+
+function logERC1155Transfer(
+  from: Address,
+  to: Address,
+  operator: Address,
+  id: BigInt,
+  value: BigInt,
+  event: ethereum.Event,
+  batchIndex: i32
+): void {
+  let decoded = decodeERC1155Id(id)
+  let currencyId = decoded[2]
+  let assetType = decoded[0]
+  let sender = getTrade(currencyId, from, event, batchIndex);
+  let receiver = getTrade(currencyId, to, event, batchIndex);
+
+  sender.tradeType = "Transfer"
+  sender.maturity = BigInt.fromI32(decoded[1])
+  sender.netAssetCash = BigInt.fromI32(0)
+  sender.transferOperator = operator;
+
+  receiver.tradeType = "Transfer"
+  receiver.maturity = BigInt.fromI32(decoded[1])
+  receiver.netAssetCash = BigInt.fromI32(0)
+  sender.transferOperator = operator;
+
+  if (assetType == 1) {
+    sender.netfCash = value.neg()
+    receiver.netfCash = value
+  } else {
+    sender.netfCash = BigInt.fromI32(0)
+    receiver.netfCash = BigInt.fromI32(0)
+    sender.netLiquidityTokens = value.neg()
+    receiver.netLiquidityTokens = value
+  }
+
+  sender.save();
+  receiver.save();
+}
+
+export function handleERC1155Transfer(event: TransferSingle): void {
+  logERC1155Transfer(
+    event.params.from,
+    event.params.to,
+    event.params.operator,
+    event.params.id,
+    event.params.value,
+    event,
+    0
+  )
+}
+export function handleERC1155BatchTransfer(event: TransferBatch): void {
+  for (let i = 0; i < event.params.ids.length; i++) {
+    logERC1155Transfer(
+      event.params.from,
+      event.params.to,
+      event.params.operator,
+      event.params.ids[i],
+      event.params.values[i],
+      event,
+      i
+    )
+  }
 }

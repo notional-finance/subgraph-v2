@@ -1,11 +1,10 @@
-import { DailyLendBorrowVolume, Trade } from '../../generated/schema'
+import { DailyLendBorrowVolume } from '../../generated/schema'
 import { Notional, LendBorrowTrade } from '../../generated/Notional/Notional';
 import { BigInt } from '@graphprotocol/graph-ts'
 import { getMarketIndex, getSettlementDate, getTrade } from '../common';
 import { convertAssetToUnderlying } from '../accounts';
 
-export function updateDailyLendBorrowVolume(event: LendBorrowTrade): DailyLendBorrowVolume
-{
+export function updateDailyLendBorrowVolume(event: LendBorrowTrade): void {
     let notional = Notional.bind(event.address);
     let timestamp = event.block.timestamp.toI32()
     let dayId = timestamp / 86400 // rounded
@@ -20,16 +19,20 @@ export function updateDailyLendBorrowVolume(event: LendBorrowTrade): DailyLendBo
     let netfCash = event.params.netfCash.abs();
     if (event.params.netAssetCash.gt(BigInt.fromI32(0))) {
         tradeType = 'Borrow';
-    } else {
+    } else if (event.params.netAssetCash.lt(BigInt.fromI32(0))) {
         tradeType = 'Lend';
+    } else {
+        // If net asset cash is zero then it is a transfer, don't log
+        // it in the daily trade volume
+        return;
     }
-    let trade = getTrade(currencyId, event.params.account, event);
+
+    let trade = getTrade(currencyId, event.params.account, event, 0);
 
     let key = dayId.toString() + ':' + currencyId.toString() + ':' + marketIndex.toString() + ':' + tradeType
     let dailyLendBorrowVolume = DailyLendBorrowVolume.load(key)
 
     if (dailyLendBorrowVolume === null) {
-
         dailyLendBorrowVolume = new DailyLendBorrowVolume(key)
         dailyLendBorrowVolume.date = dayStartTimestamp
         dailyLendBorrowVolume.currency = currencyId.toString()
@@ -49,8 +52,6 @@ export function updateDailyLendBorrowVolume(event: LendBorrowTrade): DailyLendBo
     dailyLendBorrowVolume.totalVolumeUnderlyingCash = dailyLendBorrowVolume.totalVolumeUnderlyingCash.plus(convertedAssetToUnderlying)
     dailyLendBorrowVolume.totalVolumeNetAssetCash = dailyLendBorrowVolume.totalVolumeNetAssetCash.plus(netAssetCash)
     dailyLendBorrowVolume.totalVolumeNetfCash = dailyLendBorrowVolume.totalVolumeNetfCash.plus(netfCash)
-    dailyLendBorrowVolume.txCount = dailyLendBorrowVolume.txCount.plus(BigInt.fromI32(1))
-    dailyLendBorrowVolume.save()
-    
-    return dailyLendBorrowVolume as DailyLendBorrowVolume
+    dailyLendBorrowVolume.txCount = dailyLendBorrowVolume.txCount.plus(BigInt.fromI32(1));
+    dailyLendBorrowVolume.save();
 }
