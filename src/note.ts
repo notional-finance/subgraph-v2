@@ -1,6 +1,6 @@
-import { DelegateChanged, DelegateVotesChanged, Transfer } from "../generated/NoteERC20/NoteERC20"
-import { BigInt, log } from "@graphprotocol/graph-ts";
-import { Delegate, VotingPowerChange } from "../generated/schema";
+import { DelegateChanged, DelegateVotesChanged, NoteERC20, Transfer } from "../generated/NoteERC20/NoteERC20"
+import { BigInt, dataSource } from "@graphprotocol/graph-ts";
+import { Delegate, NoteBalance, NoteBalanceChange, VotingPowerChange } from "../generated/schema";
 
 function getDelegate(address: string): Delegate {
   let delegate = Delegate.load(address);
@@ -15,9 +15,26 @@ function getDelegate(address: string): Delegate {
   return delegate as Delegate;
 }
 
+function getNoteBalance(address: string): NoteBalance {
+  let balance = NoteBalance.load(address);
+
+  if (balance === null) {
+    balance = new NoteBalance(address);
+    balance.account = address
+    balance.noteBalance = BigInt.fromI32(0);
+  }
+
+  return balance as NoteBalance;
+}
 
 export function handleDelegateChanged(event: DelegateChanged): void {
-
+  let noteBalance = getNoteBalance(event.params.delegator.toHexString());
+  noteBalance.lastUpdateBlockNumber = event.block.number.toI32();
+  noteBalance.lastUpdateTimestamp = event.block.timestamp.toI32();
+  noteBalance.lastUpdateBlockHash = event.block.hash;
+  noteBalance.lastUpdateTransactionHash = event.transaction.hash;
+  noteBalance.delegate = event.params.toDelegate.toHexString();
+  noteBalance.save();
 }
 
 export function handleDelegateVotesChanged(event: DelegateVotesChanged): void {
@@ -31,6 +48,7 @@ export function handleDelegateVotesChanged(event: DelegateVotesChanged): void {
   delegate.save();
 
   let id = event.address.toHexString() + ":" 
+    + delegate.id + ":"
     + event.transaction.hash.toHexString() + ":"
     + event.logIndex.toString();
   let powerChange = new VotingPowerChange(id)
@@ -46,5 +64,57 @@ export function handleDelegateVotesChanged(event: DelegateVotesChanged): void {
 }
 
 export function handleTransfer(event: Transfer): void {
-  log.info("Hello world", []);
+  let sender = getNoteBalance(event.params.from.toHexString());
+  let receiver = getNoteBalance(event.params.to.toHexString());
+  let NOTEContract = NoteERC20.bind(dataSource.address())
+  let senderBalanceAfter = NOTEContract.balanceOf(event.params.from);
+  let receiverBalanceAfter = NOTEContract.balanceOf(event.params.to);
+
+  let senderChangeId = event.address.toHexString() + ":" 
+    + sender.id + ":"
+    + event.transaction.hash.toHexString() + ":"
+    + event.logIndex.toString();
+  let senderBalanceChange = new NoteBalanceChange(senderChangeId)
+  senderBalanceChange.blockNumber = event.block.number.toI32();
+  senderBalanceChange.timestamp = event.block.timestamp.toI32();
+  senderBalanceChange.blockHash = event.block.hash;
+  senderBalanceChange.transactionHash = event.transaction.hash;
+  senderBalanceChange.account = sender.id;
+  senderBalanceChange.noteBalance = sender.id;
+  senderBalanceChange.noteBalanceBefore = sender.noteBalance;
+  senderBalanceChange.noteBalanceAfter = senderBalanceAfter;
+  senderBalanceChange.sender = event.params.from;
+  senderBalanceChange.receiver = event.params.to;
+  senderBalanceChange.save();
+
+  sender.lastUpdateBlockNumber = event.block.number.toI32();
+  sender.lastUpdateTimestamp = event.block.timestamp.toI32();
+  sender.lastUpdateBlockHash = event.block.hash;
+  sender.lastUpdateTransactionHash = event.transaction.hash;
+  sender.noteBalance = senderBalanceAfter;
+  sender.save();
+
+  let receiverChangeId = event.address.toHexString() + ":" 
+    + receiver.id + ":"
+    + event.transaction.hash.toHexString() + ":"
+    + event.logIndex.toString();
+  let receiverBalanceChange = new NoteBalanceChange(receiverChangeId)
+  receiverBalanceChange.blockNumber = event.block.number.toI32();
+  receiverBalanceChange.timestamp = event.block.timestamp.toI32();
+  receiverBalanceChange.blockHash = event.block.hash;
+  receiverBalanceChange.transactionHash = event.transaction.hash;
+  receiverBalanceChange.account = receiver.id;
+  receiverBalanceChange.noteBalance = receiver.id;
+  receiverBalanceChange.noteBalanceBefore = receiver.noteBalance;
+  receiverBalanceChange.noteBalanceAfter = receiverBalanceAfter;
+  receiverBalanceChange.receiver = event.params.from;
+  receiverBalanceChange.receiver = event.params.to;
+  receiverBalanceChange.save();
+
+  receiver.lastUpdateBlockNumber = event.block.number.toI32();
+  receiver.lastUpdateTimestamp = event.block.timestamp.toI32();
+  receiver.lastUpdateBlockHash = event.block.hash;
+  receiver.lastUpdateTransactionHash = event.transaction.hash;
+  receiver.noteBalance = receiverBalanceAfter;
+  receiver.save();
 }

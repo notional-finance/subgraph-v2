@@ -766,8 +766,8 @@ type NoteBalanceChange @entity {
   account: Account!
   noteBalance: NoteBalance!
 
-  noteAmountBefore: BigInt!
-  noteAmountAfter: BigInt!
+  noteBalanceBefore: BigInt!
+  noteBalanceAfter: BigInt!
   sender: Bytes!
   receiver: Bytes!
 }
