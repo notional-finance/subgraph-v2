@@ -947,6 +947,5 @@ type TreasuryTokenTrade @entity {
   takerAsset: Bytes!
   makerAssetFilledAmount: BigInt!
   takerAssetFilledAmount: BigInt!
-
-  # Slippage from oracle price
+  oraclePrice: BigInt
 }

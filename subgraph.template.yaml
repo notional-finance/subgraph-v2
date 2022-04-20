@@ -3,11 +3,11 @@ description: Notional V2 Subgraph
 repository: https://github.com/notional-finance/notional
 # Enable these lines to spin up grafting. Note that you must
 # deploy to a newly created subgraph.
-# features:
-#   - grafting
-# graft:
-#   base: QmQFAksNkZxyY6XdkEHAoWogYzouKRaq8pUCdVJoj6t2DL
-#   block: 14442856
+features:
+  - grafting
+graft:
+  base: QmR2FgtPUKn1SvpksYdQyveBYg4gwNE7awtutMvicwp8ZA
+  block: 14355876
 schema:
   file: ./schema.graphql
 dataSources:
@@ -187,6 +187,8 @@ dataSources:
           file: ./abi/ExchangeV3.json
         - name: TreasuryManager
           file: ./abi/TreasuryManager.json
+        - name: Aggregator
+          file: ./abi/Aggregator.json
       eventHandlers:
         - event: Fill(indexed address,indexed address,bytes,bytes,bytes,bytes,indexed bytes32,address,address,uint256,uint256,uint256,uint256,uint256)
           handler: handleOrderFilled
@@ -269,9 +271,9 @@ dataSources:
           handler: handleNTokenResidualPurchase
         # fCash Transfers: only need to mark Trade events
         - event: TransferSingle(indexed address,indexed address,indexed address,uint256,uint256)
-          handler: handleERC115Transfer
+          handler: handleERC1155Transfer
         - event: TransferBatch(indexed address,indexed address,indexed address,uint256[],uint256[])
-          handler: handleERC115BatchTransfer
+          handler: handleERC1155BatchTransfer
         - event: LiquidateLocalCurrency(indexed address,indexed address,uint16,int256)
           handler: handleLiquidateLocalCurrency
         - event: LiquidateCollateralCurrency(indexed address,indexed address,uint16,uint16,int256,int256,int256)

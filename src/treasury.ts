@@ -5,6 +5,7 @@ import { Fill } from "../generated/ExchangeV3/ExchangeV3";
 import { AssetsInvested, InvestmentCoolDownUpdated, ManagementTransferred, NOTEPurchaseLimitUpdated, PriceOracleUpdated, SlippageLimitUpdated, TreasuryManager } from "../generated/TreasuryManager/TreasuryManager"
 import { getTokenNameAndSymbol } from "./notional";
 import { getStakedNotePool, updateStakedNotePool } from "./staking";
+import { Aggregator } from "../generated/Comptroller/Aggregator";
 
 export function getTreasury(contract: Address): Treasury {
   let id = "0"
@@ -154,14 +155,16 @@ export function handleOrderFilled(event: Fill): void {
   trade.makerAssetFilledAmount = event.params.makerAssetFilledAmount;
   trade.takerAssetFilledAmount = event.params.takerAssetFilledAmount;
 
-  let takerAssetAddress = ethereum.decode("(address)", Bytes.fromHexString(event.params.takerAssetData.toHex().slice(8)))
-  if (takerAssetAddress !== null) {
-    trade.takerAsset = takerAssetAddress.toAddress()
-  }
-
-  let makerAssetAddress = ethereum.decode("(address)", Bytes.fromHexString(event.params.makerAssetData.toHex().slice(8)))
-  if (makerAssetAddress !== null) {
-    trade.makerAsset = makerAssetAddress.toAddress().toHexString()
+  trade.takerAsset = Address.fromBytes(Bytes.fromHexString(event.params.takerAssetData.toHex().slice(34)))
+  let makerAssetAddress = Address.fromBytes(Bytes.fromHexString(event.params.makerAssetData.toHex().slice(34)))
+  trade.makerAsset = makerAssetAddress.toHexString()
+  
+  // Record the oracle price at time of trade
+  let makerTradeLimit = getTreasuryManagerTradingLimit(makerAssetAddress)
+  if (makerTradeLimit.oracle) {
+    let priceOracle = Aggregator.bind(Address.fromBytes(makerTradeLimit.oracle!))
+    let answer = priceOracle.try_latestAnswer()
+    if (!answer.reverted) trade.oraclePrice = answer.value
   }
   trade.save()
 }
