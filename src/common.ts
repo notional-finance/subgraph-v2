@@ -75,7 +75,11 @@ export function hasIncentiveMigrationOccurred(currencyId: string): boolean {
 }
 
 export function decodeERC1155Id(id: BigInt): i32[] {
-  let bytes = ByteArray.fromHexString(id.toHexString())
+  // Pad idHex out to an even len
+  let idHex = id.toHex()
+  if (idHex.length % 2 == 1) idHex = '0' + idHex;
+
+  let bytes = ByteArray.fromHexString(idHex)
   let assetType = bytes[0] as i32
   let maturityBytes = new Bytes(4)
   maturityBytes[0] = bytes[1]
