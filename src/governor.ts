@@ -19,26 +19,15 @@ import {
 function getProposal(id: string): Proposal {
   let proposal = Proposal.load(id);
 
-  if(proposal === null) {
+  if (proposal === null) {
     proposal = new Proposal(id);
   }
 
   return proposal as Proposal;
 }
 
-function getDelegate(addressId: string): Delegate {
-  let delegate = Delegate.load(addressId);
-
-  if(delegate === null) {
-    delegate = new Delegate(addressId);
-  }
-
-  return delegate as Delegate;
-}
-
 export function handleProposalCreated(event: ProposalCreated): void {
   let proposal = getProposal(event.params.id.toString());
-  let delegate = getDelegate(event.params.proposer.toHexString());
   let proposalState = new ProposalState(event.params.id.toString() + ":" + event.block.timestamp.toString()); 
   let proposalStateHistory: string[] = proposal.history ? proposal.history! : new Array<string>();
 
@@ -48,13 +37,6 @@ export function handleProposalCreated(event: ProposalCreated): void {
   proposalState.save();
 
   proposalStateHistory.push(proposalState.id);
-
-  delegate.lastUpdateBlockHash = event.block.hash;
-  delegate.lastUpdateBlockNumber = event.block.number.toI32();
-  delegate.lastUpdateTimestamp = event.block.timestamp.toI32();
-  delegate.lastUpdateTransactionHash = event.transaction.hash;
-  delegate.save();
-
   proposal.votes = [];
 
   let targets = new Array<Bytes>();
@@ -95,7 +77,7 @@ export function handleProposalCreated(event: ProposalCreated): void {
   proposal.calldatas = calldatas;
   proposal.startBlock = event.params.startBlock.toI32();
   proposal.endBlock = event.params.endBlock.toI32();
-  proposal.proposer = delegate.id;
+  proposal.proposer = event.params.proposer.toHexString();
   proposal.lastUpdateBlockNumber = event.block.number.toI32();
   proposal.lastUpdateTimestamp = event.block.timestamp.toI32();
   proposal.lastUpdateBlockHash = event.block.hash;
@@ -150,13 +132,11 @@ export function handleProposalCanceled(event: ProposalCanceled): void {
 
 export function handleVoteCast(event: VoteCast): void {
   let proposal = getProposal(event.params.proposalId.toString());
-  let delegate = getDelegate(event.params.voter.toHexString());
   let voteId = event.params.voter.toHexString() + ':' + proposal.id;
   let vote = new Vote(voteId); 
-  let votes = proposal.votes;
 
   vote.proposal = proposal.id;
-  vote.delegate =  delegate.id;
+  vote.delegate =  event.params.voter.toHexString();
   vote.votingPower = event.params.votes;
   vote.yesToProposal = event.params.support;
   vote.lastUpdateBlockNumber = event.block.number.toI32();
@@ -165,14 +145,8 @@ export function handleVoteCast(event: VoteCast): void {
   vote.lastUpdateTransactionHash = event.transaction.hash;
   vote.save();
 
+  let votes = proposal.votes;
   votes.push(vote.id);
-
-  delegate.lastUpdateBlockHash = event.block.hash;
-  delegate.lastUpdateBlockNumber = event.block.number.toI32();
-  delegate.lastUpdateTimestamp = event.block.timestamp.toI32();
-  delegate.lastUpdateTransactionHash = event.transaction.hash;
-  delegate.save();
-
   proposal.votes = votes;
   proposal.lastUpdateBlockNumber = event.block.number.toI32();
   proposal.lastUpdateTimestamp = event.block.timestamp.toI32();

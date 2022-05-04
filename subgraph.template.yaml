@@ -6,8 +6,8 @@ repository: https://github.com/notional-finance/notional
 # features:
 #   - grafting
 # graft:
-#   base: QmQFAksNkZxyY6XdkEHAoWogYzouKRaq8pUCdVJoj6t2DL
-#   block: 14442856
+#   base: QmY6ERvYQwuLQhUsSMuJtkBmFPbFtUBDZrsGiKwR6uLnU4
+#   block: 14442800
 schema:
   file: ./schema.graphql
 dataSources:
@@ -65,7 +65,7 @@ dataSources:
           handler: handleDelegateVotesChanged
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleTransfer
-      file: ./src/noteERC20.ts
+      file: ./src/note.ts
   - kind: ethereum/contract
     name: Comptroller
     network: {{networkName}}
@@ -75,7 +75,7 @@ dataSources:
       startBlock: {{startBlock}}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.4
+      apiVersion: 0.0.6
       language: wasm/assemblyscript
       entities:
         - TvlHistoricalData
@@ -86,6 +86,8 @@ dataSources:
           file: ./abi/Aggregator.json
         - name: Notional
           file: ./abi/Notional.json
+        - name: ERC20
+          file: ./abi/ERC20.json
       eventHandlers:
         - event: DistributedSupplierComp(indexed address,indexed address,uint256,uint256)
           handler: handleDistributedSupplierComp
@@ -101,7 +103,7 @@ dataSources:
       startBlock: {{startBlock}}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.4
+      apiVersion: 0.0.6
       language: wasm/assemblyscript
       entities:
         - StakedNoteBalance
@@ -111,11 +113,25 @@ dataSources:
           file: ./abi/sNOTE.json
         - name: ERC20
           file: ./abi/ERC20.json
+        - name: BalancerVault
+          file: ./abi/BalancerVault.json
+      blockHandlers:
+        - handler: handleBlockUpdates
       eventHandlers:
         - event: SNoteMinted(indexed address,uint256,uint256,uint256)
           handler: handleSNoteMinted
         - event: SNoteRedeemed(indexed address,uint256,uint256,uint256)
           handler: handleSNoteRedeemed
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleSNoteTransfer
+        - event: DelegateChanged(indexed address,indexed address,indexed address)
+          handler: handleDelegateChanged
+        - event: DelegateVotesChanged(indexed address,uint256,uint256)
+          handler: handleDelegateVotesChanged
+        - event: CoolDownEnded(indexed address)
+          handler: handleCoolDownEnded
+        - event: CoolDownStarted(indexed address,uint256,uint256)
+          handler: handleCoolDownStarted
       file: ./src/staking.ts
   - kind: ethereum/contract
     name: TreasuryManager
@@ -126,10 +142,11 @@ dataSources:
       startBlock: {{startBlock}}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.4
+      apiVersion: 0.0.6
       language: wasm/assemblyscript
       entities:
-        - StakedNoteBuyback
+        - StakedNoteInvestment
+        - TreasuryManager
       abis:
         - name: sNOTE
           file: ./abi/sNOTE.json
@@ -140,7 +157,42 @@ dataSources:
       eventHandlers:
         - event: AssetsInvested(uint256,uint256)
           handler: handleAssetsInvested
-      file: ./src/staking.ts
+        - event: SlippageLimitUpdated(address,uint256)
+          handler: handleSlippageLimitUpdated
+        - event: PriceOracleUpdated(address,address)
+          handler: handlePriceOracleUpdated
+        - event: ManagementTransferred(address,address)
+          handler: handleManagementTransferred
+        - event: NOTEPurchaseLimitUpdated(uint256)
+          handler: handleNOTEPurchaseLimitUpdated
+        - event: InvestmentCoolDownUpdated(uint256)
+          handler: handleInvestmentCoolDownUpdated
+      file: ./src/treasury.ts
+  - kind: ethereum/contract
+    name: ExchangeV3
+    network: {{networkName}}
+    source:
+      address: '{{ staking.exchangeV3 }}'
+      abi: ExchangeV3
+      startBlock: {{startBlock}}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      entities:
+        - StakedNoteInvestment
+        - TreasuryManager
+      abis:
+        - name: ExchangeV3
+          file: ./abi/ExchangeV3.json
+        - name: TreasuryManager
+          file: ./abi/TreasuryManager.json
+        - name: Aggregator
+          file: ./abi/Aggregator.json
+      eventHandlers:
+        - event: Fill(indexed address,indexed address,bytes,bytes,bytes,bytes,indexed bytes32,address,address,uint256,uint256,uint256,uint256,uint256)
+          handler: handleOrderFilled
+      file: ./src/treasury.ts
   - kind: ethereum/contract
     name: Notional
     network: {{networkName}}
@@ -218,10 +270,10 @@ dataSources:
         - event: nTokenResidualPurchase(indexed uint16,indexed uint40,indexed address,int256,int256)
           handler: handleNTokenResidualPurchase
         # fCash Transfers: only need to mark Trade events
-        # - event: TransferSingle(indexed address,indexed address,indexed address,uint256,uint256)
-        #   handler: handleERC115Transfer
-        # - event: TransferBatch(indexed address,indexed address,indexed address,uint256[],uint256[])
-        #   handler: handleERC115BatchTransfer
+        - event: TransferSingle(indexed address,indexed address,indexed address,uint256,uint256)
+          handler: handleERC1155Transfer
+        - event: TransferBatch(indexed address,indexed address,indexed address,uint256[],uint256[])
+          handler: handleERC1155BatchTransfer
         - event: LiquidateLocalCurrency(indexed address,indexed address,uint16,int256)
           handler: handleLiquidateLocalCurrency
         - event: LiquidateCollateralCurrency(indexed address,indexed address,uint16,uint16,int256,int256,int256)

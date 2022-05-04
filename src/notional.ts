@@ -32,6 +32,8 @@ import {
   ExcessReserveBalanceHarvested,
   TreasuryManagerChanged,
   ReserveBufferUpdated,
+  TransferBatch,
+  TransferSingle,
 } from '../generated/Notional/Notional';
 import { ERC20 } from '../generated/Notional/ERC20';
 
@@ -52,9 +54,8 @@ import {
   CurrencyTvl,
   IncentiveMigration,
   SecondaryIncentiveRewarder,
-  TreasuryManager
 } from '../generated/schema';
-import { ADDRESS_ZERO, BASIS_POINTS, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, getTrade, QUARTER } from './common';
+import { BASIS_POINTS, decodeERC1155Id, getMarketIndex, getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef, getTrade, QUARTER } from './common';
 
 import {
   getEthExchangeRate,
@@ -66,17 +67,19 @@ import { convertAssetToUnderlying, getBalance, getNTokenChange, updateAccount, u
 import { 
   updateAssetExchangeRateHistoricalData, 
   updateEthExchangeRateHistoricalData, 
+  updateMarketHistoricalData, 
   updateNTokenPresentValueHistoricalData, 
   updateTvlHistoricalData
 } from './timeseriesUpdate';
+import { getTreasury } from './treasury';
 
 const LocalCurrency = 'LocalCurrency';
 const LocalFcash = 'LocalFcash';
 const CollateralCurrency = 'CollateralCurrency';
 const CrossCurrencyFcash = 'CrossCurrencyFcash';
 
-const BI_HOURLY_BLOCK_UPDATE = 138;
-const BI_DAILY_BLOCK_UPDATE = 3300;
+export const BI_HOURLY_BLOCK_UPDATE = 138;
+export const BI_DAILY_BLOCK_UPDATE = 3300;
 
 function getCurrency(id: string): Currency {
   let entity = Currency.load(id);
@@ -130,10 +133,12 @@ export function getNTokenPresentValueHistoricalData(id: string): NTokenPresentVa
   return entity as NTokenPresentValueHistoricalData;
 }
 
-export function getTvlHistoricalData(id: string): TvlHistoricalData {
+export function getTvlHistoricalData(id: string, timestamp: i32): TvlHistoricalData {
   let entity = TvlHistoricalData.load(id);
   if (entity == null) {
     entity = new TvlHistoricalData(id);
+    let roundedTimestamp = (timestamp / 86400) * 86400;
+    entity.timestamp = roundedTimestamp;
   }
   return entity as TvlHistoricalData;
 }
@@ -146,7 +151,7 @@ export function getCurrencyTvl(id: string): CurrencyTvl {
   return entity as CurrencyTvl;
 }
 
-function getTokenNameAndSymbol(tokenAddress: Address): string[] {
+export function getTokenNameAndSymbol(tokenAddress: Address): string[] {
   log.debug('Fetching token symbol and name at {}', [tokenAddress.toHexString()]);
   let erc20 = ERC20.bind(tokenAddress);
   let nameResult = erc20.try_name();
@@ -197,6 +202,7 @@ function handleHourlyUpdates(event: ethereum.Block): void {
     updateAssetExchangeRateHistoricalData(notional, currencyId, event.timestamp.toI32());
     updateEthExchangeRateHistoricalData(notional, currencyId, event.timestamp.toI32());
     updateNTokenPresentValueHistoricalData(notional, currencyId, event.timestamp.toI32());
+    updateMarketHistoricalData(notional, currencyId, event.timestamp.toI32());
   }
 }
 
@@ -232,7 +238,7 @@ export function handleListCurrency(event: ListCurrency): void {
   currency.hasTransferFee = assetToken.hasTransferFee;
   currency.maxCollateralBalance = assetToken.maxCollateralBalance;
 
-  if (underlyingToken.tokenAddress != ADDRESS_ZERO()) {
+  if (underlyingToken.tokenAddress != Address.zero()) {
     let underlyingTokenNameAndSymbol = getTokenNameAndSymbol(underlyingToken.tokenAddress);
     currency.underlyingName = underlyingTokenNameAndSymbol[0];
     currency.underlyingSymbol = underlyingTokenNameAndSymbol[1];
@@ -246,15 +252,14 @@ export function handleListCurrency(event: ListCurrency): void {
     currency.underlyingHasTransferFee = false;
   }
 
-  if (currency.tokenAddress.equals(Address.fromHexString("0xc11b1268c1a384e55c48c2391d8d480264a3a7f4"))) {
+  if (currency.tokenAddress.equals(Address.fromString("0xc11b1268c1a384e55c48c2391d8d480264a3a7f4"))) {
     // There was a mistake during mainnet deployment where cWBTC1 was listed instead of cWBTC2, it was fixed
     // but there was no event emitted so we will hardcode a patch here.
-    currency.tokenAddress = Address.fromHexString("0xccf4429db6322d5c611ee964527d42e5d685dd6a") as Bytes;
-  } else if (currency.tokenAddress.equals(Address.fromHexString("0xed36a75a9ca4f72ad0fd8f3fb56b2c9aa8cea28d"))) {
+    currency.tokenAddress = Address.fromString("0xccf4429db6322d5c611ee964527d42e5d685dd6a") as Bytes;
+  } else if (currency.tokenAddress.equals(Address.fromString("0xed36a75a9ca4f72ad0fd8f3fb56b2c9aa8cea28d"))) {
     // On kovan there are two "DAI" tokens deployed. This token refers to the AAVE test DAI token. Renaming it here.
     currency.underlyingSymbol = 'aDAI';
   }
-
 
   currency.lastUpdateBlockNumber = event.block.number.toI32();
   currency.lastUpdateTimestamp = event.block.timestamp.toI32();
@@ -375,6 +380,10 @@ export function handleDeployNToken(event: DeployNToken): void {
   nTokenEntity.totalSupply = BigInt.fromI32(0);
   nTokenEntity.integralTotalSupply = BigInt.fromI32(0);
   nTokenEntity.lastSupplyChangeTime = BigInt.fromI32(0);
+  nTokenEntity.depositShares = [];
+  nTokenEntity.leverageThresholds = [];
+  nTokenEntity.annualizedAnchorRates = [];
+  nTokenEntity.proportions = [];
 
   nTokenEntity.lastUpdateBlockNumber = event.block.number.toI32();
   nTokenEntity.lastUpdateTimestamp = event.block.timestamp.toI32();
@@ -398,7 +407,7 @@ export function handleDeployNToken(event: DeployNToken): void {
   balance.lastUpdateTransactionHash = event.transaction.hash;
   balance.save();
 
-  let balanceArray = new Array<string>(1);
+  let balanceArray = new Array<string>();
   balanceArray.push(balance.id);
   nTokenAccount.balances = balanceArray;
 
@@ -479,7 +488,7 @@ export function handleUpdateIncentiveEmissionRate(event: UpdateIncentiveEmission
   let notional = Notional.bind(event.address);
   let id = event.params.currencyId as i32;
   let nTokenEntity = getNToken(id.toString());
-  let nTokenAccountResult = notional.getNTokenAccount(nTokenEntity.tokenAddress as Address);
+  let nTokenAccountResult = notional.getNTokenAccount(Address.fromBytes(nTokenEntity.tokenAddress));
 
   // When incentives change, the nToken accumulated NOTE also changes to bring the values up to date
   let nTokenChangeObject = getNTokenChange(nTokenEntity, event);
@@ -504,7 +513,7 @@ export function handleUpdateTokenCollateralParameters(event: UpdateTokenCollater
   let notional = Notional.bind(event.address);
   let id = event.params.currencyId as i32;
   let nTokenEntity = getNToken(id.toString());
-  let nTokenAccountResult = notional.getNTokenAccount(nTokenEntity.tokenAddress as Address);
+  let nTokenAccountResult = notional.getNTokenAccount(Address.fromBytes(nTokenEntity.tokenAddress));
   let parameters = ByteArray.fromHexString(nTokenAccountResult.value4.toHexString());
 
   // LIQUIDATION_HAIRCUT_PERCENTAGE = 0;
@@ -563,7 +572,7 @@ export function handleUpdateAuthorizedCallbackContract(event: UpdateAuthorizedCa
 
 export function handleUpdateSecondaryIncentiveRewarder(event: UpdateSecondaryIncentiveRewarder): void {
   let currencyId = event.params.currencyId as i32;
-  if (event.params.rewarder == ADDRESS_ZERO()) {
+  if (event.params.rewarder == Address.zero()) {
     log.debug('Deleted secondary incentive rewarder {}', [currencyId.toString()]);
     store.remove('SecondaryIncentiveRewarder', currencyId.toString());
   } else {
@@ -652,7 +661,7 @@ export function handleLendBorrowTrade(event: LendBorrowTrade): void {
   let notional = Notional.bind(event.address);
 
   let currencyId = event.params.currencyId as i32;
-  let trade = getTrade(currencyId, event.params.account, event);
+  let trade = getTrade(currencyId, event.params.account, event, 0);
 
   let maturity = event.params.maturity;
   let marketIndex = getMarketIndex(maturity, event.block.timestamp)
@@ -681,7 +690,7 @@ export function handleAddRemoveLiquidity(event: AddRemoveLiquidity): void {
   let notional = Notional.bind(event.address);
 
   let currencyId = event.params.currencyId as i32;
-  let trade = getTrade(currencyId, event.params.account, event);
+  let trade = getTrade(currencyId, event.params.account, event, 0);
 
   let maturity = event.params.maturity;
   let marketIndex = getMarketIndex(maturity, event.block.timestamp)
@@ -710,7 +719,7 @@ export function handleSettledCashDebt(event: SettledCashDebt): void {
   let currencyId = event.params.currencyId as i32;
   // Settle cash debt happens at the 3 month maturity
   let maturity = BigInt.fromI32(getTimeRef(event.block.timestamp.toI32()) + QUARTER);
-  let tradeSettledAccount = getTrade(currencyId, event.params.settledAccount, event);
+  let tradeSettledAccount = getTrade(currencyId, event.params.settledAccount, event, 0);
   tradeSettledAccount.tradeType = 'SettleCashDebt';
   tradeSettledAccount.netAssetCash = event.params.amountToSettleAsset;
   tradeSettledAccount.netUnderlyingCash = convertAssetToUnderlying(notional, currencyId, tradeSettledAccount.netAssetCash);
@@ -718,7 +727,7 @@ export function handleSettledCashDebt(event: SettledCashDebt): void {
   tradeSettledAccount.maturity = maturity;
   tradeSettledAccount.save();
 
-  let tradeSettler = getTrade(currencyId, event.params.settler, event);
+  let tradeSettler = getTrade(currencyId, event.params.settler, event, 0);
   tradeSettler.tradeType = 'SettleCashDebt';
   tradeSettler.netAssetCash = event.params.amountToSettleAsset.neg();
   tradeSettler.netUnderlyingCash = convertAssetToUnderlying(notional, currencyId, tradeSettler.netAssetCash);
@@ -735,7 +744,7 @@ export function handleNTokenResidualPurchase(event: nTokenResidualPurchase): voi
 
   let currencyId = event.params.currencyId as i32;
   let nTokenAddress = notional.nTokenAddress(currencyId);
-  let tradeNToken = getTrade(currencyId, nTokenAddress, event);
+  let tradeNToken = getTrade(currencyId, nTokenAddress, event, 0);
   tradeNToken.tradeType = 'PurchaseNTokenResidual';
   tradeNToken.netAssetCash = event.params.netAssetCashNToken;
   tradeNToken.netUnderlyingCash = convertAssetToUnderlying(notional, currencyId, tradeNToken.netAssetCash);
@@ -743,7 +752,7 @@ export function handleNTokenResidualPurchase(event: nTokenResidualPurchase): voi
   tradeNToken.maturity = event.params.maturity;
   tradeNToken.save();
 
-  let tradePurchaser = getTrade(currencyId, event.params.purchaser, event);
+  let tradePurchaser = getTrade(currencyId, event.params.purchaser, event, 0);
   tradePurchaser.tradeType = 'PurchaseNTokenResidual';
   tradePurchaser.netAssetCash = event.params.netAssetCashNToken.neg();
   tradePurchaser.netUnderlyingCash = convertAssetToUnderlying(notional, currencyId, tradePurchaser.netAssetCash);
@@ -860,18 +869,12 @@ export function handleExcessReserveBalanceHarvested(event: ExcessReserveBalanceH
 }
 
 export function handleTreasuryManagerChanged(event: TreasuryManagerChanged): void {
-  let id = "0"
-  let manager = TreasuryManager.load(id)
-  if (manager == null) {
-    manager = new TreasuryManager(id)
-  }
-
-  manager.contractAddress = event.params.newManager;
-  manager.lastUpdateBlockNumber = event.block.number.toI32();
-  manager.lastUpdateTimestamp = event.block.timestamp.toI32();
-  manager.lastUpdateBlockHash = event.block.hash;
-  manager.lastUpdateTransactionHash = event.transaction.hash;
-  manager.save()
+  let treasury = getTreasury(event.params.newManager)
+  treasury.lastUpdateBlockNumber = event.block.number.toI32();
+  treasury.lastUpdateTimestamp = event.block.timestamp.toI32();
+  treasury.lastUpdateBlockHash = event.block.hash;
+  treasury.lastUpdateTransactionHash = event.transaction.hash;
+  treasury.save()
   log.debug('Updated treasury manager address', []);
 }
 
@@ -881,4 +884,68 @@ export function handleReserveBufferUpdated(event: ReserveBufferUpdated): void {
   cashGroup.reserveBuffer = event.params.bufferAmount;
   cashGroup.save();
   log.debug('Reserve buffer updated in cash group', [cashGroup.id]);
+}
+
+function logERC1155Transfer(
+  from: Address,
+  to: Address,
+  operator: Address,
+  id: BigInt,
+  value: BigInt,
+  event: ethereum.Event,
+  batchIndex: i32
+): void {
+  let decoded = decodeERC1155Id(id)
+  let currencyId = decoded[2]
+  let assetType = decoded[0]
+  let sender = getTrade(currencyId, from, event, batchIndex);
+  let receiver = getTrade(currencyId, to, event, batchIndex);
+
+  sender.tradeType = "Transfer"
+  sender.maturity = BigInt.fromI32(decoded[1])
+  sender.netAssetCash = BigInt.fromI32(0)
+  sender.transferOperator = operator;
+
+  receiver.tradeType = "Transfer"
+  receiver.maturity = BigInt.fromI32(decoded[1])
+  receiver.netAssetCash = BigInt.fromI32(0)
+  sender.transferOperator = operator;
+
+  if (assetType == 1) {
+    sender.netfCash = value.neg()
+    receiver.netfCash = value
+  } else {
+    sender.netfCash = BigInt.fromI32(0)
+    receiver.netfCash = BigInt.fromI32(0)
+    sender.netLiquidityTokens = value.neg()
+    receiver.netLiquidityTokens = value
+  }
+
+  sender.save();
+  receiver.save();
+}
+
+export function handleERC1155Transfer(event: TransferSingle): void {
+  logERC1155Transfer(
+    event.params.from,
+    event.params.to,
+    event.params.operator,
+    event.params.id,
+    event.params.value,
+    event,
+    0
+  )
+}
+export function handleERC1155BatchTransfer(event: TransferBatch): void {
+  for (let i = 0; i < event.params.ids.length; i++) {
+    logERC1155Transfer(
+      event.params.from,
+      event.params.to,
+      event.params.operator,
+      event.params.ids[i],
+      event.params.values[i],
+      event,
+      i
+    )
+  }
 }

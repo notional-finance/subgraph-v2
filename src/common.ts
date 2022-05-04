@@ -1,4 +1,4 @@
-import { Address, BigInt, ethereum, log } from "@graphprotocol/graph-ts";
+import { Address, BigInt, ByteArray, Bytes, ethereum, log } from "@graphprotocol/graph-ts";
 
 import { IncentiveMigration, Trade } from '../generated/schema';
 
@@ -9,10 +9,6 @@ export const WEEK = DAY * 6;
 export const MONTH = DAY * 30;
 export const QUARTER = DAY * 90;
 export const YEAR = QUARTER * 4;
-
-export function ADDRESS_ZERO(): Address {
-  return Address.fromHexString('0x0000000000000000000000000000000000000000') as Address;
-}
 
 export function getTimeRef(timestamp: i32): i32 {
   return timestamp - (timestamp % QUARTER);
@@ -36,7 +32,7 @@ export function getMarketIndex(maturity: BigInt, timestamp: BigInt): i32 {
   return 0;
 }
 
-export function getTrade(currencyId: i32, account: Address, event: ethereum.Event): Trade {
+export function getTrade(currencyId: i32, account: Address, event: ethereum.Event, batchIndex: i32): Trade {
   let id =
     currencyId.toString() +
     ':' +
@@ -44,7 +40,9 @@ export function getTrade(currencyId: i32, account: Address, event: ethereum.Even
     ':' +
     event.transaction.hash.toHexString() +
     ':' +
-    event.logIndex.toString();
+    event.logIndex.toString() +
+    ":" +
+    batchIndex.toString();
   let trade = new Trade(id);
   trade.blockHash = event.block.hash;
   trade.blockNumber = event.block.number.toI32();
@@ -74,4 +72,26 @@ export function hasIncentiveMigrationOccurred(currencyId: string): boolean {
   let migration = IncentiveMigration.load(currencyId)
   if (migration == null) return false
   return true
+}
+
+export function decodeERC1155Id(id: BigInt): i32[] {
+  // Pad idHex out to an even len
+  let idHex = id.toHex()
+  if (idHex.length % 2 == 1) idHex = '0' + idHex;
+
+  let bytes = ByteArray.fromHexString(idHex)
+  let assetType = bytes[0] as i32
+  let maturityBytes = new Bytes(4)
+  maturityBytes[0] = bytes[1]
+  maturityBytes[1] = bytes[2]
+  maturityBytes[2] = bytes[3]
+  maturityBytes[3] = bytes[4]
+  let maturity = maturityBytes.toI32()
+
+  let currencyBytes = new Bytes(4)
+  currencyBytes[0] = bytes[5]
+  currencyBytes[1] = bytes[6]
+  let currencyId = currencyBytes.toI32()
+
+  return [assetType, maturity, currencyId]
 }
