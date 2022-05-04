@@ -6,6 +6,7 @@ import { AssetsInvested, InvestmentCoolDownUpdated, ManagementTransferred, NOTEP
 import { getTokenNameAndSymbol } from "./notional";
 import { getStakedNotePool, updateStakedNotePool } from "./staking";
 import { Aggregator } from "../generated/Comptroller/Aggregator";
+import { ERC20 } from "../generated/Notional/ERC20";
 
 export function getTreasury(contract: Address): Treasury {
   let id = "0"
@@ -156,6 +157,14 @@ export function handleOrderFilled(event: Fill): void {
   trade.takerAssetFilledAmount = event.params.takerAssetFilledAmount;
 
   trade.takerAsset = Address.fromBytes(Bytes.fromHexString(event.params.takerAssetData.toHex().slice(34)))
+  let nameSymbol = getTokenNameAndSymbol(trade.takerAsset as Address)
+  trade.takerAssetName = nameSymbol[0]
+  trade.takerAssetSymbol = nameSymbol[1]
+
+  let erc20 = ERC20.bind(trade.takerAsset as Address);
+  let decimals = erc20.try_decimals();
+  if (!decimals.reverted) trade.takerAssetDecimals = decimals.value
+
   let makerAssetAddress = Address.fromBytes(Bytes.fromHexString(event.params.makerAssetData.toHex().slice(34)))
   trade.makerAsset = makerAssetAddress.toHexString()
   
@@ -164,7 +173,9 @@ export function handleOrderFilled(event: Fill): void {
   if (makerTradeLimit.oracle) {
     let priceOracle = Aggregator.bind(Address.fromBytes(makerTradeLimit.oracle!))
     let answer = priceOracle.try_latestAnswer()
+    let decimals = priceOracle.try_decimals()
     if (!answer.reverted) trade.oraclePrice = answer.value
+    if (!decimals.reverted) trade.oracleDecimals = decimals.value
   }
   trade.save()
 }
