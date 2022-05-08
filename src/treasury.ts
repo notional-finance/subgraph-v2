@@ -156,12 +156,13 @@ export function handleOrderFilled(event: Fill): void {
   trade.makerAssetFilledAmount = event.params.makerAssetFilledAmount;
   trade.takerAssetFilledAmount = event.params.takerAssetFilledAmount;
 
-  trade.takerAsset = Address.fromBytes(Bytes.fromHexString(event.params.takerAssetData.toHex().slice(34)))
-  let nameSymbol = getTokenNameAndSymbol(trade.takerAsset as Address)
+  let takerAsset = Address.fromBytes(Bytes.fromHexString(event.params.takerAssetData.toHex().slice(34)))
+  trade.takerAsset = takerAsset;
+  let nameSymbol = getTokenNameAndSymbol(takerAsset)
   trade.takerAssetName = nameSymbol[0]
   trade.takerAssetSymbol = nameSymbol[1]
 
-  let erc20 = ERC20.bind(trade.takerAsset as Address);
+  let erc20 = ERC20.bind(takerAsset);
   let decimals = erc20.try_decimals();
   if (!decimals.reverted) trade.takerAssetDecimals = decimals.value
 
