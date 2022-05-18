@@ -74,24 +74,29 @@ export function hasIncentiveMigrationOccurred(currencyId: string): boolean {
   return true
 }
 
-export function decodeERC1155Id(id: BigInt): i32[] {
-  // Pad idHex out to an even len
-  let idHex = id.toHex()
-  if (idHex.length % 2 == 1) idHex = '0' + idHex;
-
+export function decodeERC1155Id(id: BigInt): BigInt[] {
+  // Pad idHex out to a length of 18 (including the 0x prefix)
+  let idHex = id.toHexString()
+  let len = idHex.length;
+  if (len == 15) { idHex = '0x000' + idHex.slice(2) }
+  else if (len == 16) { idHex = '0x00' + idHex.slice(2) }
+  else if (len == 17) { idHex = '0x0' + idHex.slice(2) }
   let bytes = ByteArray.fromHexString(idHex)
-  let assetType = bytes[0] as i32
-  let maturityBytes = new Bytes(4)
-  maturityBytes[0] = bytes[1]
-  maturityBytes[1] = bytes[2]
-  maturityBytes[2] = bytes[3]
-  maturityBytes[3] = bytes[4]
-  let maturity = maturityBytes.toI32()
 
-  let currencyBytes = new Bytes(4)
-  currencyBytes[0] = bytes[5]
-  currencyBytes[1] = bytes[6]
+  let assetType = bytes[7] as i32
+  let maturityBytes = new Bytes(5)
+  // Parsing bytes into ints is done in reverse order
+  maturityBytes[0] = bytes[6]
+  maturityBytes[1] = bytes[5]
+  maturityBytes[2] = bytes[4]
+  maturityBytes[3] = bytes[3]
+  maturityBytes[4] = bytes[2]
+  let maturity = maturityBytes.toI64()
+
+  let currencyBytes = new Bytes(2)
+  currencyBytes[0] = bytes[1]
+  currencyBytes[1] = bytes[0]
   let currencyId = currencyBytes.toI32()
 
-  return [assetType, maturity, currencyId]
+  return [BigInt.fromI32(assetType), BigInt.fromI64(maturity), BigInt.fromI32(currencyId)]
 }

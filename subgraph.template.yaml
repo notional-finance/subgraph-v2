@@ -6,8 +6,8 @@ repository: https://github.com/notional-finance/notional
 # features:
 #   - grafting
 # graft:
-#   base: QmY6ERvYQwuLQhUsSMuJtkBmFPbFtUBDZrsGiKwR6uLnU4
-#   block: 14442800
+#   base: QmVj8wbUkmVu8jVYv5FqL9PbVnYutZeiGiBC3r4dysCg5T
+#   block: 14355884
 schema:
   file: ./schema.graphql
 dataSources:
@@ -189,6 +189,8 @@ dataSources:
           file: ./abi/TreasuryManager.json
         - name: Aggregator
           file: ./abi/Aggregator.json
+        - name: ERC20
+          file: ./abi/ERC20.json
       eventHandlers:
         - event: Fill(indexed address,indexed address,bytes,bytes,bytes,bytes,indexed bytes32,address,address,uint256,uint256,uint256,uint256,uint256)
           handler: handleOrderFilled

@@ -897,19 +897,19 @@ function logERC1155Transfer(
 ): void {
   let decoded = decodeERC1155Id(id)
   let currencyId = decoded[2]
-  let assetType = decoded[0]
-  let sender = getTrade(currencyId, from, event, batchIndex);
-  let receiver = getTrade(currencyId, to, event, batchIndex);
+  let assetType = decoded[0].toI32()
+  let sender = getTrade(currencyId.toI32(), from, event, batchIndex);
+  let receiver = getTrade(currencyId.toI32(), to, event, batchIndex);
 
   sender.tradeType = "Transfer"
-  sender.maturity = BigInt.fromI32(decoded[1])
+  sender.maturity = decoded[1]
   sender.netAssetCash = BigInt.fromI32(0)
   sender.transferOperator = operator;
 
   receiver.tradeType = "Transfer"
-  receiver.maturity = BigInt.fromI32(decoded[1])
+  receiver.maturity = decoded[1]
   receiver.netAssetCash = BigInt.fromI32(0)
-  sender.transferOperator = operator;
+  receiver.transferOperator = operator;
 
   if (assetType == 1) {
     sender.netfCash = value.neg()

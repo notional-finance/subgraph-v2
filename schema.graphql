@@ -945,7 +945,12 @@ type TreasuryTokenTrade @entity {
   makerAsset: TreasuryManagerTradingLimit!
   "Token that the taker sent back to the treasury"
   takerAsset: Bytes!
+  takerAssetSymbol: String
+  takerAssetName: String
+  takerAssetDecimals: Int
+
   makerAssetFilledAmount: BigInt!
   takerAssetFilledAmount: BigInt!
   oraclePrice: BigInt
+  oracleDecimals: Int
 }
