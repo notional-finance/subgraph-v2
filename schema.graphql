@@ -1045,6 +1045,9 @@ type StrategyVaultAccount @entity {
   strategyVault: StrategyVault!
   strategyVaultMaturity: StrategyVaultMaturity!
 
+  "Maturity that the account is currently in"
+  maturity: Int!
+
   "Vault shares held in this maturity by the account"
   vaultShares: BigInt!
   "Amount of fCash borrowed"

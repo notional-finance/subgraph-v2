@@ -2,7 +2,10 @@ import { Address, ByteArray, ethereum, BigInt } from "@graphprotocol/graph-ts";
 import { Notional, VaultPauseStatus, VaultUpdated } from "../generated/NotionalVaults/Notional";
 import { IStrategyVault } from '../generated/NotionalVaults/IStrategyVault';
 import { StrategyVault, StrategyVaultAccount, StrategyVaultCapacity, StrategyVaultDirectory, StrategyVaultMaturity, StrategyVaultTrade } from "../generated/schema";
-import { VaultBorrowCapacityChange, VaultUpdateSecondaryBorrowCapacity } from "../generated/Notional/Notional";
+import { VaultBorrowCapacityChange, VaultEnterPosition, VaultExitPostMaturity, VaultExitPreMaturity, VaultRepaySecondaryBorrow, VaultRollPosition, VaultSecondaryBorrow, VaultStateUpdate, VaultUpdateSecondaryBorrowCapacity } from "../generated/Notional/Notional";
+import { updateMarkets } from "./markets";
+import { updateNTokenPortfolio } from "./accounts";
+import { getNToken } from "./notional";
 
 export function getVaultDirectory(): StrategyVaultDirectory {
   let entity = StrategyVaultDirectory.load("0");
@@ -265,4 +268,155 @@ export function handleVaultBorrowCapacityChange(event: VaultBorrowCapacityChange
   borrowCapacity.lastUpdateBlockHash = event.block.hash;
   borrowCapacity.lastUpdateTransactionHash = event.transaction.hash;
   borrowCapacity.save()
+}
+
+function updateVaultMarkets(vault: StrategyVault, event: ethereum.Event): void {
+  let primaryBorrowCurrencyId = I32.parseInt(vault.primaryBorrowCurrency)
+  let blockTime = event.block.timestamp.toI32()
+
+  // Update markets and nToken to account for fees on enter
+  updateMarkets(primaryBorrowCurrencyId, blockTime, event)
+  
+  // Update markets for secondary borrow currencies
+  if (vault.secondaryBorrowCurrencies != null) {
+    if (vault.secondaryBorrowCurrencies!.length >= 1) {
+      let currencyId = I32.parseInt(vault.secondaryBorrowCurrencies![0])
+      if (currencyId != 0) updateMarkets(currencyId, blockTime, event)
+    }
+
+    if (vault.secondaryBorrowCurrencies!.length == 2) {
+      let currencyId = I32.parseInt(vault.secondaryBorrowCurrencies![1])
+      if (currencyId != 0) updateMarkets(currencyId, blockTime, event)
+    }
+  }
+}
+
+function updateVaultAccount(vault: StrategyVault, account: Address, event: ethereum.Event): void {
+  let vaultAccount = getVaultAccount(vault.id, account.toHexString())
+  let notional = Notional.bind(event.address)
+  let vaultAddress = Address.fromBytes(vault.vaultAddress)
+  let accountResult = notional.getVaultAccount(account, vaultAddress)
+  vaultAccount.maturity = accountResult.maturity.toI32()
+  vaultAccount.vaultShares = accountResult.vaultShares
+  vaultAccount.primaryBorrowfCash = accountResult.fCash
+    
+  if (vault.secondaryBorrowCurrencies != null) {
+    let debtShares = notional.getVaultAccountDebtShares(account, vaultAddress)
+    let secondaryBorrowDebtShares = new Array<BigInt>()
+
+    if (vault.secondaryBorrowCurrencies!.length >= 1) {
+      secondaryBorrowDebtShares.push(debtShares.value1[0])
+    }
+
+    if (vault.secondaryBorrowCurrencies!.length == 2) {
+      secondaryBorrowDebtShares.push(debtShares.value1[1])
+    }
+    vaultAccount.secondaryBorrowDebtShares = secondaryBorrowDebtShares
+  }
+
+  vaultAccount.lastUpdateBlockNumber = event.block.number.toI32();
+  vaultAccount.lastUpdateTimestamp = event.block.timestamp.toI32();
+  vaultAccount.lastUpdateBlockHash = event.block.hash;
+  vaultAccount.lastUpdateTransactionHash = event.transaction.hash;
+  vaultAccount.save()
+}
+
+function updateVaultState(vault: StrategyVault, maturity: BigInt, event: ethereum.Event): void {
+  let vaultMaturity = getVaultMaturity(vault.id, maturity.toI32())
+  let notional = Notional.bind(event.address)
+  let vaultAddress = Address.fromBytes(vault.vaultAddress)
+  let vaultState = notional.getVaultState(vaultAddress, maturity)
+
+  vaultMaturity.totalPrimaryfCashBorrowed = vaultState.totalfCash
+  vaultMaturity.totalAssetCash = vaultState.totalAssetCash
+  vaultMaturity.totalVaultShares = vaultState.totalVaultShares
+  vaultMaturity.totalStrategyTokens = vaultState.totalStrategyTokens
+
+  if (vault.secondaryBorrowCurrencies != null) {
+    let totalSecondaryfCashBorrowed = new Array<BigInt>()
+    let totalSecondaryDebtShares = new Array<BigInt>()
+
+    if (vault.secondaryBorrowCurrencies!.length >= 1) {
+      let currencyId = I32.parseInt(vault.secondaryBorrowCurrencies![0])
+      let borrow = notional.getSecondaryBorrow(vaultAddress, currencyId, maturity)
+      totalSecondaryfCashBorrowed.push(borrow.value0)
+      totalSecondaryDebtShares.push(borrow.value1)
+    }
+
+    if (vault.secondaryBorrowCurrencies!.length == 2) {
+      let currencyId = I32.parseInt(vault.secondaryBorrowCurrencies![1])
+      let borrow = notional.getSecondaryBorrow(vaultAddress, currencyId, maturity)
+      totalSecondaryfCashBorrowed.push(borrow.value0)
+      totalSecondaryDebtShares.push(borrow.value1)
+    }
+
+    vaultMaturity.totalSecondaryfCashBorrowed = totalSecondaryfCashBorrowed
+    vaultMaturity.totalSecondaryDebtShares = totalSecondaryDebtShares
+  }
+  
+  if (!vaultMaturity.isSettled && vaultState.isSettled) {
+    // NOTE: we should only ever enter this if block once
+    vaultMaturity.settlementTimestamp = event.block.timestamp.toI32()
+    vaultMaturity.settlementStrategyTokenValue = vaultState.settlementStrategyTokenValue
+    vaultMaturity.settlementRate = vault.primaryBorrowCurrency + ":" + maturity.toString()
+  }
+  vaultMaturity.isSettled = vaultState.isSettled
+
+  vaultMaturity.lastUpdateBlockNumber = event.block.number.toI32();
+  vaultMaturity.lastUpdateTimestamp = event.block.timestamp.toI32();
+  vaultMaturity.lastUpdateBlockHash = event.block.hash;
+  vaultMaturity.lastUpdateTransactionHash = event.transaction.hash;
+  vaultMaturity.save()
+}
+
+export function handleVaultEnterPosition(event: VaultEnterPosition): void {
+  let vault = getVault(event.params.vault.toHexString())
+  updateVaultMarkets(vault, event)
+  updateNTokenPortfolio(getNToken(vault.primaryBorrowCurrency), event, null);
+  updateVaultAccount(vault, event.params.account, event)
+  // TODO: trade event
+}
+
+export function handleVaultExitPreMaturity(event: VaultExitPreMaturity): void {
+  let vault = getVault(event.params.vault.toHexString())
+  // No nToken Fee to update
+  updateVaultMarkets(vault, event)
+  updateVaultAccount(vault, event.params.account, event)
+  // TODO: trade event
+}
+
+export function handleVaultRollPosition(event: VaultRollPosition): void {
+  let vault = getVault(event.params.vault.toHexString())
+  updateVaultMarkets(vault, event)
+  updateNTokenPortfolio(getNToken(vault.primaryBorrowCurrency), event, null);
+  updateVaultAccount(vault, event.params.account, event)
+  // TODO: trade event
+}
+
+export function handleVaultExitPostMaturity(event: VaultExitPostMaturity): void {
+  let vault = getVault(event.params.vault.toHexString())
+  updateVaultAccount(vault, event.params.account, event)
+  // TODO: trade event
+}
+
+export function handleVaultStateUpdate(event: VaultStateUpdate): void {
+  let vault = getVault(event.params.vault.toHexString())
+  let maturity = event.params.maturity;
+  updateVaultState(vault, maturity, event);
+}
+
+export function handleVaultSecondaryBorrow(event: VaultSecondaryBorrow): void {
+  let vault = getVault(event.params.vault.toHexString())
+  // TODO: need to emit maturity, secondary borrows do not trigger vault state update
+  // updateVaultState(vault, maturity, event);
+  updateVaultMarkets(vault, event)
+  updateVaultAccount(vault, event.params.account, event);
+}
+
+export function handleVaultRepaySecondaryBorrow(event: VaultRepaySecondaryBorrow): void {
+  let vault = getVault(event.params.vault.toHexString())
+  // TODO: need to emit maturity, secondary borrows do not trigger vault state update
+  // updateVaultState(vault, maturity, event);
+  updateVaultMarkets(vault, event)
+  updateVaultAccount(vault, event.params.account, event);
 }

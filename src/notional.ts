@@ -100,7 +100,7 @@ export function getCashGroup(id: string): CashGroup {
   return entity as CashGroup;
 }
 
-function getNToken(id: string): nToken {
+export function getNToken(id: string): nToken {
   let entity = nToken.load(id);
   if (entity == null) {
     entity = new nToken(id);

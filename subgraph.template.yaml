@@ -327,25 +327,23 @@ dataSources:
           handler: handleVaultPauseStatus
         - event: VaultUpdateSecondaryBorrowCapacity(indexed address,indexed uint16,uint80)
           handler: handleVaultUpdateSecondaryCapacity
-        # # Account Entry Events
-        # - event: VaultEnterPosition(indexed address,indexed address,indexed uint256,uint256)
-        #   handler: handleVaultUpdated
-        # - event: VaultEnterMaturity(indexed address,indexed uint256,indexed address,uint256,uint256,uint256)
-        #   handler: handleVaultUpdated
+        # Account Entry Events
+        - event: VaultEnterPosition(indexed address,indexed address,indexed uint256,uint256)
+          handler: handleVaultEnterPosition
+        - event: VaultSecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256)
+          handler: handleVaultSecondaryBorrow
         # - event: VaultFeeAccrued(indexed address,indexed uint16,int256,int256)
         #   handler: handleVaultUpdated
-        # - event: VaultSecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256)
-        #   handler: handleVaultUpdated
-        # # Account Exit Events
-        # - event: VaultExitPostMaturity(indexed address,indexed address,indexed uint256)
-        #   handler: handleVaultUpdated
-        # - event: VaultExitPreMaturity(indexed address,indexed address,indexed uint256,uint256,uint256)
-        #   handler: handleVaultUpdated
-        # - event: VaultRepaySecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256)
-        #   handler: handleVaultUpdated
-        # # Account Other Events
-        # - event: VaultRollPosition(indexed address,indexed address,indexed uint256,uint256)
-        #   handler: handleVaultUpdated
+        # Account Exit Events
+        - event: VaultExitPostMaturity(indexed address,indexed address,indexed uint256)
+          handler: handleVaultExitPostMaturity
+        - event: VaultExitPreMaturity(indexed address,indexed address,indexed uint256,uint256,uint256)
+          handler: handleVaultExitPreMaturity
+        - event: VaultRepaySecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256)
+          handler: handleVaultRepaySecondaryBorrow
+        # Account Other Events
+        - event: VaultRollPosition(indexed address,indexed address,indexed uint256,uint256)
+          handler: handleVaultRollPosition
         # - event: VaultDeleverageAccount(indexed address,indexed address,uint256,int256)
         #   handler: handleVaultUpdated
         # - event: VaultLiquidatorProfit(indexed address,indexed address,indexed address,uint256,bool)
@@ -363,9 +361,9 @@ dataSources:
         #   handler: handleVaultUpdated
         # - event: ProtocolInsolvency(indexed address,indexed uint16,int256)
         #   handler: handleVaultUpdated
-        # # Generic Vault Event
-        # - event: VaultStateUpdate(indexed address,indexed uint256,int256,uint256,uint256,uint256)
-        #   handler: handleVaultUpdated
+        # Generic Vault Event
+        - event: VaultStateUpdate(indexed address,indexed uint256,int256,uint256,uint256,uint256)
+          handler: handleVaultStateUpdate
         - event: VaultBorrowCapacityChange(indexed address,indexed uint16,uint256) 
           handler: handleVaultBorrowCapacityChange
       file: ./src/vaults.ts
