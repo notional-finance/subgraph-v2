@@ -69,7 +69,8 @@ import {
   updateEthExchangeRateHistoricalData, 
   updateMarketHistoricalData, 
   updateNTokenPresentValueHistoricalData, 
-  updateTvlHistoricalData
+  updateTvlHistoricalData,
+  updateVaultHistoricalData
 } from './timeseriesUpdate';
 import { getTreasury } from './treasury';
 
@@ -204,6 +205,8 @@ function handleHourlyUpdates(event: ethereum.Block): void {
     updateNTokenPresentValueHistoricalData(notional, currencyId, event.timestamp.toI32());
     updateMarketHistoricalData(notional, currencyId, event.timestamp.toI32());
   }
+
+  updateVaultHistoricalData(event.timestamp.toI32());
 }
 
 function handleDailyUpdates(event: ethereum.Block): void {

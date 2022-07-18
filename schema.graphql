@@ -959,6 +959,12 @@ type TreasuryTokenTrade @entity {
   oracleDecimals: Int
 }
 
+type StrategyVaultDirectory @entity {
+  "ID is always set to 0"
+  id: ID!
+  listedStrategyVaults: [StrategyVault!]!
+}
+
 type StrategyVault @entity {
   "ID is the address of the vault"
   id: ID!

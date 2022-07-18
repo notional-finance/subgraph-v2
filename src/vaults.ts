@@ -1,10 +1,21 @@
 import { Address, ByteArray, ethereum, BigInt } from "@graphprotocol/graph-ts";
 import { Notional, VaultPauseStatus, VaultUpdated } from "../generated/NotionalVaults/Notional";
 import { IStrategyVault } from '../generated/NotionalVaults/IStrategyVault';
-import { StrategyVault, StrategyVaultAccount, StrategyVaultCapacity, StrategyVaultMaturity, StrategyVaultTrade } from "../generated/schema";
+import { StrategyVault, StrategyVaultAccount, StrategyVaultCapacity, StrategyVaultDirectory, StrategyVaultMaturity, StrategyVaultTrade } from "../generated/schema";
 import { VaultBorrowCapacityChange, VaultUpdateSecondaryBorrowCapacity } from "../generated/Notional/Notional";
 
-function getVault(id: string): StrategyVault {
+export function getVaultDirectory(): StrategyVaultDirectory {
+  let entity = StrategyVaultDirectory.load("0");
+  if (entity == null) {
+    entity = new StrategyVaultDirectory("0")
+    entity.listedStrategyVaults = new Array<string>();
+  }
+
+  return entity as StrategyVaultDirectory
+}
+
+
+export function getVault(id: string): StrategyVault {
   let entity = StrategyVault.load(id);
   if (entity == null) {
     entity = new StrategyVault(id);
@@ -15,6 +26,12 @@ function getVault(id: string): StrategyVault {
     } else {
       entity.name = name.value;
     }
+
+    let directory = getVaultDirectory()
+    let listedVaults = directory.listedStrategyVaults
+    listedVaults.push(id)
+    directory.listedStrategyVaults = listedVaults;
+    directory.save();
   }
   return entity as StrategyVault
 }
