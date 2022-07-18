@@ -1116,6 +1116,7 @@ type StrategyVaultTrade @entity {
   blockNumber: Int!
   timestamp: Int!
   transactionHash: Bytes!
+  transactionOrigin: Bytes!
 
   vaultTradeType: VaultTradeType!
   isVaultAction: Boolean!
