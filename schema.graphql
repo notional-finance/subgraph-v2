@@ -1109,7 +1109,7 @@ type StrategyVaultMaturity @entity {
   "All strategy vault accounts in this maturity"
   accounts: [StrategyVaultAccount!] @derivedFrom(field: "strategyVaultMaturity")
   historicalValue: [StrategyVaultHistoricalValue!] @derivedFrom(field: "strategyVaultMaturity")
-  trades: [StrategyVaultTrade!] @derivedFrom(field: "strategyVaultMaturity")
+  events: [StrategyVaultMaturityEvent!] @derivedFrom(field: "strategyVaultMaturity")
 }
 
 enum VaultTradeType {
@@ -1118,6 +1118,7 @@ enum VaultTradeType {
   ExitPreMaturity,
   ExitPostMaturity,
   DeleverageAccount,
+  TransferFromDeleverage,
   VaultRedeemStrategyToken,
   VaultMintStrategyToken
 }
@@ -1132,40 +1133,43 @@ type StrategyVaultTrade @entity {
   transactionOrigin: Bytes!
 
   vaultTradeType: VaultTradeType!
-  isVaultAction: Boolean!
 
-  strategyVaultMaturity: StrategyVaultMaturity!
-  "Will be empty if action is a vault level action"
-  strategyVaultAccount: StrategyVaultAccount
+  strategyVaultAccount: StrategyVaultAccount!
+  strategyVaultMaturityBefore: StrategyVaultMaturity
+  strategyVaultMaturityAfter: StrategyVaultMaturity
 
   "Net change to fCash borrowed in the primary currencies"
-  primaryfCashBefore: BigInt!
-  primaryfCashAfter: BigInt!
-  netPrimaryfCashChange: BigInt!
+  primaryBorrowfCashBefore: BigInt!
+  primaryBorrowfCashAfter: BigInt!
+  netPrimaryBorrowfCashChange: BigInt!
 
   "Net change to vault shares"
   vaultSharesBefore: BigInt!
   vaultSharesAfter: BigInt!
-  netVaultShareChange: BigInt!
-
-  "Net change to strategy tokens"
-  strategyTokensBefore: BigInt!
-  strategyTokensAfter: BigInt!
-  netStrategyTokenChange: BigInt!
-
-  "Net change to asset cash"
-  assetCashBefore: BigInt!
-  assetCashAfter: BigInt!
-  netAssetCashChange: BigInt!
+  netVaultSharesChange: BigInt!
 
   "Net change to fCash borrowed in the secondary currencies"
-  secondaryfCashBefore: [BigInt!]
-  secondaryfCashAfter: [BigInt!]
-  netSecondaryfCashChange: [BigInt!]
-
-  "True if the liquidator transferred shares during liquidation"
-  didTransferInLiquidation: Boolean
+  secondaryDebtSharesBefore: [BigInt!]
+  secondaryDebtSharesAfter: [BigInt!]
+  netSecondaryDebtSharesChange: [BigInt!]
 }
+  
+type StrategyVaultMaturityEvent @entity {
+  "strategyVault:account or vault address:transaction hash:log index"
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+  transactionOrigin: Bytes!
+
+  strategyVaultMaturity: StrategyVaultMaturity!
+  "Net change to strategy tokens"
+  netStrategyTokenChange: BigInt!
+  "Net change to asset cash"
+  netAssetCashChange: BigInt!
+}
+
 
 type StrategyVaultHistoricalValue @entity {
   "strategyVault:maturity:timestamp"
