@@ -294,27 +294,38 @@ dataSources:
         - event: ReserveBufferUpdated(uint16,uint256)
           handler: handleReserveBufferUpdated
         # Strategy Vaults
+        # Vault Configuration
         - event: VaultUpdated(indexed address,bool,uint80);
           handler: handleVaultUpdated
         - event: VaultPauseStatus(indexed address,bool);
           handler: handleVaultUpdated
         - event: VaultUpdateSecondaryBorrowCapacity(indexed address,indexed uint16,uint80);
           handler: handleVaultUpdated
-        - event: VaultShortfall(indexed address,indexed uint16,int256);
+        # Account Entry Events
+        - event: VaultEnterPosition(indexed address,indexed address,indexed uint256,uint256);
           handler: handleVaultUpdated
-        - event: ProtocolInsolvency(indexed address,indexed uint16,int256);
+        - event: VaultEnterMaturity(indexed address,indexed uint256,indexed address,uint256,uint256,uint256);
           handler: handleVaultUpdated
         - event: VaultFeeAccrued(indexed address,indexed uint16,int256,int256);
           handler: handleVaultUpdated
-        - event: VaultBorrowCapacityChange(indexed address,indexed uint16,uint256); 
-          handler: handleVaultUpdated
         - event: VaultSecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256);
+          handler: handleVaultUpdated
+        # Account Exit Events
+        - event: VaultExitPostMaturity(indexed address,indexed address,indexed uint256);
+          handler: handleVaultUpdated
+        - event: VaultExitPreMaturity(indexed address,indexed address,indexed uint256,uint256,uint256);
           handler: handleVaultUpdated
         - event: VaultRepaySecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256);
           handler: handleVaultUpdated
-        - event: VaultSettledAssetsRemaining(indexed address,indexed uint256,int256,uint256);
+        # Account Other Events
+        - event: VaultRollPosition(indexed address,indexed address,indexed uint256,uint256);
           handler: handleVaultUpdated
-        - event: VaultStateUpdate(indexed address,indexed uint256,int256,uint256,uint256,uint256);
+        - event: VaultDeleverageAccount(indexed address,indexed address,uint256,int256);
+          handler: handleVaultUpdated
+        - event: VaultLiquidatorProfit(indexed address,indexed address,indexed address,uint256,bool);
+          handler: handleVaultUpdated
+        # Vault Level Events
+        - event: VaultSettledAssetsRemaining(indexed address,indexed uint256,int256,uint256);
           handler: handleVaultUpdated
         - event: VaultSettled(indexed address,indexed uint256,int256,uint256,uint256,uint256,int256);
           handler: handleVaultUpdated
@@ -322,18 +333,13 @@ dataSources:
           handler: handleVaultUpdated
         - event: VaultMintStrategyToken(indexed address,indexed uint256,uint256,uint256);
           handler: handleVaultUpdated
-        - event: VaultEnterPosition(indexed address,indexed address,indexed uint256,uint256);
+        - event: VaultShortfall(indexed address,indexed uint16,int256);
           handler: handleVaultUpdated
-        - event: VaultRollPosition(indexed address,indexed address,indexed uint256,uint256);
+        - event: ProtocolInsolvency(indexed address,indexed uint16,int256);
           handler: handleVaultUpdated
-        - event: VaultExitPostMaturity(indexed address,indexed address,indexed uint256);
+        # Generic Vault Event
+        - event: VaultStateUpdate(indexed address,indexed uint256,int256,uint256,uint256,uint256);
           handler: handleVaultUpdated
-        - event: VaultExitPreMaturity(indexed address,indexed address,indexed uint256,uint256,uint256);
-          handler: handleVaultUpdated
-        - event: VaultDeleverageAccount(indexed address,indexed address,uint256,int256);
-          handler: handleVaultUpdated
-        - event: VaultLiquidatorProfit(indexed address,indexed address,indexed address,uint256,bool);
-          handler: handleVaultUpdated
-        - event: VaultEnterMaturity(indexed address,indexed uint256,indexed address,uint256,uint256,uint256);
+        - event: VaultBorrowCapacityChange(indexed address,indexed uint16,uint256); 
           handler: handleVaultUpdated
       file: ./src/notional.ts
