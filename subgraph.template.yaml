@@ -6,8 +6,8 @@ repository: https://github.com/notional-finance/notional
 # features:
 #   - grafting
 # graft:
-#   base: QmVj8wbUkmVu8jVYv5FqL9PbVnYutZeiGiBC3r4dysCg5T
-#   block: 14355884
+#   base: QmQDrqwVzu6nU8jkicJtKqN3CfevZgLGbff5dMcQsMBpNd
+#   block: 15150000
 schema:
   file: ./schema.graphql
 dataSources:

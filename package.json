@@ -15,7 +15,7 @@
     "deploy:kovan": "yarn run prepare:kovan && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/kovan-v2",
     "deploy:goerli": "yarn run prepare:goerli && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/goerli-v2",
     "deploy:mainnet": "yarn run prepare:mainnet && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/mainnet-v2",
-    "deploy:mainnet-fork": "yarn run prepare:mainnet && yarn run codegen && yarn run graph create --node http://127.0.0.1:8020 notional-finance/mainnet-v2 && yarn run graph deploy --node http://127.0.0.1:8020/ --ipfs http://localhost:5001/ --debug-fork QmQFAksNkZxyY6XdkEHAoWogYzouKRaq8pUCdVJoj6t2DL notional-finance/mainnet-v2",
+    "deploy:mainnet-debug": "yarn run prepare:mainnet && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/mainnet-debug",
     "testenv:up": "cd ../subgraph && ./start.sh",
     "testenv:down": "cd ../subgraph && docker-compose down",
     "compile:subgraph": "yarn run prepare:local && yarn run codegen && yarn run build && yarn run deploy:local"

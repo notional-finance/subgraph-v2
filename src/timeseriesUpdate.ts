@@ -51,6 +51,7 @@ export function updateMarketHistoricalData(notional: Notional, currencyId: i32, 
     let market = getMarket(currencyId, settlementDate, maturity, marketIndex);
 
     let historicalData = getMarketHistoricalData(market.id + ":" + createHourlyId(currencyId, timestamp));
+    historicalData.market = market.id;
     historicalData.totalAssetCash = marketsResult[i].totalAssetCash;
     historicalData.totalfCash = marketsResult[i].totalfCash;
     historicalData.totalLiquidity = marketsResult[i].totalLiquidity;
