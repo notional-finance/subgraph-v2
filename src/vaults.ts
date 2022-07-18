@@ -1,8 +1,8 @@
 import { Address, ByteArray, ethereum, BigInt } from "@graphprotocol/graph-ts";
-import { Notional, VaultPauseStatus, VaultUpdated } from "../generated/NotionalVaults/Notional";
+import { Notional, VaultPauseStatus, VaultSettledAssetsRemaining, VaultUpdated } from "../generated/NotionalVaults/Notional";
 import { IStrategyVault } from '../generated/NotionalVaults/IStrategyVault';
 import { StrategyVault, StrategyVaultAccount, StrategyVaultCapacity, StrategyVaultDirectory, StrategyVaultMaturity, StrategyVaultTrade } from "../generated/schema";
-import { VaultBorrowCapacityChange, VaultEnterPosition, VaultExitPostMaturity, VaultExitPreMaturity, VaultRepaySecondaryBorrow, VaultRollPosition, VaultSecondaryBorrow, VaultStateUpdate, VaultUpdateSecondaryBorrowCapacity } from "../generated/Notional/Notional";
+import { ProtocolInsolvency, VaultBorrowCapacityChange, VaultEnterPosition, VaultExitPostMaturity, VaultExitPreMaturity, VaultFeeAccrued, VaultRepaySecondaryBorrow, VaultRollPosition, VaultSecondaryBorrow, VaultShortfall, VaultStateUpdate, VaultUpdateSecondaryBorrowCapacity } from "../generated/Notional/Notional";
 import { updateMarkets } from "./markets";
 import { updateNTokenPortfolio } from "./accounts";
 import { getNToken } from "./notional";
@@ -419,4 +419,55 @@ export function handleVaultRepaySecondaryBorrow(event: VaultRepaySecondaryBorrow
   // updateVaultState(vault, maturity, event);
   updateVaultMarkets(vault, event)
   updateVaultAccount(vault, event.params.account, event);
+}
+
+export function handleVaultFeeAccrued(event: VaultFeeAccrued): void {
+  // TODO: need to emit maturity
+  let maturity = 0;
+  let vaultMaturity = getVaultMaturity(event.params.vault.toHexString(), maturity)
+  vaultMaturity.totalNTokenFeesAccrued = vaultMaturity.totalNTokenFeesAccrued.plus(event.params.nTokenFee)
+  vaultMaturity.totalReserveFeesAccrued = vaultMaturity.totalReserveFeesAccrued.plus(event.params.reserveFee)
+  vaultMaturity.lastUpdateBlockNumber = event.block.number.toI32();
+  vaultMaturity.lastUpdateTimestamp = event.block.timestamp.toI32();
+  vaultMaturity.lastUpdateBlockHash = event.block.hash;
+  vaultMaturity.lastUpdateTransactionHash = event.transaction.hash;
+  vaultMaturity.save()
+}
+
+export function handleVaultSettledAssetsRemaining(event: VaultSettledAssetsRemaining): void {
+  let vaultMaturity = getVaultMaturity(event.params.vault.toHexString(), event.params.maturity.toI32())
+  vaultMaturity.remainingSettledAssetCash = event.params.remainingAssetCash;
+  vaultMaturity.remainingSettledStrategyTokens = event.params.remainingStrategyTokens;
+
+  vaultMaturity.lastUpdateBlockNumber = event.block.number.toI32();
+  vaultMaturity.lastUpdateTimestamp = event.block.timestamp.toI32();
+  vaultMaturity.lastUpdateBlockHash = event.block.hash;
+  vaultMaturity.lastUpdateTransactionHash = event.transaction.hash;
+  vaultMaturity.save()
+}
+
+export function handleVaultShortfall(event: VaultShortfall): void {
+  // TODO: need to emit maturity
+  let maturity = 0;
+  let vaultMaturity = getVaultMaturity(event.params.vault.toHexString(), maturity)
+  vaultMaturity.shortfall = event.params.shortfall;
+
+  vaultMaturity.lastUpdateBlockNumber = event.block.number.toI32();
+  vaultMaturity.lastUpdateTimestamp = event.block.timestamp.toI32();
+  vaultMaturity.lastUpdateBlockHash = event.block.hash;
+  vaultMaturity.lastUpdateTransactionHash = event.transaction.hash;
+  vaultMaturity.save()
+}
+
+export function handleVaultInsolvency(event: ProtocolInsolvency): void {
+  // TODO: need to emit maturity
+  let maturity = 0;
+  let vaultMaturity = getVaultMaturity(event.params.vault.toHexString(), maturity)
+  vaultMaturity.insolvency = event.params.shortfall
+
+  vaultMaturity.lastUpdateBlockNumber = event.block.number.toI32();
+  vaultMaturity.lastUpdateTimestamp = event.block.timestamp.toI32();
+  vaultMaturity.lastUpdateBlockHash = event.block.hash;
+  vaultMaturity.lastUpdateTransactionHash = event.transaction.hash;
+  vaultMaturity.save()
 }

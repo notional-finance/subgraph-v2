@@ -1101,6 +1101,10 @@ type StrategyVaultMaturity @entity {
   "Any insolvency to this vault maturity (if any)"
   insolvency: BigInt
 
+  "Asset cash remaining for accounts to withdraw post settlement"
+  remainingSettledAssetCash: BigInt
+  "Strategy tokens remaining for accounts to withdraw post settlement"
+  remainingSettledStrategyTokens: BigInt
 
   "All strategy vault accounts in this maturity"
   accounts: [StrategyVaultAccount!] @derivedFrom(field: "strategyVaultMaturity")

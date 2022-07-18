@@ -332,8 +332,8 @@ dataSources:
           handler: handleVaultEnterPosition
         - event: VaultSecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256)
           handler: handleVaultSecondaryBorrow
-        # - event: VaultFeeAccrued(indexed address,indexed uint16,int256,int256)
-        #   handler: handleVaultUpdated
+        - event: VaultFeeAccrued(indexed address,indexed uint16,int256,int256)
+          handler: handleVaultFeeAccrued
         # Account Exit Events
         - event: VaultExitPostMaturity(indexed address,indexed address,indexed uint256)
           handler: handleVaultExitPostMaturity
@@ -348,19 +348,17 @@ dataSources:
         #   handler: handleVaultUpdated
         # - event: VaultLiquidatorProfit(indexed address,indexed address,indexed address,uint256,bool)
         #   handler: handleVaultUpdated
-        # # Vault Level Events
-        # - event: VaultSettledAssetsRemaining(indexed address,indexed uint256,int256,uint256)
-        #   handler: handleVaultUpdated
-        # - event: VaultSettled(indexed address,indexed uint256,int256,uint256,uint256,uint256,int256)
-        #   handler: handleVaultUpdated
+        # Vault Level Events
+        - event: VaultSettledAssetsRemaining(indexed address,indexed uint256,int256,uint256)
+          handler: handleVaultSettledAssetsRemaining
         # - event: VaultRedeemStrategyToken(indexed address,indexed uint256,int256,uint256)
         #   handler: handleVaultUpdated
         # - event: VaultMintStrategyToken(indexed address,indexed uint256,uint256,uint256)
         #   handler: handleVaultUpdated
-        # - event: VaultShortfall(indexed address,indexed uint16,int256)
-        #   handler: handleVaultUpdated
-        # - event: ProtocolInsolvency(indexed address,indexed uint16,int256)
-        #   handler: handleVaultUpdated
+        - event: VaultShortfall(indexed address,indexed uint16,int256)
+          handler: handleVaultShortfall
+        - event: ProtocolInsolvency(indexed address,indexed uint16,int256)
+          handler: handleVaultInsolvency
         # Generic Vault Event
         - event: VaultStateUpdate(indexed address,indexed uint256,int256,uint256,uint256,uint256)
           handler: handleVaultStateUpdate
