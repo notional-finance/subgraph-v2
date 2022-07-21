@@ -1094,6 +1094,10 @@ type StrategyVaultMaturity @entity {
   settlementTimestamp: Int
   "If vault has settled, holds the value of the strategy token"
   settlementStrategyTokenValue: BigInt
+  "Snapshot of the secondary borrows in fCash prior to settlement (denominated in primary currency)"
+  settlementSecondaryBorrowfCashSnapshot: [BigInt!]
+  "Exchange rates between secondary currency and primary currency"
+  settlementSecondaryBorrowExchangeRate: [BigInt!]
   "Holds the settlement rate of the primary borrow currency"
   settlementRate: SettlementRate
   "Any shortfall to this vault maturity (if any)"

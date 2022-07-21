@@ -1,8 +1,7 @@
 import { Address, ByteArray, ethereum, BigInt } from "@graphprotocol/graph-ts";
-import { Notional, VaultPauseStatus, VaultSettledAssetsRemaining, VaultUpdated } from "../generated/NotionalVaults/Notional";
+import { Notional, VaultPauseStatus, VaultSettledAssetsRemaining, VaultUpdated,  ProtocolInsolvency, VaultBorrowCapacityChange, VaultDeleverageAccount, VaultEnterPosition, VaultExitPostMaturity, VaultExitPreMaturity, VaultFeeAccrued, VaultLiquidatorProfit, VaultMintStrategyToken, VaultRedeemStrategyToken, VaultRepaySecondaryBorrow, VaultRollPosition, VaultSecondaryBorrow, VaultSecondaryBorrowSnapshot, VaultShortfall, VaultStateUpdate, VaultUpdateSecondaryBorrowCapacity  } from "../generated/NotionalVaults/Notional";
 import { IStrategyVault } from '../generated/NotionalVaults/IStrategyVault';
 import { StrategyVault, StrategyVaultAccount, StrategyVaultCapacity, StrategyVaultDirectory, StrategyVaultMaturity, StrategyVaultMaturityEvent, StrategyVaultTrade } from "../generated/schema";
-import { ProtocolInsolvency, VaultBorrowCapacityChange, VaultDeleverageAccount, VaultEnterPosition, VaultExitPostMaturity, VaultExitPreMaturity, VaultFeeAccrued, VaultLiquidatorProfit, VaultMintStrategyToken, VaultRedeemStrategyToken, VaultRepaySecondaryBorrow, VaultRollPosition, VaultSecondaryBorrow, VaultShortfall, VaultStateUpdate, VaultUpdateSecondaryBorrowCapacity } from "../generated/Notional/Notional";
 import { updateMarkets } from "./markets";
 import { updateNTokenPortfolio } from "./accounts";
 import { getNToken } from "./notional";
@@ -434,16 +433,14 @@ export function handleVaultStateUpdate(event: VaultStateUpdate): void {
 
 export function handleVaultSecondaryBorrow(event: VaultSecondaryBorrow): void {
   let vault = getVault(event.params.vault.toHexString())
-  // TODO: need to emit maturity, secondary borrows do not trigger vault state update
-  // updateVaultState(vault, maturity, event);
+  updateVaultState(vault, event.params.maturity, event);
   updateVaultMarkets(vault, event)
   updateVaultAccount(vault, event.params.account, event);
 }
 
 export function handleVaultRepaySecondaryBorrow(event: VaultRepaySecondaryBorrow): void {
   let vault = getVault(event.params.vault.toHexString())
-  // TODO: need to emit maturity, secondary borrows do not trigger vault state update
-  // updateVaultState(vault, maturity, event);
+  updateVaultState(vault, event.params.maturity, event);
   updateVaultMarkets(vault, event)
   updateVaultAccount(vault, event.params.account, event);
 }
@@ -482,9 +479,7 @@ export function handleUpdateLiquidator(event: VaultLiquidatorProfit): void {
 }
 
 export function handleVaultFeeAccrued(event: VaultFeeAccrued): void {
-  // TODO: need to emit maturity
-  let maturity = 0;
-  let vaultMaturity = getVaultMaturity(event.params.vault.toHexString(), maturity)
+  let vaultMaturity = getVaultMaturity(event.params.vault.toHexString(), event.params.maturity.toI32())
   vaultMaturity.totalNTokenFeesAccrued = vaultMaturity.totalNTokenFeesAccrued.plus(event.params.nTokenFee)
   vaultMaturity.totalReserveFeesAccrued = vaultMaturity.totalReserveFeesAccrued.plus(event.params.reserveFee)
   vaultMaturity.lastUpdateBlockNumber = event.block.number.toI32();
@@ -507,9 +502,7 @@ export function handleVaultSettledAssetsRemaining(event: VaultSettledAssetsRemai
 }
 
 export function handleVaultShortfall(event: VaultShortfall): void {
-  // TODO: need to emit maturity
-  let maturity = 0;
-  let vaultMaturity = getVaultMaturity(event.params.vault.toHexString(), maturity)
+  let vaultMaturity = getVaultMaturity(event.params.vault.toHexString(), event.params.maturity.toI32())
   vaultMaturity.shortfall = event.params.shortfall;
 
   vaultMaturity.lastUpdateBlockNumber = event.block.number.toI32();
@@ -520,11 +513,45 @@ export function handleVaultShortfall(event: VaultShortfall): void {
 }
 
 export function handleVaultInsolvency(event: ProtocolInsolvency): void {
-  // TODO: need to emit maturity
-  let maturity = 0;
-  let vaultMaturity = getVaultMaturity(event.params.vault.toHexString(), maturity)
+  let vaultMaturity = getVaultMaturity(event.params.vault.toHexString(), event.params.maturity.toI32())
   vaultMaturity.insolvency = event.params.shortfall
 
+  vaultMaturity.lastUpdateBlockNumber = event.block.number.toI32();
+  vaultMaturity.lastUpdateTimestamp = event.block.timestamp.toI32();
+  vaultMaturity.lastUpdateBlockHash = event.block.hash;
+  vaultMaturity.lastUpdateTransactionHash = event.transaction.hash;
+  vaultMaturity.save()
+}
+
+export function handleVaultSecondaryBorrowSnapshot(event: VaultSecondaryBorrowSnapshot): void {
+  let vault = getVault(event.params.vault.toHexString())
+  let vaultMaturity = getVaultMaturity(event.params.vault.toHexString(), event.params.maturity.toI32())
+  let currencyId = event.params.currencyId.toString()
+  
+  let settlementSecondaryBorrowfCashSnapshot: Array<BigInt>
+  let settlementSecondaryBorrowExchangeRate: Array<BigInt>
+  if (vaultMaturity.settlementSecondaryBorrowfCashSnapshot == null) {
+    settlementSecondaryBorrowfCashSnapshot = getZeroArray()
+  } else {
+    settlementSecondaryBorrowfCashSnapshot = vaultMaturity.settlementSecondaryBorrowfCashSnapshot!
+  }
+
+  if (vaultMaturity.settlementSecondaryBorrowExchangeRate == null) {
+    settlementSecondaryBorrowExchangeRate = getZeroArray()
+  } else {
+    settlementSecondaryBorrowExchangeRate = vaultMaturity.settlementSecondaryBorrowExchangeRate!
+  }
+
+  if (vault.secondaryBorrowCurrencies != null && vault.secondaryBorrowCurrencies![0] == currencyId) {
+    settlementSecondaryBorrowExchangeRate[0] = event.params.exchangeRate
+    settlementSecondaryBorrowfCashSnapshot[0] = event.params.totalfCashBorrowedInPrimarySnapshot
+  } else if (vault.secondaryBorrowCurrencies != null && vault.secondaryBorrowCurrencies![1] == currencyId) {
+    settlementSecondaryBorrowExchangeRate[1] = event.params.exchangeRate
+    settlementSecondaryBorrowfCashSnapshot[1] = event.params.totalfCashBorrowedInPrimarySnapshot
+  }
+
+  vaultMaturity.settlementSecondaryBorrowExchangeRate = settlementSecondaryBorrowExchangeRate;
+  vaultMaturity.settlementSecondaryBorrowfCashSnapshot = settlementSecondaryBorrowfCashSnapshot;
   vaultMaturity.lastUpdateBlockNumber = event.block.number.toI32();
   vaultMaturity.lastUpdateTimestamp = event.block.timestamp.toI32();
   vaultMaturity.lastUpdateBlockHash = event.block.hash;

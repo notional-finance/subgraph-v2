@@ -332,16 +332,16 @@ dataSources:
         # Account Entry Events
         - event: VaultEnterPosition(indexed address,indexed address,indexed uint256,uint256)
           handler: handleVaultEnterPosition
-        - event: VaultSecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256)
+        - event: VaultSecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256,uint256)
           handler: handleVaultSecondaryBorrow
-        - event: VaultFeeAccrued(indexed address,indexed uint16,int256,int256)
+        - event: VaultFeeAccrued(indexed address,indexed uint16,indexed uint256,int256,int256)
           handler: handleVaultFeeAccrued
         # Account Exit Events
         - event: VaultExitPostMaturity(indexed address,indexed address,indexed uint256)
           handler: handleVaultExitPostMaturity
         - event: VaultExitPreMaturity(indexed address,indexed address,indexed uint256,uint256,uint256)
           handler: handleVaultExitPreMaturity
-        - event: VaultRepaySecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256)
+        - event: VaultRepaySecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256,uint256)
           handler: handleVaultRepaySecondaryBorrow
         # Account Other Events
         - event: VaultRollPosition(indexed address,indexed address,indexed uint256,uint256)
@@ -357,13 +357,15 @@ dataSources:
           handler: handleVaultRedeemStrategyToken
         - event: VaultMintStrategyToken(indexed address,indexed uint256,uint256,uint256)
           handler: handleVaultMintStrategyToken
-        - event: VaultShortfall(indexed address,indexed uint16,int256)
+        - event: VaultShortfall(indexed address,indexed uint16,indexed uint256,int256)
           handler: handleVaultShortfall
-        - event: ProtocolInsolvency(indexed address,indexed uint16,int256)
+        - event: ProtocolInsolvency(indexed address,indexed uint16,indexed uint256,int256)
           handler: handleVaultInsolvency
         # Generic Vault Event
         - event: VaultStateUpdate(indexed address,indexed uint256,int256,uint256,uint256,uint256)
           handler: handleVaultStateUpdate
         - event: VaultBorrowCapacityChange(indexed address,indexed uint16,uint256) 
           handler: handleVaultBorrowCapacityChange
+        - event: VaultSecondaryBorrowSnapshot(indexed address,indexed uint16,indexed uint256,int256,int256)
+          handler: handleVaultSecondaryBorrowSnapshot
       file: ./src/vaults.ts
