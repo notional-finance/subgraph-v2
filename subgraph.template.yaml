@@ -319,8 +319,6 @@ dataSources:
           file: ./abi/Notional.json
         - name: IStrategyVault
           file: ./abi/IStrategyVault.json
-      blockHandlers:
-        - handler: handleBlockUpdates
       eventHandlers:
         # Vault Configuration
         - event: VaultUpdated(indexed address,bool,uint80)

@@ -974,8 +974,10 @@ type StrategyVault @entity {
   lastUpdateTransactionHash: Bytes!
   "Address of the strategy vault"
   vaultAddress: Bytes!
+  "Strategy identifier for the vault"
+  strategy: Bytes!
   "Name of the strategy vault"
-  name: String
+  name: String!
   "Primary currency the vault borrows in"
   primaryBorrowCurrency: Currency!
   "Minimum amount of primary currency that must be borrowed"

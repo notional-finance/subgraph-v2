@@ -58,6 +58,11 @@ export function getVault(id: string): StrategyVault {
   if (entity == null) {
     entity = new StrategyVault(id)
     let vaultContract = IStrategyVault.bind(Address.fromString(id))
+    
+    // This identifier must exist in order for the UI to function properly
+    let strategy = vaultContract.strategy()
+    entity.strategy = strategy;
+
     let name = vaultContract.try_name()
     if (name.reverted) {
       entity.name = "unknown"
