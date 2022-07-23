@@ -57,7 +57,8 @@ export function getVault(id: string): StrategyVault {
   let entity = StrategyVault.load(id)
   if (entity == null) {
     entity = new StrategyVault(id)
-    let vaultContract = IStrategyVault.bind(Address.fromString(id))
+    let vaultAddress = Address.fromString(id);
+    let vaultContract = IStrategyVault.bind(vaultAddress)
     
     // This identifier must exist in order for the UI to function properly
     let strategy = vaultContract.strategy()
@@ -111,6 +112,7 @@ function getVaultCapacity(vault: string): StrategyVaultCapacity {
   if (entity == null) {
     entity = new StrategyVaultCapacity(id)
     entity.strategyVault = vault
+    entity.totalUsedPrimaryBorrowCapacity = BigInt.fromI32(0)
   }
 
   return entity as StrategyVaultCapacity
@@ -213,8 +215,12 @@ function setVaultTrade(
 function checkFlag(flags: ByteArray, position: u8): boolean {
   if (position < 8) {
     let mask = 2 ** position
-    return (flags[3] & mask) == mask
+    return (flags[0] & mask) == mask
+  } else if (position < 16) {
+    let mask = 2 ** position
+    return (flags[1] & mask) == mask
   }
+
   return false
 }
 
@@ -241,6 +247,7 @@ export function handleVaultUpdated(event: VaultUpdated): void {
   let notional = Notional.bind(event.address)
   let vaultConfig = notional.getVaultConfig(event.params.vault)
 
+  vault.vaultAddress = event.params.vault;
   vault.primaryBorrowCurrency = vaultConfig.borrowCurrencyId.toString()
   vault.minAccountBorrowSize = vaultConfig.minAccountBorrowSize
   vault.minCollateralRatioBasisPoints = vaultConfig.minCollateralRatio.toI32()
