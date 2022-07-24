@@ -6,8 +6,8 @@ repository: https://github.com/notional-finance/notional
 # features:
 #   - grafting
 # graft:
-#   base: QmQDrqwVzu6nU8jkicJtKqN3CfevZgLGbff5dMcQsMBpNd
-#   block: 15150000
+#   base: QmQWrr6RKhPVnVLU3D95SAnFZzeYzN8HyrEYpCuCiEFTyU
+#   block: 7272000
 schema:
   file: ./schema.graphql
 dataSources:
@@ -326,7 +326,7 @@ dataSources:
         - event: VaultPauseStatus(indexed address,bool)
           handler: handleVaultPauseStatus
         - event: VaultUpdateSecondaryBorrowCapacity(indexed address,indexed uint16,uint80)
-          handler: handleVaultUpdateSecondaryCapacity
+          handler: handleVaultUpdateSecondaryBorrowCapacity
         # Account Entry Events
         - event: VaultEnterPosition(indexed address,indexed address,indexed uint256,uint256)
           handler: handleVaultEnterPosition

@@ -133,6 +133,7 @@ function getVaultMaturityEvent(
     event.logIndex.toString()
 
   let entity = new StrategyVaultMaturityEvent(id)
+  entity.strategyVaultMaturity = vault + ":" + maturity.toString()
   entity.blockHash = event.block.hash
   entity.blockNumber = event.block.number.toI32()
   entity.timestamp = event.block.timestamp.toI32()
@@ -324,6 +325,10 @@ export function handleVaultUpdateSecondaryBorrowCapacity(
     maxSecondaryBorrowCapacity[1] = event.params.maxSecondaryBorrowCapacity
   }
 
+  if (borrowCapacity.totalUsedSecondaryBorrowCapacity == null) {
+    borrowCapacity.totalUsedSecondaryBorrowCapacity = getZeroArray()
+  }
+
   borrowCapacity.maxSecondaryBorrowCapacity = maxSecondaryBorrowCapacity
   borrowCapacity.lastUpdateBlockNumber = event.block.number.toI32()
   borrowCapacity.lastUpdateTimestamp = event.block.timestamp.toI32()
@@ -393,6 +398,7 @@ function updateVaultAccount(
   vaultAccount.maturity = accountResult.maturity.toI32()
   vaultAccount.vaultShares = accountResult.vaultShares
   vaultAccount.primaryBorrowfCash = accountResult.fCash
+  vaultAccount.strategyVaultMaturity = vault.id + ":" + accountResult.maturity.toI32().toString()
 
   if (vault.secondaryBorrowCurrencies != null) {
     let debtShares = notional.getVaultAccountDebtShares(account, vaultAddress)
