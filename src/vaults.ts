@@ -57,12 +57,12 @@ export function getVault(id: string): StrategyVault {
   let entity = StrategyVault.load(id)
   if (entity == null) {
     entity = new StrategyVault(id)
-    let vaultAddress = Address.fromString(id);
+    let vaultAddress = Address.fromString(id)
     let vaultContract = IStrategyVault.bind(vaultAddress)
-    
+
     // This identifier must exist in order for the UI to function properly
     let strategy = vaultContract.strategy()
-    entity.strategy = strategy;
+    entity.strategy = strategy
 
     let name = vaultContract.try_name()
     if (name.reverted) {
@@ -248,7 +248,7 @@ export function handleVaultUpdated(event: VaultUpdated): void {
   let notional = Notional.bind(event.address)
   let vaultConfig = notional.getVaultConfig(event.params.vault)
 
-  vault.vaultAddress = event.params.vault;
+  vault.vaultAddress = event.params.vault
   vault.primaryBorrowCurrency = vaultConfig.borrowCurrencyId.toString()
   vault.minAccountBorrowSize = vaultConfig.minAccountBorrowSize
   vault.minCollateralRatioBasisPoints = vaultConfig.minCollateralRatio.toI32()
@@ -468,6 +468,7 @@ export function handleVaultEnterPosition(event: VaultEnterPosition): void {
   updateVaultMarkets(vault, event)
   updateNTokenPortfolio(getNToken(vault.primaryBorrowCurrency), event, null)
   let accountAfter = updateVaultAccount(vault, event.params.account, event)
+  // TODO: VaultEnterMaturity has more metadata not available here...
   setVaultTrade(vault.id, accountBefore, accountAfter, "EnterPosition", event)
 }
 
@@ -486,6 +487,8 @@ export function handleVaultRollPosition(event: VaultRollPosition): void {
   updateVaultMarkets(vault, event)
   updateNTokenPortfolio(getNToken(vault.primaryBorrowCurrency), event, null)
   let accountAfter = updateVaultAccount(vault, event.params.account, event)
+  // TODO: VaultEnterMaturity has more metadata not available here, we should attempt to detect
+  // if this is a roll position or enter position based on the previous maturity
   setVaultTrade(vault.id, accountBefore, accountAfter, "RollPosition", event)
 }
 
