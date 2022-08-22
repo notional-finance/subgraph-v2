@@ -24,13 +24,13 @@ import {
 } from "../generated/NotionalVaults/Notional"
 import { IStrategyVault } from "../generated/NotionalVaults/IStrategyVault"
 import {
-  StrategyVault,
-  StrategyVaultAccount,
-  StrategyVaultCapacity,
-  StrategyVaultDirectory,
-  StrategyVaultMaturity,
-  StrategyVaultMaturityEvent,
-  StrategyVaultTrade,
+  LeveragedVault,
+  LeveragedVaultAccount,
+  LeveragedVaultCapacity,
+  LeveragedVaultDirectory,
+  LeveragedVaultMaturity,
+  LeveragedVaultMaturityEvent,
+  LeveragedVaultTrade,
 } from "../generated/schema"
 import { updateMarkets } from "./markets"
 import { updateNTokenPortfolio } from "./accounts"
@@ -43,20 +43,20 @@ function getZeroArray(): Array<BigInt> {
   return arr
 }
 
-export function getVaultDirectory(): StrategyVaultDirectory {
-  let entity = StrategyVaultDirectory.load("0")
+export function getVaultDirectory(): LeveragedVaultDirectory {
+  let entity = LeveragedVaultDirectory.load("0")
   if (entity == null) {
-    entity = new StrategyVaultDirectory("0")
-    entity.listedStrategyVaults = new Array<string>()
+    entity = new LeveragedVaultDirectory("0")
+    entity.listedLeveragedVaults = new Array<string>()
   }
 
-  return entity as StrategyVaultDirectory
+  return entity as LeveragedVaultDirectory
 }
 
-export function getVault(id: string): StrategyVault {
-  let entity = StrategyVault.load(id)
+export function getVault(id: string): LeveragedVault {
+  let entity = LeveragedVault.load(id)
   if (entity == null) {
-    entity = new StrategyVault(id)
+    entity = new LeveragedVault(id)
     let vaultAddress = Address.fromString(id)
     let vaultContract = IStrategyVault.bind(vaultAddress)
 
@@ -72,57 +72,57 @@ export function getVault(id: string): StrategyVault {
     }
 
     let directory = getVaultDirectory()
-    let listedVaults = directory.listedStrategyVaults
+    let listedVaults = directory.listedLeveragedVaults
     listedVaults.push(id)
-    directory.listedStrategyVaults = listedVaults
+    directory.listedLeveragedVaults = listedVaults
     directory.save()
   }
-  return entity as StrategyVault
+  return entity as LeveragedVault
 }
 
-function getVaultAccount(vault: string, account: string): StrategyVaultAccount {
+function getVaultAccount(vault: string, account: string): LeveragedVaultAccount {
   let id = vault + ":" + account
-  let entity = StrategyVaultAccount.load(id)
+  let entity = LeveragedVaultAccount.load(id)
   if (entity == null) {
-    entity = new StrategyVaultAccount(id)
-    entity.strategyVault = vault
+    entity = new LeveragedVaultAccount(id)
+    entity.leveragedVault = vault
     entity.account = account
     entity.vaultShares = BigInt.fromI32(0)
     entity.primaryBorrowfCash = BigInt.fromI32(0)
   }
 
-  return entity as StrategyVaultAccount
+  return entity as LeveragedVaultAccount
 }
 
-function getVaultMaturity(vault: string, maturity: i32): StrategyVaultMaturity {
+function getVaultMaturity(vault: string, maturity: i32): LeveragedVaultMaturity {
   let id = vault + ":" + maturity.toString()
-  let entity = StrategyVaultMaturity.load(id)
+  let entity = LeveragedVaultMaturity.load(id)
   if (entity == null) {
-    entity = new StrategyVaultMaturity(id)
-    entity.strategyVault = vault
+    entity = new LeveragedVaultMaturity(id)
+    entity.leveragedVault = vault
     entity.maturity = maturity
   }
 
-  return entity as StrategyVaultMaturity
+  return entity as LeveragedVaultMaturity
 }
 
-function getVaultCapacity(vault: string): StrategyVaultCapacity {
+function getVaultCapacity(vault: string): LeveragedVaultCapacity {
   let id = vault
-  let entity = StrategyVaultCapacity.load(id)
+  let entity = LeveragedVaultCapacity.load(id)
   if (entity == null) {
-    entity = new StrategyVaultCapacity(id)
-    entity.strategyVault = vault
+    entity = new LeveragedVaultCapacity(id)
+    entity.leveragedVault = vault
     entity.totalUsedPrimaryBorrowCapacity = BigInt.fromI32(0)
   }
 
-  return entity as StrategyVaultCapacity
+  return entity as LeveragedVaultCapacity
 }
 
 function getVaultMaturityEvent(
   vault: string,
   maturity: i32,
   event: ethereum.Event
-): StrategyVaultMaturityEvent {
+): LeveragedVaultMaturityEvent {
   let id =
     vault +
     ":" +
@@ -132,21 +132,21 @@ function getVaultMaturityEvent(
     ":" +
     event.logIndex.toString()
 
-  let entity = new StrategyVaultMaturityEvent(id)
-  entity.strategyVaultMaturity = vault + ":" + maturity.toString()
+  let entity = new LeveragedVaultMaturityEvent(id)
+  entity.leveragedVaultMaturity = vault + ":" + maturity.toString()
   entity.blockHash = event.block.hash
   entity.blockNumber = event.block.number.toI32()
   entity.timestamp = event.block.timestamp.toI32()
   entity.transactionHash = event.transaction.hash
   entity.transactionOrigin = event.transaction.from
 
-  return entity as StrategyVaultMaturityEvent
+  return entity as LeveragedVaultMaturityEvent
 }
 
 function setVaultTrade(
   vault: string,
-  accountBefore: StrategyVaultAccount,
-  accountAfter: StrategyVaultAccount,
+  accountBefore: LeveragedVaultAccount,
+  accountAfter: LeveragedVaultAccount,
   vaultTradeType: string,
   event: ethereum.Event
 ): void {
@@ -161,21 +161,21 @@ function setVaultTrade(
     ":" +
     event.logIndex.toString()
 
-  let entity = new StrategyVaultTrade(id)
+  let entity = new LeveragedVaultTrade(id)
   entity.blockHash = event.block.hash
   entity.blockNumber = event.block.number.toI32()
   entity.timestamp = event.block.timestamp.toI32()
   entity.transactionHash = event.transaction.hash
   entity.transactionOrigin = event.transaction.from
-  entity.strategyVaultAccount = accountBefore.id
+  entity.leveragedVaultAccount = accountBefore.id
   entity.vaultTradeType = vaultTradeType
 
-  entity.strategyVaultMaturityBefore = accountBefore.strategyVaultMaturity
+  entity.leveragedVaultMaturityBefore = accountBefore.leveragedVaultMaturity
   entity.primaryBorrowfCashBefore = accountBefore.primaryBorrowfCash
   entity.vaultSharesBefore = accountBefore.vaultShares
   entity.secondaryDebtSharesBefore = accountBefore.secondaryBorrowDebtShares
 
-  entity.strategyVaultMaturityAfter = accountAfter.strategyVaultMaturity
+  entity.leveragedVaultMaturityAfter = accountAfter.leveragedVaultMaturity
   entity.primaryBorrowfCashAfter = accountAfter.primaryBorrowfCash
   entity.vaultSharesAfter = accountAfter.vaultShares
   entity.secondaryDebtSharesAfter = accountBefore.secondaryBorrowDebtShares
@@ -225,7 +225,7 @@ function checkFlag(flags: ByteArray, position: u8): boolean {
   return false
 }
 
-function getSecondaryBorrowCurrencyIndex(vault: StrategyVault, currencyId: string): usize {
+function getSecondaryBorrowCurrencyIndex(vault: LeveragedVault, currencyId: string): usize {
   if (vault.secondaryBorrowCurrencies == null) {
     return -1
   } else if (
@@ -369,7 +369,7 @@ export function handleVaultBorrowCapacityChange(event: VaultBorrowCapacityChange
   borrowCapacity.save()
 }
 
-function updateVaultMarkets(vault: StrategyVault, event: ethereum.Event): void {
+function updateVaultMarkets(vault: LeveragedVault, event: ethereum.Event): void {
   let primaryBorrowCurrencyId = I32.parseInt(vault.primaryBorrowCurrency)
   let blockTime = event.block.timestamp.toI32()
 
@@ -387,10 +387,10 @@ function updateVaultMarkets(vault: StrategyVault, event: ethereum.Event): void {
 }
 
 function updateVaultAccount(
-  vault: StrategyVault,
+  vault: LeveragedVault,
   account: Address,
   event: ethereum.Event
-): StrategyVaultAccount {
+): LeveragedVaultAccount {
   let vaultAccount = getVaultAccount(vault.id, account.toHexString())
   let notional = Notional.bind(event.address)
   let vaultAddress = Address.fromBytes(vault.vaultAddress)
@@ -398,7 +398,7 @@ function updateVaultAccount(
   vaultAccount.maturity = accountResult.maturity.toI32()
   vaultAccount.vaultShares = accountResult.vaultShares
   vaultAccount.primaryBorrowfCash = accountResult.fCash
-  vaultAccount.strategyVaultMaturity = vault.id + ":" + accountResult.maturity.toI32().toString()
+  vaultAccount.leveragedVaultMaturity = vault.id + ":" + accountResult.maturity.toI32().toString()
 
   if (vault.secondaryBorrowCurrencies != null) {
     let debtShares = notional.getVaultAccountDebtShares(account, vaultAddress)
@@ -414,7 +414,7 @@ function updateVaultAccount(
   return vaultAccount
 }
 
-function updateVaultState(vault: StrategyVault, maturity: BigInt, event: ethereum.Event): void {
+function updateVaultState(vault: LeveragedVault, maturity: BigInt, event: ethereum.Event): void {
   let vaultMaturity = getVaultMaturity(vault.id, maturity.toI32())
   let notional = Notional.bind(event.address)
   let vaultAddress = Address.fromBytes(vault.vaultAddress)

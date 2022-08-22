@@ -150,7 +150,7 @@ type Currency @entity {
   nTokenPresentValueHistoricalData: [NTokenPresentValueHistoricalData!] @derivedFrom(field: "currency")
 
   "Strategy vaults that use this currency as a primary borrow"
-  strategyVaults: [StrategyVault!] @derivedFrom(field: "primaryBorrowCurrency")
+  leveragedVaults: [LeveragedVault!] @derivedFrom(field: "primaryBorrowCurrency")
 }
 
 type EthExchangeRate @entity {
@@ -379,7 +379,7 @@ type Account @entity {
   balanceChanges: [BalanceChange!] @derivedFrom(field: "account")
   assetChanges: [AssetChange!] @derivedFrom(field: "account")
   nTokenChanges: [nTokenChange!] @derivedFrom(field: "account")
-  strategyVaults: [StrategyVaultAccount!] @derivedFrom(field: "account")
+  leveragedVaults: [LeveragedVaultAccount!] @derivedFrom(field: "account")
 
   stakedNoteBalance: StakedNoteBalance @derivedFrom(field: "account")
   stakedNoteChanges: [StakedNoteChange!] @derivedFrom(field: "account")
@@ -959,13 +959,13 @@ type TreasuryTokenTrade @entity {
   oracleDecimals: Int
 }
 
-type StrategyVaultDirectory @entity {
+type LeveragedVaultDirectory @entity {
   "ID is always set to 0"
   id: ID!
-  listedStrategyVaults: [StrategyVault!]!
+  listedLeveragedVaults: [LeveragedVault!]!
 }
 
-type StrategyVault @entity {
+type LeveragedVault @entity {
   "ID is the address of the vault"
   id: ID!
   lastUpdateBlockHash: Bytes!
@@ -1014,11 +1014,11 @@ type StrategyVault @entity {
   allowsReentrancy: Boolean!
 
   "All maturities of this strategy vault"
-  maturities: [StrategyVaultMaturity!] @derivedFrom(field: "strategyVault")
-  vaultCapacity: StrategyVaultCapacity! @derivedFrom(field: "strategyVault")
+  maturities: [LeveragedVaultMaturity!] @derivedFrom(field: "leveragedVault")
+  vaultCapacity: LeveragedVaultCapacity! @derivedFrom(field: "leveragedVault")
 }
 
-type StrategyVaultCapacity @entity {
+type LeveragedVaultCapacity @entity {
   "ID is the address of the vault"
   id: ID!
   lastUpdateBlockHash: Bytes!
@@ -1026,7 +1026,7 @@ type StrategyVaultCapacity @entity {
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
 
-  strategyVault: StrategyVault!
+  leveragedVault: LeveragedVault!
 
   maxPrimaryBorrowCapacity: BigInt!
   totalUsedPrimaryBorrowCapacity: BigInt!
@@ -1035,7 +1035,7 @@ type StrategyVaultCapacity @entity {
   totalUsedSecondaryBorrowCapacity: [BigInt!]
 }
 
-type StrategyVaultAccount @entity {
+type LeveragedVaultAccount @entity {
   "ID is the address of the vault:address of account"
   id: ID!
   lastUpdateBlockHash: Bytes!
@@ -1044,8 +1044,8 @@ type StrategyVaultAccount @entity {
   lastUpdateTransactionHash: Bytes!
 
   account: Account!
-  strategyVault: StrategyVault!
-  strategyVaultMaturity: StrategyVaultMaturity!
+  leveragedVault: LeveragedVault!
+  leveragedVaultMaturity: LeveragedVaultMaturity!
 
   "Maturity that the account is currently in"
   maturity: Int!
@@ -1057,10 +1057,10 @@ type StrategyVaultAccount @entity {
 
   "Debt shares of the secondary borrow currencies"
   secondaryBorrowDebtShares: [BigInt!]
-  trades: [StrategyVaultTrade!] @derivedFrom(field: "strategyVaultAccount")
+  trades: [LeveragedVaultTrade!] @derivedFrom(field: "leveragedVaultAccount")
 }
 
-type StrategyVaultMaturity @entity {
+type LeveragedVaultMaturity @entity {
   "ID is the address of the vault:maturity"
   id: ID!
   lastUpdateBlockHash: Bytes!
@@ -1068,7 +1068,7 @@ type StrategyVaultMaturity @entity {
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
 
-  strategyVault: StrategyVault!
+  leveragedVault: LeveragedVault!
 
   "Maturity of the given vault"
   maturity: Int!
@@ -1113,9 +1113,9 @@ type StrategyVaultMaturity @entity {
   remainingSettledStrategyTokens: BigInt
 
   "All strategy vault accounts in this maturity"
-  accounts: [StrategyVaultAccount!] @derivedFrom(field: "strategyVaultMaturity")
-  historicalValue: [StrategyVaultHistoricalValue!] @derivedFrom(field: "strategyVaultMaturity")
-  events: [StrategyVaultMaturityEvent!] @derivedFrom(field: "strategyVaultMaturity")
+  accounts: [LeveragedVaultAccount!] @derivedFrom(field: "leveragedVaultMaturity")
+  historicalValue: [LeveragedVaultHistoricalValue!] @derivedFrom(field: "leveragedVaultMaturity")
+  events: [LeveragedVaultMaturityEvent!] @derivedFrom(field: "leveragedVaultMaturity")
 }
 
 enum VaultTradeType {
@@ -1129,8 +1129,8 @@ enum VaultTradeType {
   VaultMintStrategyToken
 }
 
-type StrategyVaultTrade @entity {
-  "strategyVault:account or vault address:transaction hash:log index"
+type LeveragedVaultTrade @entity {
+  "leveragedVault:account or vault address:transaction hash:log index"
   id: ID!
   blockHash: Bytes!
   blockNumber: Int!
@@ -1140,9 +1140,9 @@ type StrategyVaultTrade @entity {
 
   vaultTradeType: VaultTradeType!
 
-  strategyVaultAccount: StrategyVaultAccount!
-  strategyVaultMaturityBefore: StrategyVaultMaturity
-  strategyVaultMaturityAfter: StrategyVaultMaturity
+  leveragedVaultAccount: LeveragedVaultAccount!
+  leveragedVaultMaturityBefore: LeveragedVaultMaturity
+  leveragedVaultMaturityAfter: LeveragedVaultMaturity
 
   "Net change to fCash borrowed in the primary currencies"
   primaryBorrowfCashBefore: BigInt!
@@ -1160,8 +1160,8 @@ type StrategyVaultTrade @entity {
   netSecondaryDebtSharesChange: [BigInt!]
 }
   
-type StrategyVaultMaturityEvent @entity {
-  "strategyVault:account or vault address:transaction hash:log index"
+type LeveragedVaultMaturityEvent @entity {
+  "leveragedVault:account or vault address:transaction hash:log index"
   id: ID!
   blockHash: Bytes!
   blockNumber: Int!
@@ -1169,7 +1169,7 @@ type StrategyVaultMaturityEvent @entity {
   transactionHash: Bytes!
   transactionOrigin: Bytes!
 
-  strategyVaultMaturity: StrategyVaultMaturity!
+  leveragedVaultMaturity: LeveragedVaultMaturity!
   "Net change to strategy tokens"
   netStrategyTokenChange: BigInt!
   "Net change to asset cash"
@@ -1177,12 +1177,12 @@ type StrategyVaultMaturityEvent @entity {
 }
 
 
-type StrategyVaultHistoricalValue @entity {
-  "strategyVault:maturity:timestamp"
+type LeveragedVaultHistoricalValue @entity {
+  "leveragedVault:maturity:timestamp"
   id: ID!
   timestamp: Int!
 
-  strategyVaultMaturity: StrategyVaultMaturity!
+  leveragedVaultMaturity: LeveragedVaultMaturity!
   "Value of a single strategy token at the given timestamp"
   underlyingValueOfStrategyToken: BigInt!
   

@@ -2,7 +2,7 @@ import { Address, BigInt, log } from '@graphprotocol/graph-ts';
 import { Notional } from '../generated/Notional/Notional';
 import { ERC20 } from '../generated/Notional/ERC20';
 import { convertAssetToUnderlying } from './accounts';
-import { Currency, StrategyVaultHistoricalValue } from '../generated/schema';
+import { Currency, LeveragedVaultHistoricalValue } from '../generated/schema';
 
 import { 
   getAssetExchangeRateHistoricalData,
@@ -177,23 +177,23 @@ function getVaultHistoricalValue(
   vault: string,
   maturity: i32,
   timestamp: i32
-): StrategyVaultHistoricalValue {
+): LeveragedVaultHistoricalValue {
   let id = (
     vault + ':' 
     + maturity.toString() + ':'
     + timestamp.toString()
   );
 
-  let entity = new StrategyVaultHistoricalValue(id);
+  let entity = new LeveragedVaultHistoricalValue(id);
   entity.timestamp = timestamp;
-  entity.strategyVaultMaturity = vault + ":" + maturity.toString()
+  entity.leveragedVaultMaturity = vault + ":" + maturity.toString()
   return entity
 }
 
 export function updateVaultHistoricalData(timestamp: i32): void {
   let directory = getVaultDirectory()
-  for (let i = 0; i < directory.listedStrategyVaults.length; i++) {
-    let vault = getVault(directory.listedStrategyVaults[i])
+  for (let i = 0; i < directory.listedLeveragedVaults.length; i++) {
+    let vault = getVault(directory.listedLeveragedVaults[i])
 
     for (let m = 1; m <= vault.maxBorrowMarketIndex; m++) {
       let maturityLength = getMarketMaturityLengthSeconds(m)
@@ -201,8 +201,8 @@ export function updateVaultHistoricalData(timestamp: i32): void {
       let maturity = tRef + maturityLength
       let historicalValue = getVaultHistoricalValue(vault.id, maturity, timestamp)
       let vaultAddress = Address.fromBytes(vault.vaultAddress)
-      let strategyVaultContract = IStrategyVault.bind(vaultAddress)
-      let underlyingValue = strategyVaultContract.try_convertStrategyToUnderlying(
+      let leveragedVaultContract = IStrategyVault.bind(vaultAddress)
+      let underlyingValue = leveragedVaultContract.try_convertStrategyToUnderlying(
         vaultAddress,
         BigInt.fromI32(10).pow(8),
         BigInt.fromI32(maturity)
