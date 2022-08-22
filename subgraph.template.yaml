@@ -335,9 +335,9 @@ dataSources:
         - event: VaultFeeAccrued(indexed address,indexed uint16,indexed uint256,int256,int256)
           handler: handleVaultFeeAccrued
         # Account Exit Events
-        - event: VaultExitPostMaturity(indexed address,indexed address,indexed uint256)
+        - event: VaultExitPostMaturity(indexed address,indexed address,indexed uint256,uint256)
           handler: handleVaultExitPostMaturity
-        - event: VaultExitPreMaturity(indexed address,indexed address,indexed uint256,uint256,uint256)
+        - event: VaultExitPreMaturity(indexed address,indexed address,indexed uint256,uint256,uint256,uint256)
           handler: handleVaultExitPreMaturity
         - event: VaultRepaySecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256,uint256)
           handler: handleVaultRepaySecondaryBorrow

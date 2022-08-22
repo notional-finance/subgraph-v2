@@ -1,4 +1,4 @@
-import { Address, ByteArray, ethereum, BigInt } from "@graphprotocol/graph-ts"
+import { Address, ByteArray, ethereum, BigInt, dataSource } from "@graphprotocol/graph-ts"
 import {
   Notional,
   VaultPauseStatus,
@@ -488,14 +488,30 @@ export function handleVaultExitPreMaturity(event: VaultExitPreMaturity): void {
   // No nToken Fee to update
   updateVaultMarkets(vault, event)
   let accountAfter = updateVaultAccount(vault, event.params.account, event)
-  setVaultTrade(vault.id, accountBefore, accountAfter, "ExitPreMaturity", event, null)
+  let netUnderlyingCash: BigInt | null;
+  // Prior to this block on goerli, the underlyingToReceiver was not part of the event
+  if (dataSource.network() === "goerli" && event.block.number.lt(BigInt.fromI32(7454321))) {
+    netUnderlyingCash = null
+  } else {
+    netUnderlyingCash = event.params.underlyingToReceiver.neg()
+  }
+  setVaultTrade(vault.id, accountBefore, accountAfter, "ExitPreMaturity", event, netUnderlyingCash)
 }
 
 export function handleVaultExitPostMaturity(event: VaultExitPostMaturity): void {
   let vault = getVault(event.params.vault.toHexString())
   let accountBefore = getVaultAccount(vault.id, event.params.account.toHexString())
   let accountAfter = updateVaultAccount(vault, event.params.account, event)
-  setVaultTrade(vault.id, accountBefore, accountAfter, "ExitPostMaturity", event, null)
+
+  let netUnderlyingCash: BigInt | null;
+  // Prior to this block on goerli, the underlyingToReceiver was not part of the event
+  if (dataSource.network() === "goerli" && event.block.number.lt(BigInt.fromI32(7454321))) {
+    netUnderlyingCash = null
+  } else {
+    netUnderlyingCash = event.params.underlyingToReceiver.neg()
+  }
+
+  setVaultTrade(vault.id, accountBefore, accountAfter, "ExitPostMaturity", event, netUnderlyingCash)
 }
 
 export function handleVaultStateUpdate(event: VaultStateUpdate): void {
@@ -538,7 +554,7 @@ export function handleDeleverageAccount(event: VaultDeleverageAccount): void {
   let vault = getVault(event.params.vault.toHexString())
   let accountBefore = getVaultAccount(vault.id, event.params.account.toHexString())
   let accountAfter = updateVaultAccount(vault, event.params.account, event)
-  setVaultTrade(vault.id, accountBefore, accountAfter, "DeleverageAccount", event, null)
+  setVaultTrade(vault.id, accountBefore, accountAfter, "DeleverageAccount", event, event.params.fCashRepaid)
 }
 
 export function handleUpdateLiquidator(event: VaultLiquidatorProfit): void {
@@ -546,6 +562,7 @@ export function handleUpdateLiquidator(event: VaultLiquidatorProfit): void {
     let vault = getVault(event.params.vault.toHexString())
     let accountBefore = getVaultAccount(vault.id, event.params.liquidator.toHexString())
     let accountAfter = updateVaultAccount(vault, event.params.liquidator, event)
+    // NOTE: deposit amount is not logged here, it is logged on the deleverage account event instead
     setVaultTrade(vault.id, accountBefore, accountAfter, "TransferFromDeleverage", event, null)
   }
 }
