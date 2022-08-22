@@ -7,7 +7,6 @@ import {
   ProtocolInsolvency,
   VaultBorrowCapacityChange,
   VaultDeleverageAccount,
-  VaultEnterPosition,
   VaultExitPostMaturity,
   VaultExitPreMaturity,
   VaultFeeAccrued,
@@ -15,12 +14,12 @@ import {
   VaultMintStrategyToken,
   VaultRedeemStrategyToken,
   VaultRepaySecondaryBorrow,
-  VaultRollPosition,
   VaultSecondaryBorrow,
   VaultSecondaryBorrowSnapshot,
   VaultShortfall,
   VaultStateUpdate,
   VaultUpdateSecondaryBorrowCapacity,
+  VaultEnterMaturity,
 } from "../generated/NotionalVaults/Notional"
 import { IStrategyVault } from "../generated/NotionalVaults/IStrategyVault"
 import {
@@ -148,7 +147,8 @@ function setVaultTrade(
   accountBefore: LeveragedVaultAccount,
   accountAfter: LeveragedVaultAccount,
   vaultTradeType: string,
-  event: ethereum.Event
+  event: ethereum.Event,
+  netUnderlyingCash: BigInt | null
 ): void {
   let id =
     vault +
@@ -209,6 +209,8 @@ function setVaultTrade(
     )
     entity.netSecondaryDebtSharesChange = netSecondaryDebtSharesChange
   }
+
+  entity.netUnderlyingCash = netUnderlyingCash;
 
   entity.save()
 }
@@ -462,14 +464,22 @@ function updateVaultState(vault: LeveragedVault, maturity: BigInt, event: ethere
   vaultMaturity.save()
 }
 
-export function handleVaultEnterPosition(event: VaultEnterPosition): void {
+export function handleVaultEnterMaturity(event: VaultEnterMaturity): void {
   let vault = getVault(event.params.vault.toHexString())
   let accountBefore = getVaultAccount(vault.id, event.params.account.toHexString())
   updateVaultMarkets(vault, event)
   updateNTokenPortfolio(getNToken(vault.primaryBorrowCurrency), event, null)
   let accountAfter = updateVaultAccount(vault, event.params.account, event)
-  // TODO: VaultEnterMaturity has more metadata not available here...
-  setVaultTrade(vault.id, accountBefore, accountAfter, "EnterPosition", event)
+
+  let tradeType: string;
+  if (accountBefore.maturity == accountAfter.maturity) {
+    tradeType = "EnterPosition"
+  } else {
+    tradeType = "RollPosition"
+  }
+
+
+  setVaultTrade(vault.id, accountBefore, accountAfter, tradeType, event, event.params.underlyingTokensTransferred)
 }
 
 export function handleVaultExitPreMaturity(event: VaultExitPreMaturity): void {
@@ -478,25 +488,14 @@ export function handleVaultExitPreMaturity(event: VaultExitPreMaturity): void {
   // No nToken Fee to update
   updateVaultMarkets(vault, event)
   let accountAfter = updateVaultAccount(vault, event.params.account, event)
-  setVaultTrade(vault.id, accountBefore, accountAfter, "ExitPreMaturity", event)
-}
-
-export function handleVaultRollPosition(event: VaultRollPosition): void {
-  let vault = getVault(event.params.vault.toHexString())
-  let accountBefore = getVaultAccount(vault.id, event.params.account.toHexString())
-  updateVaultMarkets(vault, event)
-  updateNTokenPortfolio(getNToken(vault.primaryBorrowCurrency), event, null)
-  let accountAfter = updateVaultAccount(vault, event.params.account, event)
-  // TODO: VaultEnterMaturity has more metadata not available here, we should attempt to detect
-  // if this is a roll position or enter position based on the previous maturity
-  setVaultTrade(vault.id, accountBefore, accountAfter, "RollPosition", event)
+  setVaultTrade(vault.id, accountBefore, accountAfter, "ExitPreMaturity", event, null)
 }
 
 export function handleVaultExitPostMaturity(event: VaultExitPostMaturity): void {
   let vault = getVault(event.params.vault.toHexString())
   let accountBefore = getVaultAccount(vault.id, event.params.account.toHexString())
   let accountAfter = updateVaultAccount(vault, event.params.account, event)
-  setVaultTrade(vault.id, accountBefore, accountAfter, "ExitPostMaturity", event)
+  setVaultTrade(vault.id, accountBefore, accountAfter, "ExitPostMaturity", event, null)
 }
 
 export function handleVaultStateUpdate(event: VaultStateUpdate): void {
@@ -539,7 +538,7 @@ export function handleDeleverageAccount(event: VaultDeleverageAccount): void {
   let vault = getVault(event.params.vault.toHexString())
   let accountBefore = getVaultAccount(vault.id, event.params.account.toHexString())
   let accountAfter = updateVaultAccount(vault, event.params.account, event)
-  setVaultTrade(vault.id, accountBefore, accountAfter, "DeleverageAccount", event)
+  setVaultTrade(vault.id, accountBefore, accountAfter, "DeleverageAccount", event, null)
 }
 
 export function handleUpdateLiquidator(event: VaultLiquidatorProfit): void {
@@ -547,7 +546,7 @@ export function handleUpdateLiquidator(event: VaultLiquidatorProfit): void {
     let vault = getVault(event.params.vault.toHexString())
     let accountBefore = getVaultAccount(vault.id, event.params.liquidator.toHexString())
     let accountAfter = updateVaultAccount(vault, event.params.liquidator, event)
-    setVaultTrade(vault.id, accountBefore, accountAfter, "TransferFromDeleverage", event)
+    setVaultTrade(vault.id, accountBefore, accountAfter, "TransferFromDeleverage", event, null)
   }
 }
 

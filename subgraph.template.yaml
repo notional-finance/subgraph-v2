@@ -328,8 +328,8 @@ dataSources:
         - event: VaultUpdateSecondaryBorrowCapacity(indexed address,indexed uint16,uint80)
           handler: handleVaultUpdateSecondaryBorrowCapacity
         # Account Entry Events
-        - event: VaultEnterPosition(indexed address,indexed address,indexed uint256,uint256)
-          handler: handleVaultEnterPosition
+        - event: VaultEnterMaturity(indexed address,indexed uint256,indexed address,uint256,uint256,uint256)
+          handler: handleVaultEnterMaturity
         - event: VaultSecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256,uint256)
           handler: handleVaultSecondaryBorrow
         - event: VaultFeeAccrued(indexed address,indexed uint16,indexed uint256,int256,int256)

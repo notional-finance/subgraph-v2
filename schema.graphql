@@ -1158,6 +1158,9 @@ type LeveragedVaultTrade @entity {
   secondaryDebtSharesBefore: [BigInt!]
   secondaryDebtSharesAfter: [BigInt!]
   netSecondaryDebtSharesChange: [BigInt!]
+
+  "Positive cash into vault, negative amount of cash when exiting, liquidation cash amounts not logged"
+  netUnderlyingCash: BigInt
 }
   
 type LeveragedVaultMaturityEvent @entity {
