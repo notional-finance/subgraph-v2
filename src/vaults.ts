@@ -32,7 +32,7 @@ import {
   LeveragedVaultTrade,
 } from "../generated/schema"
 import { updateMarkets } from "./markets"
-import { updateNTokenPortfolio } from "./accounts"
+import { updateAccount, updateNTokenPortfolio } from "./accounts"
 import { getNToken } from "./notional"
 
 function getZeroArray(): Array<BigInt> {
@@ -79,16 +79,19 @@ export function getVault(id: string): LeveragedVault {
   return entity as LeveragedVault
 }
 
-function getVaultAccount(vault: string, account: string): LeveragedVaultAccount {
-  let id = vault + ":" + account
+function getVaultAccount(vault: string, account: Address, event: ethereum.Event): LeveragedVaultAccount {
+  let id = vault + ":" + account.toHexString()
   let entity = LeveragedVaultAccount.load(id)
   if (entity == null) {
     entity = new LeveragedVaultAccount(id)
     entity.leveragedVault = vault
-    entity.account = account
+    entity.account = account.toHexString()
     entity.vaultShares = BigInt.fromI32(0)
     entity.primaryBorrowfCash = BigInt.fromI32(0)
   }
+
+  // The account may not exist at this point so we update it just in case
+  updateAccount(account, event)
 
   return entity as LeveragedVaultAccount
 }
@@ -169,6 +172,8 @@ function setVaultTrade(
   entity.transactionOrigin = event.transaction.from
   entity.leveragedVaultAccount = accountBefore.id
   entity.vaultTradeType = vaultTradeType
+  entity.leveragedVault = vault
+  entity.account = accountAfter.account
 
   entity.leveragedVaultMaturityBefore = accountBefore.leveragedVaultMaturity
   entity.primaryBorrowfCashBefore = accountBefore.primaryBorrowfCash
@@ -179,11 +184,6 @@ function setVaultTrade(
   entity.primaryBorrowfCashAfter = accountAfter.primaryBorrowfCash
   entity.vaultSharesAfter = accountAfter.vaultShares
   entity.secondaryDebtSharesAfter = accountBefore.secondaryBorrowDebtShares
-
-  entity.netPrimaryBorrowfCashChange = accountAfter.primaryBorrowfCash.minus(
-    accountBefore.primaryBorrowfCash
-  )
-  entity.netVaultSharesChange = accountAfter.vaultShares.minus(accountBefore.vaultShares)
 
   let secondaryDebtSharesBefore: Array<BigInt>
   let secondaryDebtSharesAfter: Array<BigInt>
@@ -199,18 +199,32 @@ function setVaultTrade(
     secondaryDebtSharesAfter = accountAfter.secondaryBorrowDebtShares!
   }
 
-  if (entity.secondaryDebtSharesBefore != null || entity.secondaryDebtSharesAfter != null) {
-    let netSecondaryDebtSharesChange = getZeroArray()
-    netSecondaryDebtSharesChange[0] = secondaryDebtSharesAfter[0].minus(
-      secondaryDebtSharesBefore[0]
-    )
-    netSecondaryDebtSharesChange[1] = secondaryDebtSharesAfter[1].minus(
-      secondaryDebtSharesBefore[1]
-    )
-    entity.netSecondaryDebtSharesChange = netSecondaryDebtSharesChange
-  }
-
   entity.netUnderlyingCash = netUnderlyingCash;
+
+  if (
+    accountBefore.leveragedVaultMaturity === null ||
+    accountAfter.leveragedVaultMaturity === null ||
+    accountAfter.leveragedVaultMaturity === accountBefore.leveragedVaultMaturity
+  ) {
+    // Only calculate net changes when the maturity is being established or exited,
+    // or staying the same. When maturities change, the units on these net change
+    // amounts are not the same
+    entity.netPrimaryBorrowfCashChange = accountAfter.primaryBorrowfCash.minus(
+      accountBefore.primaryBorrowfCash
+    )
+    entity.netVaultSharesChange = accountAfter.vaultShares.minus(accountBefore.vaultShares)
+
+    if (entity.secondaryDebtSharesBefore != null || entity.secondaryDebtSharesAfter != null) {
+      let netSecondaryDebtSharesChange = getZeroArray()
+      netSecondaryDebtSharesChange[0] = secondaryDebtSharesAfter[0].minus(
+        secondaryDebtSharesBefore[0]
+      )
+      netSecondaryDebtSharesChange[1] = secondaryDebtSharesAfter[1].minus(
+        secondaryDebtSharesBefore[1]
+      )
+      entity.netSecondaryDebtSharesChange = netSecondaryDebtSharesChange
+    }
+  }
 
   entity.save()
 }
@@ -393,7 +407,7 @@ function updateVaultAccount(
   account: Address,
   event: ethereum.Event
 ): LeveragedVaultAccount {
-  let vaultAccount = getVaultAccount(vault.id, account.toHexString())
+  let vaultAccount = getVaultAccount(vault.id, account, event)
   let notional = Notional.bind(event.address)
   let vaultAddress = Address.fromBytes(vault.vaultAddress)
   let accountResult = notional.getVaultAccount(account, vaultAddress)
@@ -466,7 +480,13 @@ function updateVaultState(vault: LeveragedVault, maturity: BigInt, event: ethere
 
 export function handleVaultEnterMaturity(event: VaultEnterMaturity): void {
   let vault = getVault(event.params.vault.toHexString())
-  let accountBefore = getVaultAccount(vault.id, event.params.account.toHexString())
+  if (event.params.account.toHexString() == vault.id) {
+    // In this case it is the vault entering the maturity, don't log it. Will be
+    // handled by handleVaultMintStrategyToken.
+    return
+  }
+
+  let accountBefore = getVaultAccount(vault.id, event.params.account, event)
   updateVaultMarkets(vault, event)
   updateNTokenPortfolio(getNToken(vault.primaryBorrowCurrency), event, null)
   let accountAfter = updateVaultAccount(vault, event.params.account, event)
@@ -484,7 +504,7 @@ export function handleVaultEnterMaturity(event: VaultEnterMaturity): void {
 
 export function handleVaultExitPreMaturity(event: VaultExitPreMaturity): void {
   let vault = getVault(event.params.vault.toHexString())
-  let accountBefore = getVaultAccount(vault.id, event.params.account.toHexString())
+  let accountBefore = getVaultAccount(vault.id, event.params.account, event)
   // No nToken Fee to update
   updateVaultMarkets(vault, event)
   let accountAfter = updateVaultAccount(vault, event.params.account, event)
@@ -500,7 +520,7 @@ export function handleVaultExitPreMaturity(event: VaultExitPreMaturity): void {
 
 export function handleVaultExitPostMaturity(event: VaultExitPostMaturity): void {
   let vault = getVault(event.params.vault.toHexString())
-  let accountBefore = getVaultAccount(vault.id, event.params.account.toHexString())
+  let accountBefore = getVaultAccount(vault.id, event.params.account, event)
   let accountAfter = updateVaultAccount(vault, event.params.account, event)
 
   let netUnderlyingCash: BigInt | null;
@@ -552,7 +572,7 @@ export function handleVaultMintStrategyToken(event: VaultMintStrategyToken): voi
 
 export function handleDeleverageAccount(event: VaultDeleverageAccount): void {
   let vault = getVault(event.params.vault.toHexString())
-  let accountBefore = getVaultAccount(vault.id, event.params.account.toHexString())
+  let accountBefore = getVaultAccount(vault.id, event.params.account, event)
   let accountAfter = updateVaultAccount(vault, event.params.account, event)
   setVaultTrade(vault.id, accountBefore, accountAfter, "DeleverageAccount", event, event.params.fCashRepaid)
 }
@@ -560,7 +580,7 @@ export function handleDeleverageAccount(event: VaultDeleverageAccount): void {
 export function handleUpdateLiquidator(event: VaultLiquidatorProfit): void {
   if (event.params.transferSharesToLiquidator) {
     let vault = getVault(event.params.vault.toHexString())
-    let accountBefore = getVaultAccount(vault.id, event.params.liquidator.toHexString())
+    let accountBefore = getVaultAccount(vault.id, event.params.liquidator, event)
     let accountAfter = updateVaultAccount(vault, event.params.liquidator, event)
     // NOTE: deposit amount is not logged here, it is logged on the deleverage account event instead
     setVaultTrade(vault.id, accountBefore, accountAfter, "TransferFromDeleverage", event, null)

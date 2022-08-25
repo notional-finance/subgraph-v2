@@ -1140,6 +1140,8 @@ type LeveragedVaultTrade @entity {
 
   vaultTradeType: VaultTradeType!
 
+  account: Account!
+  leveragedVault: LeveragedVault!
   leveragedVaultAccount: LeveragedVaultAccount!
   leveragedVaultMaturityBefore: LeveragedVaultMaturity
   leveragedVaultMaturityAfter: LeveragedVaultMaturity
@@ -1147,12 +1149,12 @@ type LeveragedVaultTrade @entity {
   "Net change to fCash borrowed in the primary currencies"
   primaryBorrowfCashBefore: BigInt!
   primaryBorrowfCashAfter: BigInt!
-  netPrimaryBorrowfCashChange: BigInt!
+  netPrimaryBorrowfCashChange: BigInt
 
   "Net change to vault shares"
   vaultSharesBefore: BigInt!
   vaultSharesAfter: BigInt!
-  netVaultSharesChange: BigInt!
+  netVaultSharesChange: BigInt
 
   "Net change to fCash borrowed in the secondary currencies"
   secondaryDebtSharesBefore: [BigInt!]

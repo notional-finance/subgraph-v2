@@ -6,8 +6,8 @@ repository: https://github.com/notional-finance/notional
 # features:
 #   - grafting
 # graft:
-#   base: QmQWrr6RKhPVnVLU3D95SAnFZzeYzN8HyrEYpCuCiEFTyU
-#   block: 7272000
+#   base: QmeMRdQAhC4atdEBy7WTTXTCN12LKf3Ygo8EZXs5j4ZnFm
+#   block: 7271198
 schema:
   file: ./schema.graphql
 dataSources:
@@ -342,8 +342,6 @@ dataSources:
         - event: VaultRepaySecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256,uint256)
           handler: handleVaultRepaySecondaryBorrow
         # Account Other Events
-        - event: VaultRollPosition(indexed address,indexed address,indexed uint256,uint256)
-          handler: handleVaultRollPosition
         - event: VaultDeleverageAccount(indexed address,indexed address,uint256,int256)
           handler: handleDeleverageAccount
         - event: VaultLiquidatorProfit(indexed address,indexed address,indexed address,uint256,bool)
