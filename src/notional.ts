@@ -69,7 +69,8 @@ import {
   updateEthExchangeRateHistoricalData, 
   updateMarketHistoricalData, 
   updateNTokenPresentValueHistoricalData, 
-  updateTvlHistoricalData
+  updateTvlHistoricalData,
+  updateVaultHistoricalData
 } from './timeseriesUpdate';
 import { getTreasury } from './treasury';
 
@@ -99,7 +100,7 @@ export function getCashGroup(id: string): CashGroup {
   return entity as CashGroup;
 }
 
-function getNToken(id: string): nToken {
+export function getNToken(id: string): nToken {
   let entity = nToken.load(id);
   if (entity == null) {
     entity = new nToken(id);
@@ -204,6 +205,8 @@ function handleHourlyUpdates(event: ethereum.Block): void {
     updateNTokenPresentValueHistoricalData(notional, currencyId, event.timestamp.toI32());
     updateMarketHistoricalData(notional, currencyId, event.timestamp.toI32());
   }
+
+  updateVaultHistoricalData(event.timestamp.toI32());
 }
 
 function handleDailyUpdates(event: ethereum.Block): void {

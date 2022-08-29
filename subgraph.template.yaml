@@ -6,8 +6,8 @@ repository: https://github.com/notional-finance/notional
 # features:
 #   - grafting
 # graft:
-#   base: QmVj8wbUkmVu8jVYv5FqL9PbVnYutZeiGiBC3r4dysCg5T
-#   block: 14355884
+#   base: QmeMRdQAhC4atdEBy7WTTXTCN12LKf3Ygo8EZXs5j4ZnFm
+#   block: 7271198
 schema:
   file: ./schema.graphql
 dataSources:
@@ -218,6 +218,8 @@ dataSources:
           file: ./abi/Notional.json
         - name: ERC20
           file: ./abi/ERC20.json
+        - name: IStrategyVault
+          file: ./abi/IStrategyVault.json
       blockHandlers:
         - handler: handleBlockUpdates
       eventHandlers:
@@ -294,3 +296,72 @@ dataSources:
         - event: ReserveBufferUpdated(uint16,uint256)
           handler: handleReserveBufferUpdated
       file: ./src/notional.ts
+  - kind: ethereum/contract
+    name: NotionalVaults
+    network: {{networkName}}
+    source:
+      address: '{{ notional }}'
+      abi: Notional
+      startBlock: {{startBlock}}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.6
+      language: wasm/assemblyscript
+      entities:
+        - LeveragedVault
+        - LeveragedVaultAccount
+        - LeveragedVaultMaturity
+        - LeveragedVaultTrade
+        - LeveragedVaultHistoricalValue
+        - LeveragedVaultCapacity
+      abis:
+        - name: Notional
+          file: ./abi/Notional.json
+        - name: IStrategyVault
+          file: ./abi/IStrategyVault.json
+      eventHandlers:
+        # Vault Configuration
+        - event: VaultUpdated(indexed address,bool,uint80)
+          handler: handleVaultUpdated
+        - event: VaultPauseStatus(indexed address,bool)
+          handler: handleVaultPauseStatus
+        - event: VaultUpdateSecondaryBorrowCapacity(indexed address,indexed uint16,uint80)
+          handler: handleVaultUpdateSecondaryBorrowCapacity
+        # Account Entry Events
+        - event: VaultEnterMaturity(indexed address,indexed uint256,indexed address,uint256,uint256,uint256)
+          handler: handleVaultEnterMaturity
+        - event: VaultSecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256,uint256)
+          handler: handleVaultSecondaryBorrow
+        - event: VaultFeeAccrued(indexed address,indexed uint16,indexed uint256,int256,int256)
+          handler: handleVaultFeeAccrued
+        # Account Exit Events
+        - event: VaultExitPostMaturity(indexed address,indexed address,indexed uint256,uint256)
+          handler: handleVaultExitPostMaturity
+        - event: VaultExitPreMaturity(indexed address,indexed address,indexed uint256,uint256,uint256,uint256)
+          handler: handleVaultExitPreMaturity
+        - event: VaultRepaySecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256,uint256)
+          handler: handleVaultRepaySecondaryBorrow
+        # Account Other Events
+        - event: VaultDeleverageAccount(indexed address,indexed address,uint256,int256)
+          handler: handleDeleverageAccount
+        - event: VaultLiquidatorProfit(indexed address,indexed address,indexed address,uint256,bool)
+          handler: handleUpdateLiquidator
+        # Vault Level Events
+        - event: VaultSettledAssetsRemaining(indexed address,indexed uint256,int256,uint256)
+          handler: handleVaultSettledAssetsRemaining
+        - event: VaultRedeemStrategyToken(indexed address,indexed uint256,int256,uint256)
+          handler: handleVaultRedeemStrategyToken
+        - event: VaultMintStrategyToken(indexed address,indexed uint256,uint256,uint256)
+          handler: handleVaultMintStrategyToken
+        - event: VaultShortfall(indexed address,indexed uint16,indexed uint256,int256)
+          handler: handleVaultShortfall
+        - event: ProtocolInsolvency(indexed address,indexed uint16,indexed uint256,int256)
+          handler: handleVaultInsolvency
+        # Generic Vault Event
+        - event: VaultStateUpdate(indexed address,indexed uint256,int256,uint256,uint256,uint256)
+          handler: handleVaultStateUpdate
+        - event: VaultBorrowCapacityChange(indexed address,indexed uint16,uint256) 
+          handler: handleVaultBorrowCapacityChange
+        - event: VaultSecondaryBorrowSnapshot(indexed address,indexed uint16,indexed uint256,int256,int256)
+          handler: handleVaultSecondaryBorrowSnapshot
+      file: ./src/vaults.ts

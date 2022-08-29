@@ -1,8 +1,8 @@
-import { BigInt, log } from '@graphprotocol/graph-ts';
+import { Address, BigInt, log } from '@graphprotocol/graph-ts';
 import { Notional } from '../generated/Notional/Notional';
 import { ERC20 } from '../generated/Notional/ERC20';
 import { convertAssetToUnderlying } from './accounts';
-import { Currency } from '../generated/schema';
+import { Currency, LeveragedVaultHistoricalValue } from '../generated/schema';
 
 import { 
   getAssetExchangeRateHistoricalData,
@@ -11,8 +11,10 @@ import {
 } from './exchange_rates/utils'
 
 import { getCurrencyTvl, getNTokenPresentValueHistoricalData, getTvlHistoricalData } from './notional';
-import { getSettlementDate } from './common';
+import { getMarketMaturityLengthSeconds, getSettlementDate, getTimeRef } from './common';
 import { getMarket } from './markets';
+import { getVault, getVaultDirectory } from './vaults';
+import { IStrategyVault } from '../generated/NotionalVaults/IStrategyVault';
 
 
 const USDC_CURRENCY_ID = 3;
@@ -42,7 +44,10 @@ export function createHourlyId(currencyId: number, timestamp: i32): string {
 }
 
 export function updateMarketHistoricalData(notional: Notional, currencyId: i32, timestamp: i32): void {
-  let marketsResult = notional.getActiveMarketsAtBlockTime(currencyId, BigInt.fromI32(timestamp));
+  let try_marketsResult = notional.try_getActiveMarketsAtBlockTime(currencyId, BigInt.fromI32(timestamp));
+  if (try_marketsResult.reverted) return
+
+  let marketsResult = try_marketsResult.value
   for (let i: i32 = 0; i < marketsResult.length; i++) {
     let marketIndex = i + 1;
     let maturity = marketsResult[i].maturity;
@@ -51,6 +56,7 @@ export function updateMarketHistoricalData(notional: Notional, currencyId: i32, 
     let market = getMarket(currencyId, settlementDate, maturity, marketIndex);
 
     let historicalData = getMarketHistoricalData(market.id + ":" + createHourlyId(currencyId, timestamp));
+    historicalData.market = market.id;
     historicalData.totalAssetCash = marketsResult[i].totalAssetCash;
     historicalData.totalfCash = marketsResult[i].totalfCash;
     historicalData.totalLiquidity = marketsResult[i].totalLiquidity;
@@ -165,4 +171,51 @@ export function ethToUsd(notional: Notional, ethValue: BigInt): BigInt {
   let usdcValue = ethValue.times(rateDecimals).div(usdcEthRate);
 
   return usdcValue;
+}
+
+function getVaultHistoricalValue(
+  vault: string,
+  maturity: i32,
+  timestamp: i32
+): LeveragedVaultHistoricalValue {
+  let id = (
+    vault + ':' 
+    + maturity.toString() + ':'
+    + timestamp.toString()
+  );
+
+  let entity = new LeveragedVaultHistoricalValue(id);
+  entity.timestamp = timestamp;
+  entity.leveragedVaultMaturity = vault + ":" + maturity.toString()
+  return entity
+}
+
+export function updateVaultHistoricalData(timestamp: i32): void {
+  let directory = getVaultDirectory()
+  for (let i = 0; i < directory.listedLeveragedVaults.length; i++) {
+    let vault = getVault(directory.listedLeveragedVaults[i])
+
+    for (let m = 1; m <= vault.maxBorrowMarketIndex; m++) {
+      let maturityLength = getMarketMaturityLengthSeconds(m)
+      let tRef = getTimeRef(timestamp)
+      let maturity = tRef + maturityLength
+      let historicalValue = getVaultHistoricalValue(vault.id, maturity, timestamp)
+      let vaultAddress = Address.fromBytes(vault.vaultAddress)
+      let leveragedVaultContract = IStrategyVault.bind(vaultAddress)
+      let underlyingValue = leveragedVaultContract.try_convertStrategyToUnderlying(
+        vaultAddress,
+        BigInt.fromI32(10).pow(8),
+        BigInt.fromI32(maturity)
+      )
+
+      let rateHistoricalId = createHourlyId(BigInt.fromString(vault.primaryBorrowCurrency).toI32(), timestamp);
+      historicalValue.assetExchangeRate = rateHistoricalId;
+      historicalValue.ethExchangeRate = rateHistoricalId;
+      
+      if (!underlyingValue.reverted) {
+        historicalValue.underlyingValueOfStrategyToken = underlyingValue.value;
+        historicalValue.save();
+      }
+    }
+  }
 }
