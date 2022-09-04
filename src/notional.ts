@@ -745,6 +745,9 @@ export function handleNTokenResidualPurchase(event: nTokenResidualPurchase): voi
   updateMarkets(event.params.currencyId, event.block.timestamp.toI32(), event);
   let notional = Notional.bind(event.address);
 
+  let nToken = getNToken(event.params.currencyId.toString());
+  updateNTokenPortfolio(nToken, event, null);
+
   let currencyId = event.params.currencyId as i32;
   let nTokenAddress = notional.nTokenAddress(currencyId);
   let tradeNToken = getTrade(currencyId, nTokenAddress, event, 0);

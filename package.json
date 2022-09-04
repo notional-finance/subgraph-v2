@@ -16,6 +16,7 @@
     "deploy:goerli": "yarn run prepare:goerli && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/goerli-v2",
     "deploy:mainnet": "yarn run prepare:mainnet && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/mainnet-v2",
     "deploy:mainnet-debug": "yarn run prepare:mainnet && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/mainnet-debug",
+    "deploy:studio:mainnet": "yarn run prepare:mainnet && yarn run codegen && yarn run graph deploy --studio notional",
     "testenv:up": "cd ../subgraph && ./start.sh",
     "testenv:down": "cd ../subgraph && docker-compose down",
     "compile:subgraph": "yarn run prepare:local && yarn run codegen && yarn run build && yarn run deploy:local"
