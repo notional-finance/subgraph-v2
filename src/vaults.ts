@@ -1,6 +1,5 @@
 import { Address, ByteArray, ethereum, BigInt, dataSource } from "@graphprotocol/graph-ts"
 import {
-  Notional,
   VaultPauseStatus,
   VaultSettledAssetsRemaining,
   VaultUpdated,
@@ -21,6 +20,9 @@ import {
   VaultUpdateSecondaryBorrowCapacity,
   VaultEnterMaturity,
 } from "../generated/NotionalVaults/Notional"
+import {
+  Notional
+} from "../generated/Notional/Notional"
 import { IStrategyVault } from "../generated/NotionalVaults/IStrategyVault"
 import {
   LeveragedVault,
@@ -32,7 +34,7 @@ import {
   LeveragedVaultTrade,
 } from "../generated/schema"
 import { updateMarkets } from "./markets"
-import { updateAccount, updateNTokenPortfolio } from "./accounts"
+import { convertAssetToUnderlyingExternal, updateAccount, updateNTokenPortfolio } from "./accounts"
 import { getNToken } from "./notional"
 
 function getZeroArray(): Array<BigInt> {
@@ -209,6 +211,7 @@ function setVaultTrade(
     // Only calculate net changes when the maturity is being established or exited,
     // or staying the same. When maturities change, the units on these net change
     // amounts are not the same
+    // TODO: this does not calculate properly
     entity.netPrimaryBorrowfCashChange = accountAfter.primaryBorrowfCash.minus(
       accountBefore.primaryBorrowfCash
     )
@@ -492,14 +495,20 @@ export function handleVaultEnterMaturity(event: VaultEnterMaturity): void {
   let accountAfter = updateVaultAccount(vault, event.params.account, event)
 
   let tradeType: string;
-  if (accountBefore.maturity == accountAfter.maturity) {
+  if (accountBefore.maturity == accountAfter.maturity || accountBefore.maturity == null) {
     tradeType = "EnterPosition"
   } else {
     tradeType = "RollPosition"
   }
 
 
-  setVaultTrade(vault.id, accountBefore, accountAfter, tradeType, event, event.params.underlyingTokensTransferred)
+  let notional = Notional.bind(event.address)
+  let netUnderlyingCash = convertAssetToUnderlyingExternal(
+    notional,
+    parseInt(vault.primaryBorrowCurrency, 10) as i32,
+    event.params.cashTransferToVault
+  ).plus(event.params.underlyingTokensDeposited)
+  setVaultTrade(vault.id, accountBefore, accountAfter, tradeType, event, netUnderlyingCash)
 }
 
 export function handleVaultExitPreMaturity(event: VaultExitPreMaturity): void {
