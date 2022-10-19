@@ -4382,6 +4382,11 @@
                         "internalType": "int256",
                         "name": "tempCashBalance",
                         "type": "int256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "lastEntryBlockHeight",
+                        "type": "uint256"
                     }
                 ],
                 "internalType": "struct VaultAccount",
@@ -4421,6 +4426,11 @@
                 "internalType": "int256",
                 "name": "maxLiquidatorDepositAssetCash",
                 "type": "int256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "vaultSharesToLiquidator",
+                "type": "uint256"
             }
         ],
         "stateMutability": "view",
@@ -4548,6 +4558,11 @@
                         "internalType": "struct AssetRateParameters",
                         "name": "assetRate",
                         "type": "tuple"
+                    },
+                    {
+                        "internalType": "int256",
+                        "name": "maxRequiredAccountCollateralRatio",
+                        "type": "int256"
                     }
                 ],
                 "internalType": "struct VaultConfig",
@@ -6404,6 +6419,11 @@
                         "internalType": "uint16[2]",
                         "name": "secondaryBorrowCurrencies",
                         "type": "uint16[2]"
+                    },
+                    {
+                        "internalType": "uint16",
+                        "name": "maxRequiredAccountCollateralRatioBPS",
+                        "type": "uint16"
                     }
                 ],
                 "internalType": "struct VaultConfigStorage",
