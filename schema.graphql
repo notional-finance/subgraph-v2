@@ -1014,6 +1014,8 @@ type LeveragedVault @entity {
   onlyVaultSettle: Boolean!
   "Vault is allowed to re-enter Notional"
   allowsReentrancy: Boolean!
+  "Deleveraging is disabled on this vault"
+  deleverageDisabled: Boolean
 
   "All maturities of this strategy vault"
   maturities: [LeveragedVaultMaturity!] @derivedFrom(field: "leveragedVault")

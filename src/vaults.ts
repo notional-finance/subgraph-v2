@@ -19,6 +19,7 @@ import {
   VaultStateUpdate,
   VaultUpdateSecondaryBorrowCapacity,
   VaultEnterMaturity,
+  VaultDeleverageStatus,
 } from "../generated/NotionalVaults/Notional"
 import {
   Notional
@@ -299,6 +300,7 @@ export function handleVaultUpdated(event: VaultUpdated): void {
   vault.onlyVaultDeleverage = checkFlag(flags, 5)
   vault.onlyVaultSettle = checkFlag(flags, 6)
   vault.allowsReentrancy = checkFlag(flags, 7)
+  vault.deleverageDisabled = checkFlag(flags, 8)
 
   vault.lastUpdateBlockNumber = event.block.number.toI32()
   vault.lastUpdateTimestamp = event.block.timestamp.toI32()
@@ -318,6 +320,16 @@ export function handleVaultUpdated(event: VaultUpdated): void {
 export function handleVaultPauseStatus(event: VaultPauseStatus): void {
   let vault = getVault(event.params.vault.toHexString())
   vault.enabled = event.params.enabled
+  vault.lastUpdateBlockNumber = event.block.number.toI32()
+  vault.lastUpdateTimestamp = event.block.timestamp.toI32()
+  vault.lastUpdateBlockHash = event.block.hash
+  vault.lastUpdateTransactionHash = event.transaction.hash
+  vault.save()
+}
+
+export function handleVaultDeleverageStatus(event: VaultDeleverageStatus): void {
+  let vault = getVault(event.params.vaultAddress.toHexString())
+  vault.deleverageDisabled = event.params.disableDeleverage
   vault.lastUpdateBlockNumber = event.block.number.toI32()
   vault.lastUpdateTimestamp = event.block.timestamp.toI32()
   vault.lastUpdateBlockHash = event.block.hash
