@@ -997,7 +997,7 @@ type LeveragedVault @entity {
   "Secondary borrow currencies (if any)"
   secondaryBorrowCurrencies: [Currency!]
   "Max required collateral ratio for vault accounts"
-  maxRequiredAccountCollateralRatio: Int
+  maxRequiredAccountCollateralRatioBasisPoints: Int
   "Can the vault be entered"
   enabled: Boolean!
   "Allows positions to be rolled forward"

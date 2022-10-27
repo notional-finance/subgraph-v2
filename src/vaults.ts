@@ -277,7 +277,7 @@ export function handleVaultUpdated(event: VaultUpdated): void {
   vault.reserveFeeSharePercent = vaultConfig.reserveFeeShare.toI32()
   vault.liquidationRatePercent = vaultConfig.liquidationRate.toI32()
   vault.maxBorrowMarketIndex = vaultConfig.maxBorrowMarketIndex.toI32()
-  vault.maxRequiredAccountCollateralRatio = vaultConfig.maxRequiredAccountCollateralRatio.toI32()
+  vault.maxRequiredAccountCollateralRatioBasisPoints = vaultConfig.maxRequiredAccountCollateralRatio.toI32()
 
   if (
     vaultConfig.secondaryBorrowCurrencies[0] != 0 ||
