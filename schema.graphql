@@ -996,6 +996,8 @@ type LeveragedVault @entity {
   maxBorrowMarketIndex: Int!
   "Secondary borrow currencies (if any)"
   secondaryBorrowCurrencies: [Currency!]
+  "Max required collateral ratio for vault accounts"
+  maxRequiredAccountCollateralRatioBasisPoints: Int
   "Can the vault be entered"
   enabled: Boolean!
   "Allows positions to be rolled forward"
@@ -1012,6 +1014,8 @@ type LeveragedVault @entity {
   onlyVaultSettle: Boolean!
   "Vault is allowed to re-enter Notional"
   allowsReentrancy: Boolean!
+  "Deleveraging is disabled on this vault"
+  deleverageDisabled: Boolean
 
   "All maturities of this strategy vault"
   maturities: [LeveragedVaultMaturity!] @derivedFrom(field: "leveragedVault")

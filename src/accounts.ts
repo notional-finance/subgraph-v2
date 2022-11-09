@@ -13,6 +13,12 @@ export function convertAssetToUnderlying(notional: Notional, currencyId: i32, as
   return assetRate.rate.times(assetAmount).div(BigInt.fromI32(10).pow(10)).div(assetRate.underlyingDecimals);
 }
 
+export function convertAssetToUnderlyingExternal(notional: Notional, currencyId: i32, assetAmount: BigInt): BigInt {
+  let rateResult = notional.getCurrencyAndRates(currencyId);
+  let assetRate = rateResult.value3;
+  return assetRate.rate.times(assetAmount).div(assetRate.underlyingDecimals);
+}
+
 function convertNTokenToAsset(notional: Notional, currencyId: i32, nTokenBalance: BigInt): BigInt {
   if (nTokenBalance.isZero()) return BigInt.fromI32(0);
 
