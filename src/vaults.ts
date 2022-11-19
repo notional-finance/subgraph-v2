@@ -33,10 +33,12 @@ import {
   LeveragedVaultMaturity,
   LeveragedVaultMaturityEvent,
   LeveragedVaultTrade,
+  Market,
 } from "../generated/schema"
 import { updateMarkets } from "./markets"
 import { convertAssetToUnderlyingExternal, convertInternalToUnderlyingExternal, updateAccount, updateNTokenPortfolio } from "./accounts"
-import { getNToken } from "./notional"
+import { getCashGroup, getNToken } from "./notional"
+import { RATE_PRECISION, YEAR } from "./common"
 
 function getZeroArray(): Array<BigInt> {
   let arr = new Array<BigInt>(2)
@@ -206,11 +208,24 @@ function setVaultTrade(
   entity.netBorrowedUnderlying = netBorrowedUnderlying;
   entity.netDepositUnderlying = netDepositUnderlying;
   entity.netUnderlyingCash = netBorrowedUnderlying.plus(netDepositUnderlying);
+    
+
+  // This logic is required to detect a maturity change via the ids
+  let maturityBefore: i32 = 0
+  let maturityAfter: i32 = 0
+  if (accountBefore.leveragedVaultMaturity) {
+    let s = accountBefore.leveragedVaultMaturity.split(":")
+    if (s.length === 2) maturityBefore = parseInt(s[1], 10) as i32
+  }
+  if (accountAfter.leveragedVaultMaturity) {
+    let s = accountAfter.leveragedVaultMaturity.split(":")
+    if (s.length === 2) maturityAfter = parseInt(s[1], 10) as i32
+  }
 
   if (
-    !accountBefore.leveragedVaultMaturity ||
-    !accountAfter.leveragedVaultMaturity ||
-    accountAfter.leveragedVaultMaturity === accountBefore.leveragedVaultMaturity
+    maturityBefore === 0 ||
+    maturityAfter === 0 ||
+    maturityBefore === maturityAfter
   ) {
     // Only calculate net changes when the maturity is being established or exited,
     // or staying the same. When maturities change, the units on these net change
@@ -402,12 +417,12 @@ export function handleVaultBorrowCapacityChange(event: VaultBorrowCapacityChange
   borrowCapacity.save()
 }
 
-function updateVaultMarkets(vault: LeveragedVault, event: ethereum.Event): void {
+function updateVaultMarkets(vault: LeveragedVault, event: ethereum.Event): string[] {
   let primaryBorrowCurrencyId = I32.parseInt(vault.primaryBorrowCurrency)
   let blockTime = event.block.timestamp.toI32()
 
   // Update markets and nToken to account for fees on enter
-  updateMarkets(primaryBorrowCurrencyId, blockTime, event)
+  let marketIds = updateMarkets(primaryBorrowCurrencyId, blockTime, event)
 
   // Update markets for secondary borrow currencies
   if (vault.secondaryBorrowCurrencies != null) {
@@ -417,6 +432,8 @@ function updateVaultMarkets(vault: LeveragedVault, event: ethereum.Event): void 
     currencyId = I32.parseInt(vault.secondaryBorrowCurrencies![1])
     if (currencyId != 0) updateMarkets(currencyId, blockTime, event)
   }
+
+  return marketIds
 }
 
 function updateVaultAccount(
@@ -535,17 +552,57 @@ export function handleVaultEnterMaturity(event: VaultEnterMaturity): void {
   );
 }
 
+/*
+{
+  leveragedVaultTrades(orderBy: blockNumber, orderDirection:desc) {
+    blockNumber
+    primaryBorrowfCashAfter
+    primaryBorrowfCashBefore
+    netPrimaryBorrowfCashChange
+    vaultTradeType
+    netUnderlyingCash
+    netBorrowedUnderlying
+    netDepositUnderlying
+  }
+}
+*/
+
 export function handleVaultExitPreMaturity(event: VaultExitPreMaturity): void {
   let vault = getVault(event.params.vault.toHexString())
+  let notional = Notional.bind(event.address)
   let accountBefore = getVaultAccount(vault.id, event.params.account, event)
   // No nToken Fee to update
-  updateVaultMarkets(vault, event)
+  let marketIds = updateVaultMarkets(vault, event)
+  let lendMarket: Market | null = null;
+  let cashGroup = getCashGroup(vault.primaryBorrowCurrency)
+
+  for (let i = 0; i < marketIds.length; i++) {
+    let maturity = parseInt(marketIds[i].split(":")[2], 10);
+    if (maturity === accountBefore.maturity) {
+      lendMarket = Market.load(marketIds[i]);
+    }
+  }
+
+  let netBorrowedUnderlying = BigInt.fromI32(0);
+  if (lendMarket && cashGroup) {
+    // If the lend market and cash group are defined, calculate the underlying cost to lend using the lastImpliedRate
+    let lendRate = lendMarket.lastImpliedRate - cashGroup.totalFeeBasisPoints
+    if (lendRate < 0) lendRate = 0
+    let timeToMaturity = (accountBefore.maturity - event.block.timestamp.toI32())
+
+    // e ^ ((-rate * timeToMaturity) / (YEAR * RATE_PRECISION))
+    let term: f64 = (lendRate as f64 * timeToMaturity as f64) / (YEAR as f64 * RATE_PRECISION as f64)
+    let exp = Math.floor(Math.exp(term) * RATE_PRECISION) as i64
+    let netBorrowedInternal = event.params.fCashToLend.times(BigInt.fromI64(exp)).div(BigInt.fromI32(RATE_PRECISION));
+    netBorrowedUnderlying = convertInternalToUnderlyingExternal(
+      notional,
+      parseInt(vault.primaryBorrowCurrency, 10) as i32,
+      netBorrowedInternal
+    ).neg();
+  }
+
   let accountAfter = updateVaultAccount(vault, event.params.account, event)
   let netDepositUnderlying: BigInt;
-
-  // TODO: have to calculate this based on the interest rate....
-  let netBorrowedUnderlying = BigInt.fromI32(0);
-
   // Prior to this block on goerli, the underlyingToReceiver was not part of the event
   if (dataSource.network() === "goerli" && event.block.number.lt(BigInt.fromI32(7454321))) {
     netDepositUnderlying = BigInt.fromI32(0)
