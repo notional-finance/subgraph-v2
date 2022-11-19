@@ -1165,8 +1165,12 @@ type LeveragedVaultTrade @entity {
   secondaryDebtSharesAfter: [BigInt!]
   netSecondaryDebtSharesChange: [BigInt!]
 
-  "Positive cash into vault, negative amount of cash when exiting, liquidation cash amounts not logged"
+  "Total change in cash between Notional and the vault"
   netUnderlyingCash: BigInt
+  "Net amount of cash that was borrowed or repaid"
+  netBorrowedUnderlying: BigInt
+  "Net amount of cash that was deposited or withdrawn"
+  netDepositUnderlying: BigInt
 }
   
 type LeveragedVaultMaturityEvent @entity {

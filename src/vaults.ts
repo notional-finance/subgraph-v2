@@ -1,4 +1,4 @@
-import { Address, ByteArray, ethereum, BigInt, dataSource } from "@graphprotocol/graph-ts"
+import { Address, ByteArray, ethereum, BigInt, dataSource, log } from "@graphprotocol/graph-ts"
 import {
   VaultPauseStatus,
   VaultSettledAssetsRemaining,
@@ -35,7 +35,7 @@ import {
   LeveragedVaultTrade,
 } from "../generated/schema"
 import { updateMarkets } from "./markets"
-import { convertAssetToUnderlyingExternal, updateAccount, updateNTokenPortfolio } from "./accounts"
+import { convertAssetToUnderlyingExternal, convertInternalToUnderlyingExternal, updateAccount, updateNTokenPortfolio } from "./accounts"
 import { getNToken } from "./notional"
 
 function getZeroArray(): Array<BigInt> {
@@ -154,7 +154,8 @@ function setVaultTrade(
   accountAfter: LeveragedVaultAccount,
   vaultTradeType: string,
   event: ethereum.Event,
-  netUnderlyingCash: BigInt | null
+  netBorrowedUnderlying: BigInt,
+  netDepositUnderlying: BigInt
 ): void {
   let id =
     vault +
@@ -202,21 +203,21 @@ function setVaultTrade(
     secondaryDebtSharesAfter = accountAfter.secondaryBorrowDebtShares!
   }
 
-  entity.netUnderlyingCash = netUnderlyingCash;
+  entity.netBorrowedUnderlying = netBorrowedUnderlying;
+  entity.netDepositUnderlying = netDepositUnderlying;
+  entity.netUnderlyingCash = netBorrowedUnderlying.plus(netDepositUnderlying);
 
   if (
-    accountBefore.leveragedVaultMaturity === null ||
-    accountAfter.leveragedVaultMaturity === null ||
+    !accountBefore.leveragedVaultMaturity ||
+    !accountAfter.leveragedVaultMaturity ||
     accountAfter.leveragedVaultMaturity === accountBefore.leveragedVaultMaturity
   ) {
     // Only calculate net changes when the maturity is being established or exited,
     // or staying the same. When maturities change, the units on these net change
     // amounts are not the same
-    // TODO: this does not calculate properly
-    entity.netPrimaryBorrowfCashChange = accountAfter.primaryBorrowfCash.minus(
-      accountBefore.primaryBorrowfCash
-    )
-    entity.netVaultSharesChange = accountAfter.vaultShares.minus(accountBefore.vaultShares)
+    entity.netPrimaryBorrowfCashChange = accountAfter.primaryBorrowfCash
+      .minus(accountBefore.primaryBorrowfCash);
+    entity.netVaultSharesChange = accountAfter.vaultShares.minus(accountBefore.vaultShares);
 
     if (entity.secondaryDebtSharesBefore != null || entity.secondaryDebtSharesAfter != null) {
       let netSecondaryDebtSharesChange = getZeroArray()
@@ -508,7 +509,7 @@ export function handleVaultEnterMaturity(event: VaultEnterMaturity): void {
   let accountAfter = updateVaultAccount(vault, event.params.account, event)
 
   let tradeType: string;
-  if (accountBefore.maturity == accountAfter.maturity || accountBefore.maturity == null) {
+  if (accountBefore.maturity === accountAfter.maturity || !accountBefore.maturity) {
     tradeType = "EnterPosition"
   } else {
     tradeType = "RollPosition"
@@ -516,12 +517,22 @@ export function handleVaultEnterMaturity(event: VaultEnterMaturity): void {
 
 
   let notional = Notional.bind(event.address)
-  let netUnderlyingCash = convertAssetToUnderlyingExternal(
+  let netBorrowedUnderlying = convertAssetToUnderlyingExternal(
     notional,
     parseInt(vault.primaryBorrowCurrency, 10) as i32,
     event.params.cashTransferToVault
-  ).plus(event.params.underlyingTokensDeposited)
-  setVaultTrade(vault.id, accountBefore, accountAfter, tradeType, event, netUnderlyingCash)
+  );
+
+  // Add Account Underlying Deposit
+  setVaultTrade(
+    vault.id,
+    accountBefore,
+    accountAfter,
+    tradeType,
+    event,
+    netBorrowedUnderlying,
+    event.params.underlyingTokensDeposited
+  );
 }
 
 export function handleVaultExitPreMaturity(event: VaultExitPreMaturity): void {
@@ -530,14 +541,27 @@ export function handleVaultExitPreMaturity(event: VaultExitPreMaturity): void {
   // No nToken Fee to update
   updateVaultMarkets(vault, event)
   let accountAfter = updateVaultAccount(vault, event.params.account, event)
-  let netUnderlyingCash: BigInt | null;
+  let netDepositUnderlying: BigInt;
+
+  // TODO: have to calculate this based on the interest rate....
+  let netBorrowedUnderlying = BigInt.fromI32(0);
+
   // Prior to this block on goerli, the underlyingToReceiver was not part of the event
   if (dataSource.network() === "goerli" && event.block.number.lt(BigInt.fromI32(7454321))) {
-    netUnderlyingCash = null
+    netDepositUnderlying = BigInt.fromI32(0)
   } else {
-    netUnderlyingCash = event.params.underlyingToReceiver.neg()
+    netDepositUnderlying = event.params.underlyingToReceiver.neg()
   }
-  setVaultTrade(vault.id, accountBefore, accountAfter, "ExitPreMaturity", event, netUnderlyingCash)
+
+  setVaultTrade(
+    vault.id,
+    accountBefore,
+    accountAfter,
+    "ExitPreMaturity",
+    event,
+    netBorrowedUnderlying,
+    netDepositUnderlying
+  )
 }
 
 export function handleVaultExitPostMaturity(event: VaultExitPostMaturity): void {
@@ -545,15 +569,24 @@ export function handleVaultExitPostMaturity(event: VaultExitPostMaturity): void 
   let accountBefore = getVaultAccount(vault.id, event.params.account, event)
   let accountAfter = updateVaultAccount(vault, event.params.account, event)
 
-  let netUnderlyingCash: BigInt | null;
+  let netDepositUnderlying: BigInt;
   // Prior to this block on goerli, the underlyingToReceiver was not part of the event
   if (dataSource.network() === "goerli" && event.block.number.lt(BigInt.fromI32(7454321))) {
-    netUnderlyingCash = null
+    netDepositUnderlying = BigInt.fromI32(0)
   } else {
-    netUnderlyingCash = event.params.underlyingToReceiver.neg()
+    netDepositUnderlying = event.params.underlyingToReceiver.neg()
   }
 
-  setVaultTrade(vault.id, accountBefore, accountAfter, "ExitPostMaturity", event, netUnderlyingCash)
+  setVaultTrade(
+    vault.id,
+    accountBefore,
+    accountAfter,
+    "ExitPostMaturity",
+    event,
+    BigInt.fromI32(0), // no debt repaid during post maturity exit
+    netDepositUnderlying,
+  );
+
 }
 
 export function handleVaultStateUpdate(event: VaultStateUpdate): void {
@@ -596,7 +629,24 @@ export function handleDeleverageAccount(event: VaultDeleverageAccount): void {
   let vault = getVault(event.params.vault.toHexString())
   let accountBefore = getVaultAccount(vault.id, event.params.account, event)
   let accountAfter = updateVaultAccount(vault, event.params.account, event)
-  setVaultTrade(vault.id, accountBefore, accountAfter, "DeleverageAccount", event, event.params.fCashRepaid)
+
+  // fCashRepaid is in internal precision, so convert to external here
+  let notional = Notional.bind(event.address)
+  let netBorrowedUnderlying = convertInternalToUnderlyingExternal(
+    notional,
+    parseInt(vault.primaryBorrowCurrency, 10) as i32,
+    event.params.fCashRepaid
+  );
+
+  setVaultTrade(
+    vault.id,
+    accountBefore,
+    accountAfter,
+    "DeleverageAccount",
+    event,
+    netBorrowedUnderlying,
+    BigInt.fromI32(0) // no net deposit on deleverage
+  )
 }
 
 export function handleUpdateLiquidator(event: VaultLiquidatorProfit): void {
@@ -604,8 +654,18 @@ export function handleUpdateLiquidator(event: VaultLiquidatorProfit): void {
     let vault = getVault(event.params.vault.toHexString())
     let accountBefore = getVaultAccount(vault.id, event.params.liquidator, event)
     let accountAfter = updateVaultAccount(vault, event.params.liquidator, event)
-    // NOTE: deposit amount is not logged here, it is logged on the deleverage account event instead
-    setVaultTrade(vault.id, accountBefore, accountAfter, "TransferFromDeleverage", event, null)
+    // NOTE: netBorrowedUnderlying and netDepositUnderlying don't make much sense in this
+    // context so we mark them as zero. The fCashRepaid in "DeleverageAccount" represents
+    // what the liquidator deposited, however, that is not available on this event.
+    setVaultTrade(
+      vault.id,
+      accountBefore,
+      accountAfter,
+      "TransferFromDeleverage",
+      event,
+      BigInt.fromI32(0),
+      BigInt.fromI32(0)
+    )
   }
 }
 

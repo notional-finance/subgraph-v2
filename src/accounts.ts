@@ -7,6 +7,12 @@ import {Account, Asset, AssetChange, Balance, BalanceChange, nToken, nTokenChang
 import {getSettlementDate, hasIncentiveMigrationOccurred} from './common';
 import {updateMarkets} from './markets';
 
+export function convertInternalToUnderlyingExternal(notional: Notional, currencyId: i32, internalUnderlying: BigInt): BigInt {
+  let rateResult = notional.getCurrencyAndRates(currencyId);
+  let assetRate = rateResult.value3;
+  return internalUnderlying.times(assetRate.underlyingDecimals).div(BigInt.fromI32(10).pow(8));
+}
+
 export function convertAssetToUnderlying(notional: Notional, currencyId: i32, assetAmount: BigInt): BigInt {
   let rateResult = notional.getCurrencyAndRates(currencyId);
   let assetRate = rateResult.value3;
