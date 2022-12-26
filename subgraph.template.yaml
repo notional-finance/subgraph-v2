@@ -6,8 +6,8 @@ repository: https://github.com/notional-finance/notional
 # features:
 #   - grafting
 # graft:
-#   base: QmPwFKnF1ZSApNYv6Vc5tKjCeWQPFjtK1AXcXiEsNJ3wu4
-#   block: 15826840
+#   base: QmTxiLxLzsopCB65JxQ5zJeeo6hGbK6PyKHkdgdGyE9CHb
+#   block: 16236646
 schema:
   file: ./schema.graphql
 dataSources:
@@ -366,4 +366,6 @@ dataSources:
           handler: handleVaultBorrowCapacityChange
         - event: VaultSecondaryBorrowSnapshot(indexed address,indexed uint16,indexed uint256,int256,int256)
           handler: handleVaultSecondaryBorrowSnapshot
+        - event: VaultSettled(indexed address,indexed uint256,int256,uint256,uint256,uint256,int256)
+          handler: handleVaultSettled
       file: ./src/vaults.ts
