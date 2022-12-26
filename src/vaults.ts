@@ -552,21 +552,6 @@ export function handleVaultEnterMaturity(event: VaultEnterMaturity): void {
   );
 }
 
-/*
-{
-  leveragedVaultTrades(orderBy: blockNumber, orderDirection:desc) {
-    blockNumber
-    primaryBorrowfCashAfter
-    primaryBorrowfCashBefore
-    netPrimaryBorrowfCashChange
-    vaultTradeType
-    netUnderlyingCash
-    netBorrowedUnderlying
-    netDepositUnderlying
-  }
-}
-*/
-
 export function handleVaultExitPreMaturity(event: VaultExitPreMaturity): void {
   let vault = getVault(event.params.vault.toHexString())
   let notional = Notional.bind(event.address)
