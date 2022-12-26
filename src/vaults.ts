@@ -20,6 +20,7 @@ import {
   VaultUpdateSecondaryBorrowCapacity,
   VaultEnterMaturity,
   VaultDeleverageStatus,
+  VaultSettled,
 } from "../generated/NotionalVaults/Notional"
 import {
   Notional
@@ -815,4 +816,9 @@ export function handleVaultSecondaryBorrowSnapshot(event: VaultSecondaryBorrowSn
   vaultMaturity.lastUpdateBlockHash = event.block.hash
   vaultMaturity.lastUpdateTransactionHash = event.transaction.hash
   vaultMaturity.save()
+}
+
+export function handleVaultSettled(event: VaultSettled): void {
+  let vault = getVault(event.params.vault.toHexString())
+  updateVaultState(vault, event.params.maturity, event)
 }
