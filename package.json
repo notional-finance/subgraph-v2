@@ -5,7 +5,7 @@
   "scripts": {
     "prepare:local": "hbs --stdout --helper ./helpers.js --data ./v2.local.json subgraph.template.yaml > subgraph.yaml",
     "prepare:goerli": "hbs --stdout --helper ./helpers.js --data ./v2.goerli.json subgraph.template.yaml > subgraph.yaml",
-    "prepare:mainnet": "hbs --stdout --helper ./helpers.js --data ./v2.mainnet.json subgraph.template.yaml > subgraph.yaml",
+    "prepare:mainnet": "hbs --stdout --helper ./helpers.js --data ./v2.mainnet.json ./templates/v3.template.yaml > subgraph.yaml",
     "codegen": "yarn run graph codegen",
     "build": "yarn run graph build",
     "deploy:goerli": "yarn run prepare:goerli && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/goerli-v2",
