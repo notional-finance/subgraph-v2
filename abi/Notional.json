@@ -548,6 +548,31 @@
             },
             {
                 "indexed": false,
+                "internalType": "address",
+                "name": "proxy",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "bool",
+                "name": "isCashProxy",
+                "type": "bool"
+            }
+        ],
+        "name": "PrimeProxyDeployed",
+        "type": "event"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "uint16",
+                "name": "currencyId",
+                "type": "uint16"
+            },
+            {
+                "indexed": false,
                 "internalType": "uint256",
                 "name": "totalPrimeSupply",
                 "type": "uint256"

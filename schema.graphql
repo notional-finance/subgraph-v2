@@ -1,0 +1,129 @@
+enum AssetType {
+  nToken,
+  WrappedfCash,
+  PrimeCash,
+  PrimeDebt,
+  PositivefCash,
+  NegativefCash,
+  VaultShare,
+  VaultDebt,
+  VaultCash
+}
+
+enum AssetInterface {
+  ERC20,
+  ERC1155
+}
+
+enum TransferType {
+  Mint,
+  Burn,
+  Transfer
+}
+
+type Underlying @entity {
+  "ID is equal to the currency ID on Notional"
+  id: ID!
+  firstUpdateBlockNumber: Int!
+  firstUpdateTimestamp: Int!
+  firstUpdateTransactionHash: Int!
+
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  name: String!
+  symbol: String!
+  decimals: Int!
+  tokenAddress: Bytes!
+}
+
+type Asset @entity {
+  "ERC20 interfaces have the address as the id, ERC1155 use the uint256 id"
+  id: ID!
+
+  firstUpdateBlockNumber: Int!
+  firstUpdateTimestamp: Int!
+  firstUpdateTransactionHash: Int!
+
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  assetType: AssetType!
+  assetInterface: AssetInterface!
+  
+  name: String!
+  symbol: String!
+  underlying: Underlying!
+  totalSupply: BigInt!
+  decimals: Int!
+
+  balanceOf: [Balance!] @derivedFrom(field: "asset")
+  transfers: [Transfer!] @derivedFrom(field: "asset")
+
+  "Maturities are only set for some asset types"
+  maturity: Int
+  "Set to the ERC20 address or Notional Proxy for ERC1155 addresses"
+  assetAddress: Bytes!
+}
+
+type Balance @entity {
+  "Address of Account:ID of Asset"
+  id: ID!
+  "Link back to the asset"
+  asset: Asset!
+  "Address of the account that holds this balance"
+  account: Account!
+
+  firstUpdateBlockNumber: Int!
+  firstUpdateTimestamp: Int!
+  firstUpdateTransactionHash: Int!
+
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+  
+  balance: BigInt!
+}
+
+type Transfer @entity {
+  id: ID!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+  logIndex: Int!
+
+  asset: Asset!
+  from: Account!
+  to: Account!
+  transferType: TransferType!
+  value: BigInt!
+  
+  underlying: Underlying!
+  maturity: Int
+  vaultAddress: Account
+  "Operator is logged for ERC1155 transfer events"
+  operator: Account
+}
+
+type Account @entity {
+  "Address of Account"
+  id: ID!
+
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  isBurnAddress: Boolean!
+  isSettlementReserve: Boolean!
+  isNToken: Boolean!
+  isVault: Boolean!
+  isFeeReserve: Boolean!
+
+  "All current balances linked to this account"
+  balances: [Balance!] @derivedFrom(field: "account")
+  "All historical asset transfers linked to this account"
+  transfersFrom: [Transfer!] @derivedFrom(field: "from")
+  transfersTo: [Transfer!] @derivedFrom(field: "to")
+}
