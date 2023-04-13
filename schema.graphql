@@ -36,6 +36,9 @@ type Underlying @entity {
   symbol: String!
   decimals: Int!
   tokenAddress: Bytes!
+  hasTransferFee: Boolean!
+
+  assets: [Asset!] @derivedFrom(field: "underlying")
 }
 
 type Asset @entity {
@@ -88,23 +91,84 @@ type Balance @entity {
 }
 
 type Transfer @entity {
+  "Transaction Hash:Log Index"
+  id: ID!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Transaction!
+  logIndex: Int!
+
+  from: Account!
+  to: Account!
+  value: BigInt!
+
+  "Value of the transfer in underlying terms at the time of transfer"
+  valueInUnderlying: BigInt
+
+  "Link to the asset entity for this transfer"
+  asset: Asset!
+  "Type of asset that is transferred"
+  assetType: AssetType!
+  "Interface for the asset transfer"
+  assetInterface: AssetInterface!
+  "Categorizes the transfer as a mint, burn or transfer"
+  transferType: TransferType!
+  "Link to the underlying currency this asset is denominated in"
+  underlying: Underlying!
+
+  "Optional field when the asset has a maturity (ERC1155 only)"
+  maturity: Int
+  "Optional field when the asset is linked to a leveraged vault (ERC1155 only)"
+  vaultAddress: Account
+  "Operator is logged for ERC1155 transfer events"
+  operator: Account
+
+  "Link to the transfer bundle this sits in"
+  bundle: TransferBundle
+
+  "Link to the transaction type this sits in"
+  transactionType: TransactionType
+}
+
+type TransferBundle @entity {
+  "Transaction Hash:Start Log Index:End Log Index:Bundle Name"
+  id: ID!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Transaction!
+
+  bundleName: String!
+  transfers: [Transfer!] @derivedFrom(field: "bundle")
+  
+  "A logical grouping of transfer bundles into transaction types"
+  transactionType: TransactionType
+}
+
+type TransactionType @entity {
+  "Transaction Hash:Start Log Index:End Log Index:Transaction Type"
+  id: ID!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Transaction!
+
+  # TODO: this needs to have arbitrary properties
+}
+
+type Transaction @entity {
+  "Transaction Hash"
   id: ID!
   blockNumber: Int!
   timestamp: Int!
   transactionHash: Bytes!
-  logIndex: Int!
 
-  asset: Asset!
-  from: Account!
-  to: Account!
-  transferType: TransferType!
-  value: BigInt!
-  
-  underlying: Underlying!
-  maturity: Int
-  vaultAddress: Account
-  "Operator is logged for ERC1155 transfer events"
-  operator: Account
+  _transfers: [Transfer!]
+  _transferBundles: [TransferBundle!]
+  _transactionTypes: [TransactionType!]
+
+  # TODO: if we can't query via derivedFrom then these need to be manually appended
+  transfers: [Transfer!] @derivedFrom(field: "transactionHash")
+  transferBundles: [TransferBundle!] @derivedFrom(field: "transactionHash")
+  transactionTypes: [TransactionType!] @derivedFrom(field: "transactionHash")
 }
 
 type Account @entity {
