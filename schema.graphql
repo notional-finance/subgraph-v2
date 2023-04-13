@@ -34,7 +34,7 @@ type Underlying @entity {
 
   name: String!
   symbol: String!
-  decimals: Int!
+  precision: BigInt!
   tokenAddress: Bytes!
   hasTransferFee: Boolean!
 
@@ -60,7 +60,7 @@ type Asset @entity {
   symbol: String!
   underlying: Underlying!
   totalSupply: BigInt!
-  decimals: Int!
+  precision: BigInt!
 
   balanceOf: [Balance!] @derivedFrom(field: "asset")
   transfers: [Transfer!] @derivedFrom(field: "asset")
