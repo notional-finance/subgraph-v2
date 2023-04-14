@@ -1,5 +1,6 @@
-import { ethereum } from "@graphprotocol/graph-ts";
+import { Address, ethereum } from "@graphprotocol/graph-ts";
 import { Account, Asset, Balance, Transaction, Transfer, Underlying } from "../../generated/schema";
+import { FeeReserve, FEE_RESERVE, None, SettlementReserve, SETTLEMENT_RESERVE, ZeroAddress, ZERO_ADDRESS } from "./constants";
 
 export function getUnderlying(id: string): Underlying {
   let entity = Underlying.load(id);
@@ -25,11 +26,34 @@ export function getBalance(id: string): Balance {
   return entity as Balance;
 }
 
-export function getAccount(id: string): Account {
+export function getAccount(id: string, event: ethereum.Event): Account {
   let entity = Account.load(id);
   if (entity == null) {
     entity = new Account(id);
+
+    if (id == FEE_RESERVE.toHexString()) {
+      entity.systemAccountType = FeeReserve;
+    } else if (id == SETTLEMENT_RESERVE.toHexString()) {
+      entity.systemAccountType = SettlementReserve;
+    } else if (id == ZERO_ADDRESS.toHexString()) {
+      entity.systemAccountType = ZeroAddress;
+    } else {
+      // NOTE: ERC20 proxies will update their system account type after
+      // calling getAccount. Otherwise this creates a new default account
+      entity.systemAccountType = None;
+    }
+
+    entity.firstUpdateBlockNumber = event.block.number.toI32();
+    entity.firstUpdateTimestamp = event.block.timestamp.toI32();
+    entity.firstUpdateTransactionHash = event.transaction.hash;
+
+    entity.lastUpdateBlockNumber = event.block.number.toI32();
+    entity.lastUpdateTimestamp = event.block.timestamp.toI32();
+    entity.lastUpdateTransactionHash = event.transaction.hash;
+
+    entity.save()
   }
+
   return entity as Account;
 }
 

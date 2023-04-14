@@ -10,6 +10,17 @@ enum AssetType {
   VaultCash
 }
 
+enum SystemAccount {
+  None,
+  ZeroAddress,
+  FeeReserve,
+  SettlementReserve,
+  Vault,
+  nToken,
+  PrimeCash,
+  PrimeDebt
+}
+
 enum AssetInterface {
   ERC20,
   ERC1155
@@ -47,7 +58,7 @@ type Asset @entity {
 
   firstUpdateBlockNumber: Int!
   firstUpdateTimestamp: Int!
-  firstUpdateTransactionHash: Int!
+  firstUpdateTransactionHash: Bytes!
 
   lastUpdateBlockNumber: Int!
   lastUpdateTimestamp: Int!
@@ -84,7 +95,7 @@ type Balance @entity {
 
   firstUpdateBlockNumber: Int!
   firstUpdateTimestamp: Int!
-  firstUpdateTransactionHash: Int!
+  firstUpdateTransactionHash: Bytes!
 
   lastUpdateBlockNumber: Int!
   lastUpdateTimestamp: Int!
@@ -107,6 +118,8 @@ type Transfer @entity {
   operator: Account
   "Categorizes the transfer as a mint, burn or transfer"
   transferType: TransferType!
+  fromSystemAccount: SystemAccount!
+  toSystemAccount: SystemAccount!
 
   value: BigInt!
   "Value of the transfer in underlying terms at the time of transfer"
@@ -114,6 +127,7 @@ type Transfer @entity {
 
   "Link to the asset entity for this transfer"
   asset: Asset!
+  assetType: AssetType!
 
   "Link to the transfer bundle this sits in"
   bundle: TransferBundle
@@ -169,15 +183,14 @@ type Account @entity {
   "Address of Account"
   id: ID!
 
+  firstUpdateBlockNumber: Int!
+  firstUpdateTimestamp: Int!
+  firstUpdateTransactionHash: Bytes!
+
   lastUpdateBlockNumber: Int!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
-
-  isBurnAddress: Boolean!
-  isSettlementReserve: Boolean!
-  isNToken: Boolean!
-  isVault: Boolean!
-  isFeeReserve: Boolean!
+  systemAccountType: SystemAccount!
 
   "All current balances linked to this account"
   balances: [Balance!] @derivedFrom(field: "account")

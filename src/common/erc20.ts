@@ -2,6 +2,7 @@ import { Address, DataSourceContext, ethereum, log, BigInt } from "@graphprotoco
 import { Asset } from "../../generated/schema";
 import { ERC20 } from "../../generated/templates/ERC20Proxy/ERC20"
 import { ERC20Proxy } from "../../generated/templates"
+import { getAccount } from "./entities";
 
 export function getTokenNameAndSymbol(tokenAddress: Address): string[] {
   log.debug('Fetching token symbol and name at {}', [tokenAddress.toHexString()]);
@@ -38,8 +39,8 @@ export function createERC20ProxyAsset(asset: Asset, tokenAddress: Address, event
   asset.lastUpdateTransactionHash = event.transaction.hash;
 
   asset.firstUpdateBlockNumber = event.block.number.toI32();
-  asset.lastUpdateTimestamp = event.block.timestamp.toI32();
-  asset.lastUpdateTransactionHash = event.transaction.hash;
+  asset.firstUpdateTimestamp = event.block.timestamp.toI32();
+  asset.firstUpdateTransactionHash = event.transaction.hash;
   updateERC20ProxyTotalSupply(asset);
 
   log.debug('Updated asset variables for entity {}', [asset.id]);
@@ -52,6 +53,16 @@ export function createERC20ProxyAsset(asset: Asset, tokenAddress: Address, event
   context.setString('assetType', asset.assetType);
   context.setString('underlying', asset.underlying);
   ERC20Proxy.createWithContext(tokenAddress, context);
+
+  let account = getAccount(tokenAddress.toHexString(), event);
+  account.lastUpdateBlockNumber = event.block.number.toI32();
+  account.lastUpdateTimestamp = event.block.timestamp.toI32();
+  account.lastUpdateTransactionHash = event.transaction.hash;
+
+  // This will be one of nToken, PrimeCash, PrimeDebt
+  account.systemAccountType = asset.assetType;
+
+  account.save();
 }
 
 export function updateERC20ProxyTotalSupply(asset: Asset): void {

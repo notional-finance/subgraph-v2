@@ -1,7 +1,7 @@
 import { Address, ethereum, BigInt } from "@graphprotocol/graph-ts";
 import { Asset, Transfer } from "../../generated/schema";
 import { ZERO_ADDRESS } from "./constants";
-import { getTransaction } from "./entities";
+import { getAccount, getTransaction } from "./entities";
 import { BundleCriteria } from "./bundles";
 
 export function decodeTransferType(from: Address, to: Address): string {
@@ -12,6 +12,11 @@ export function decodeTransferType(from: Address, to: Address): string {
   } else {
     return 'Transfer'
   }
+}
+
+export function decodeSystemAccount(addr: Address, event: ethereum.Event): string {
+  let account = getAccount(addr.toHexString(), event)
+  return account.systemAccountType;
 }
 
 export function convertValueToUnderlying(value: BigInt, asset: Asset): BigInt {
@@ -42,8 +47,8 @@ export function processTransfer(transfer: Transfer, event: ethereum.Event): void
 export function scanTransferBundle(startIndex: i32, transferArray: string[], bundleArray: string[]): void {
   let t = new Array<Transfer>();
   for (let i = 0; i < BundleCriteria.length; i++) {
-    let criteria = BundleCriteria[i];
-    let isMatch = criteria(t)
+    // let criteria = BundleCriteria[i];
+    // let isMatch = criteria(t)
   }
 
 }
