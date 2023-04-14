@@ -1,5 +1,5 @@
 import { Address, ethereum } from "@graphprotocol/graph-ts";
-import { Account, Asset, Balance, Transaction, Transfer, Underlying } from "../../generated/schema";
+import { Account, Asset, Balance, Transaction, Transfer, TransferBundle, Underlying } from "../../generated/schema";
 import { FeeReserve, FEE_RESERVE, None, SettlementReserve, SETTLEMENT_RESERVE, ZeroAddress, ZERO_ADDRESS } from "./constants";
 
 export function getUnderlying(id: string): Underlying {
@@ -57,7 +57,7 @@ export function getAccount(id: string, event: ethereum.Event): Account {
   return entity as Account;
 }
 
-export function getTransfer(event: ethereum.Event, index: i32): Transfer {
+export function createTransfer(event: ethereum.Event, index: i32): Transfer {
   let id = event.transaction.hash.toHexString() + ":" + event.transactionLogIndex.toString() + ":" + index.toString()
   let transfer = new Transfer(id)
   transfer.blockNumber = event.block.number.toI32();
@@ -80,4 +80,9 @@ export function getTransaction(event: ethereum.Event): Transaction {
   transaction._lastBundledTransfer = 0;
 
   return transaction;
+}
+
+export function createTransferBundle(txnHash: string, bundleName: string, startLogIndex: i32, endLogIndex: i32): TransferBundle {
+  let bundleId = txnHash + ":" + startLogIndex.toString() + ":" + endLogIndex.toString() + ":" + bundleName;
+  return new TransferBundle(bundleId);
 }
