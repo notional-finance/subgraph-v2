@@ -67,8 +67,11 @@ type Asset @entity {
 
   "Maturities are only set for some asset types"
   maturity: Int
+  "Vault address is set for vault asset types"
+  vaultAddress: Bytes
+
   "Set to the ERC20 address or Notional Proxy for ERC1155 addresses"
-  assetAddress: Bytes!
+  emitterAddress: Bytes!
 }
 
 type Balance @entity {
@@ -100,28 +103,17 @@ type Transfer @entity {
 
   from: Account!
   to: Account!
-  value: BigInt!
+  "Operator is logged for ERC1155 transfer events"
+  operator: Account
+  "Categorizes the transfer as a mint, burn or transfer"
+  transferType: TransferType!
 
+  value: BigInt!
   "Value of the transfer in underlying terms at the time of transfer"
   valueInUnderlying: BigInt
 
   "Link to the asset entity for this transfer"
   asset: Asset!
-  "Type of asset that is transferred"
-  assetType: AssetType!
-  "Interface for the asset transfer"
-  assetInterface: AssetInterface!
-  "Categorizes the transfer as a mint, burn or transfer"
-  transferType: TransferType!
-  "Link to the underlying currency this asset is denominated in"
-  underlying: Underlying!
-
-  "Optional field when the asset has a maturity (ERC1155 only)"
-  maturity: Int
-  "Optional field when the asset is linked to a leveraged vault (ERC1155 only)"
-  vaultAddress: Account
-  "Operator is logged for ERC1155 transfer events"
-  operator: Account
 
   "Link to the transfer bundle this sits in"
   bundle: TransferBundle
@@ -164,6 +156,8 @@ type Transaction @entity {
   _transfers: [Transfer!]
   _transferBundles: [TransferBundle!]
   _transactionTypes: [TransactionType!]
+  "Internal index of the last transfer that was bundled"
+  _lastBundledTransfer: Int!
 
   # TODO: if we can't query via derivedFrom then these need to be manually appended
   transfers: [Transfer!] @derivedFrom(field: "transactionHash")
