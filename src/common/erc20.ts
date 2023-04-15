@@ -3,6 +3,7 @@ import { Asset } from "../../generated/schema";
 import { ERC20 } from "../../generated/templates/ERC20Proxy/ERC20"
 import { ERC20Proxy } from "../../generated/templates"
 import { getAccount } from "./entities";
+import { INTERNAL_TOKEN_PRECISION } from "./constants";
 
 export function getTokenNameAndSymbol(tokenAddress: Address): string[] {
   log.debug('Fetching token symbol and name at {}', [tokenAddress.toHexString()]);
@@ -31,7 +32,7 @@ export function createERC20ProxyAsset(asset: Asset, tokenAddress: Address, event
   asset.assetInterface = 'ERC20';
   asset.name = symbolAndName[0];
   asset.symbol = symbolAndName[1];
-  asset.precision = BigInt.fromI32(10).pow(8);
+  asset.precision = INTERNAL_TOKEN_PRECISION;
   asset.emitterAddress = tokenAddress;
 
   asset.lastUpdateBlockNumber = event.block.number.toI32();

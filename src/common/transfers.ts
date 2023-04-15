@@ -32,6 +32,7 @@ export function processTransfer(transfer: Transfer, event: ethereum.Event): void
 
   // Append the transfer to the transfer array
   transferArray.push(transfer.id)
+  transfer.save();
 
   // Scan unbundled transfers
   let didBundle = scanTransferBundle(
@@ -45,7 +46,6 @@ export function processTransfer(transfer: Transfer, event: ethereum.Event): void
   txn._transferBundles = bundleArray;
   txn._transfers = transferArray;
 
-  transfer.save();
   txn.save();
 }
 
@@ -93,6 +93,7 @@ export function scanTransferBundle(
       }
 
       bundleArray.push(bundle.id)
+      bundle.save()
 
       return true
     }

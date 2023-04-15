@@ -1,9 +1,10 @@
-import { Address } from "@graphprotocol/graph-ts";
+import { Address, BigInt } from "@graphprotocol/graph-ts";
 
 export const ZERO_ADDRESS = Address.zero()
 export const FEE_RESERVE = Address.fromHexString("0x0000000000000000000000000000000000000FEE");
 export const SETTLEMENT_RESERVE = Address.fromHexString("0x00000000000000000000000000000000000005e7");
 export const PRIME_CASH_VAULT_MATURITY = 2 ** 40 - 1
+export const INTERNAL_TOKEN_PRECISION = BigInt.fromI32(10).pow(8);
 
 // Enum Values as Constants
 

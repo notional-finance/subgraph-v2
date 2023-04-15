@@ -3,8 +3,7 @@ enum AssetType {
   WrappedfCash,
   PrimeCash,
   PrimeDebt,
-  PositivefCash,
-  NegativefCash,
+  fCash,
   VaultShare,
   VaultDebt,
   VaultCash,
@@ -79,6 +78,7 @@ type Asset @entity {
   balanceOf: [Balance!] @derivedFrom(field: "asset")
   transfers: [Transfer!] @derivedFrom(field: "asset")
 
+  isfCashDebt: Boolean!
   "Maturities are only set for some asset types"
   maturity: Int
   "Vault address is set for vault asset types"
