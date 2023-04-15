@@ -53,6 +53,8 @@ export function createERC20ProxyAsset(asset: Asset, tokenAddress: Address, event
   context.setString('symbol', symbolAndName[1]);
   context.setString('assetType', asset.assetType);
   context.setString('underlying', asset.underlying);
+  // Notional will always be the event emitter when creating new proxy assets
+  context.setBytes('notional', event.address);
   ERC20Proxy.createWithContext(tokenAddress, context);
 
   let account = getAccount(tokenAddress.toHexString(), event);

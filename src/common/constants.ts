@@ -5,6 +5,8 @@ export const FEE_RESERVE = Address.fromHexString("0x0000000000000000000000000000
 export const SETTLEMENT_RESERVE = Address.fromHexString("0x00000000000000000000000000000000000005e7");
 export const PRIME_CASH_VAULT_MATURITY = 2 ** 40 - 1
 export const INTERNAL_TOKEN_PRECISION = BigInt.fromI32(10).pow(8);
+export const NOTE_CURRENCY_ID = 2 ** 32 - 1;
+export const SNOTE_CURRENCY_ID = 2 ** 32;
 
 // Enum Values as Constants
 

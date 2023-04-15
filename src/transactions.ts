@@ -17,7 +17,7 @@ export function handleERC1155Transfer(event: TransferSingle): void {
 
   transfer.transferType = decodeTransferType(event.params.from, event.params.to)
   transfer.value = event.params.value;
-  transfer.valueInUnderlying = convertValueToUnderlying(event.params.value, asset);
+  transfer.valueInUnderlying = convertValueToUnderlying(event.params.value, asset, event.block.timestamp);
   
   // inherit asset properties
   transfer.asset = asset.id;
@@ -42,7 +42,7 @@ export function handleERC1155BatchTransfer(event: TransferBatch): void {
 
     transfer.transferType = decodeTransferType(event.params.from, event.params.to)
     transfer.value = event.params.values[i];
-    transfer.valueInUnderlying = convertValueToUnderlying(event.params.values[i], asset);
+    transfer.valueInUnderlying = convertValueToUnderlying(event.params.values[i], asset, event.block.timestamp);
 
   // inherit asset properties
     transfer.asset = asset.id;
@@ -66,7 +66,7 @@ export function handleERC20Transfer(event: TransferEvent): void {
 
     transfer.transferType = decodeTransferType(event.params.from, event.params.to)
     transfer.value = event.params.value;
-    transfer.valueInUnderlying = convertValueToUnderlying(transfer.value, asset);
+    transfer.valueInUnderlying = convertValueToUnderlying(transfer.value, asset, event.block.timestamp);
 
     // inherit asset properties
     transfer.asset = asset.id;

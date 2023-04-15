@@ -1,13 +1,36 @@
-import { Address, log } from '@graphprotocol/graph-ts';
+import { Address, ethereum, log } from '@graphprotocol/graph-ts';
 import {
   ListCurrency,
   DeployNToken,
   Notional,
   PrimeProxyDeployed,
 } from '../generated/Governance/Notional';
-import { None, Notional as _Notional } from './common/constants';
+import { INTERNAL_TOKEN_PRECISION, None, NOTE, NOTE_CURRENCY_ID, Notional as _Notional } from './common/constants';
 import { getAccount, getAsset, getUnderlying } from './common/entities';
 import { createERC20ProxyAsset, getTokenNameAndSymbol } from './common/erc20';
+
+function _initializeNOTEToken(notional: Notional, event: ethereum.Event): void {
+  let noteToken = notional.getNoteToken()
+  let noteUnderlying = getUnderlying(NOTE_CURRENCY_ID.toString());
+  noteUnderlying.precision = INTERNAL_TOKEN_PRECISION;
+  noteUnderlying.tokenAddress = noteToken;
+  noteUnderlying.hasTransferFee = false;
+
+  let underlyingTokenNameAndSymbol = getTokenNameAndSymbol(noteToken);
+  noteUnderlying.name = underlyingTokenNameAndSymbol[0];
+  noteUnderlying.symbol = underlyingTokenNameAndSymbol[1];
+  noteUnderlying.lastUpdateBlockNumber = event.block.number.toI32();
+  noteUnderlying.lastUpdateTimestamp = event.block.timestamp.toI32();
+  noteUnderlying.lastUpdateTransactionHash = event.transaction.hash;
+  noteUnderlying.save()
+
+  let noteAsset = getAsset(noteToken.toHexString())
+  noteAsset.assetType = NOTE;
+  // NOTE is its own underlying asset
+  noteAsset.underlying = noteUnderlying.id;
+  // calls noteAsset.save() inside
+  createERC20ProxyAsset(noteAsset, noteToken, event)
+}
 
 export function handleListCurrency(event: ListCurrency): void {
   let notional = Notional.bind(event.address);
@@ -43,9 +66,7 @@ export function handleListCurrency(event: ListCurrency): void {
     notionalAccount.save();
 
     // Also initialize the NOTE token asset
-    let noteToken = notional.getNoteToken()
-    let noteAsset = getAsset(noteToken.toHexString())
-    createERC20ProxyAsset(noteAsset, noteToken, event)
+    _initializeNOTEToken(notional, event)
   }
 }
 
