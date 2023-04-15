@@ -1,4 +1,4 @@
-import { Address, ethereum } from "@graphprotocol/graph-ts";
+import { ethereum } from "@graphprotocol/graph-ts";
 import { Account, Asset, Balance, Transaction, Transfer, TransferBundle, Underlying } from "../../generated/schema";
 import { FeeReserve, FEE_RESERVE, None, SettlementReserve, SETTLEMENT_RESERVE, ZeroAddress, ZERO_ADDRESS } from "./constants";
 

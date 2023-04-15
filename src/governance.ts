@@ -5,7 +5,8 @@ import {
   Notional,
   PrimeProxyDeployed,
 } from '../generated/Governance/Notional';
-import { getAsset, getUnderlying } from './common/entities';
+import { None, Notional as _Notional } from './common/constants';
+import { getAccount, getAsset, getUnderlying } from './common/entities';
 import { createERC20ProxyAsset, getTokenNameAndSymbol } from './common/erc20';
 
 export function handleListCurrency(event: ListCurrency): void {
@@ -34,6 +35,18 @@ export function handleListCurrency(event: ListCurrency): void {
 
   log.debug('Updated currency variables for entity {}', [id.toString()]);
   underlying.save();
+
+  // Set the Notional proxy account if it is not set already to initialize it
+  let notionalAccount = getAccount(event.address.toHexString(), event)
+  if (notionalAccount.systemAccountType == None) {
+    notionalAccount.systemAccountType = _Notional;
+    notionalAccount.save();
+
+    // Also initialize the NOTE token asset
+    let noteToken = notional.getNoteToken()
+    let noteAsset = getAsset(noteToken.toHexString())
+    createERC20ProxyAsset(noteAsset, noteToken, event)
+  }
 }
 
 export function handleDeployNToken(event: DeployNToken): void {

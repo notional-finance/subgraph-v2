@@ -7,7 +7,8 @@ enum AssetType {
   NegativefCash,
   VaultShare,
   VaultDebt,
-  VaultCash
+  VaultCash,
+  NOTE
 }
 
 enum SystemAccount {
@@ -18,7 +19,9 @@ enum SystemAccount {
   Vault,
   nToken,
   PrimeCash,
-  PrimeDebt
+  PrimeDebt,
+  Notional,
+  NOTE
 }
 
 enum AssetInterface {
@@ -128,6 +131,9 @@ type Transfer @entity {
   "Link to the asset entity for this transfer"
   asset: Asset!
   assetType: AssetType!
+  underlying: Underlying!
+  "Only set for some transfer types"
+  maturity: Int
 
   "Link to the transfer bundle this sits in"
   bundle: TransferBundle
