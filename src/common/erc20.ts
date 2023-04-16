@@ -33,7 +33,9 @@ export function createERC20ProxyAsset(asset: Asset, tokenAddress: Address, event
   asset.name = symbolAndName[0];
   asset.symbol = symbolAndName[1];
   asset.precision = INTERNAL_TOKEN_PRECISION;
-  asset.emitterAddress = tokenAddress;
+  asset.tokenAddress = tokenAddress;
+  // None of the Notional tokens have transfer fees
+  asset.hasTransferFee = false;
 
   asset.lastUpdateBlockNumber = event.block.number.toI32();
   asset.lastUpdateTimestamp = event.block.timestamp.toI32();
@@ -52,7 +54,7 @@ export function createERC20ProxyAsset(asset: Asset, tokenAddress: Address, event
   context.setString('name', symbolAndName[0]);
   context.setString('symbol', symbolAndName[1]);
   context.setString('assetType', asset.assetType);
-  context.setString('underlying', asset.underlying);
+  context.setString('underlying', asset.underlying as string); // Underlying must be set at this point
   // Notional will always be the event emitter when creating new proxy assets
   context.setBytes('notional', event.address);
   ERC20Proxy.createWithContext(tokenAddress, context);
@@ -70,10 +72,10 @@ export function createERC20ProxyAsset(asset: Asset, tokenAddress: Address, event
 
 export function updateERC20ProxyTotalSupply(asset: Asset): void {
   if (asset.assetInterface != 'ERC20') return
-  let erc20 = ERC20.bind(asset.emitterAddress as Address);
+  let erc20 = ERC20.bind(asset.tokenAddress as Address);
   let totalSupply = erc20.try_totalSupply()
   if (totalSupply.reverted) {
-    log.error("Unable to fetch total supply for {}", [asset.emitterAddress.toHexString()])
+    log.error("Unable to fetch total supply for {}", [asset.tokenAddress.toHexString()])
   } else {
     asset.totalSupply = totalSupply.value
   }

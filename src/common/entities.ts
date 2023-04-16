@@ -1,14 +1,6 @@
 import { ethereum } from "@graphprotocol/graph-ts";
-import { Account, Asset, Balance, Transaction, Transfer, TransferBundle, Underlying } from "../../generated/schema";
+import { Account, Asset, Balance, Transaction, Transfer, TransferBundle } from "../../generated/schema";
 import { FeeReserve, FEE_RESERVE, None, SettlementReserve, SETTLEMENT_RESERVE, ZeroAddress, ZERO_ADDRESS } from "./constants";
-
-export function getUnderlying(id: string): Underlying {
-  let entity = Underlying.load(id);
-  if (entity == null) {
-    entity = new Underlying(id);
-  }
-  return entity as Underlying;
-}
 
 export function getAsset(id: string): Asset {
   let entity = Asset.load(id);

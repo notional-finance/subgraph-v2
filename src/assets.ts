@@ -5,29 +5,28 @@ import {
   Notional,
   PrimeProxyDeployed,
 } from '../generated/Governance/Notional';
-import { INTERNAL_TOKEN_PRECISION, None, NOTE, NOTE_CURRENCY_ID, Notional as _Notional } from './common/constants';
-import { getAccount, getAsset, getUnderlying } from './common/entities';
+import { Asset } from '../generated/schema';
+import { INTERNAL_TOKEN_PRECISION, None, NOTE, NOTE_CURRENCY_ID, Notional as _Notional, Underlying } from './common/constants';
+import { getAccount, getAsset } from './common/entities';
 import { createERC20ProxyAsset, getTokenNameAndSymbol } from './common/erc20';
 
 function _initializeNOTEToken(notional: Notional, event: ethereum.Event): void {
+  if (Asset.load(NOTE_CURRENCY_ID.toString()) != null) return;
+
   let noteToken = notional.getNoteToken()
-  let noteUnderlying = getUnderlying(NOTE_CURRENCY_ID.toString());
-  noteUnderlying.precision = INTERNAL_TOKEN_PRECISION;
-  noteUnderlying.tokenAddress = noteToken;
-  noteUnderlying.hasTransferFee = false;
+  let noteAsset = new Asset(NOTE_CURRENCY_ID.toString())
+  noteAsset.precision = INTERNAL_TOKEN_PRECISION;
+  noteAsset.tokenAddress = noteToken;
+  noteAsset.hasTransferFee = false;
 
   let underlyingTokenNameAndSymbol = getTokenNameAndSymbol(noteToken);
-  noteUnderlying.name = underlyingTokenNameAndSymbol[0];
-  noteUnderlying.symbol = underlyingTokenNameAndSymbol[1];
-  noteUnderlying.lastUpdateBlockNumber = event.block.number.toI32();
-  noteUnderlying.lastUpdateTimestamp = event.block.timestamp.toI32();
-  noteUnderlying.lastUpdateTransactionHash = event.transaction.hash;
-  noteUnderlying.save()
+  noteAsset.name = underlyingTokenNameAndSymbol[0];
+  noteAsset.symbol = underlyingTokenNameAndSymbol[1];
+  noteAsset.lastUpdateBlockNumber = event.block.number.toI32();
+  noteAsset.lastUpdateTimestamp = event.block.timestamp.toI32();
+  noteAsset.lastUpdateTransactionHash = event.transaction.hash;
 
-  let noteAsset = getAsset(noteToken.toHexString())
   noteAsset.assetType = NOTE;
-  // NOTE is its own underlying asset
-  noteAsset.underlying = noteUnderlying.id;
   // calls noteAsset.save() inside
   createERC20ProxyAsset(noteAsset, noteToken, event)
 }
@@ -36,12 +35,14 @@ export function handleListCurrency(event: ListCurrency): void {
   let notional = Notional.bind(event.address);
   let results = notional.getCurrency(event.params.newCurrencyId);
   let id = event.params.newCurrencyId as i32;
-  let underlying = getUnderlying(id.toString());
+  let underlying = getAsset(id.toString());
 
   let underlyingToken = results.getUnderlyingToken()
   underlying.precision = underlyingToken.decimals;
   underlying.tokenAddress = underlyingToken.tokenAddress;
   underlying.hasTransferFee = underlyingToken.hasTransferFee;
+  underlying.assetType = Underlying;
+  underlying.assetInterface = 'ERC20';
 
   if (underlyingToken.tokenAddress != Address.zero()) {
     let underlyingTokenNameAndSymbol = getTokenNameAndSymbol(underlyingToken.tokenAddress);

@@ -1,3 +1,4 @@
+import { log } from "@graphprotocol/graph-ts";
 import { TransferBatch, TransferSingle } from "../generated/Governance/Notional";
 import { Transfer as TransferEvent } from "../generated/templates/ERC20Proxy/ERC20";
 import { updateBalance } from "./balances";
@@ -23,8 +24,10 @@ export function handleERC1155Transfer(event: TransferSingle): void {
   // inherit asset properties
   transfer.asset = asset.id;
   transfer.assetType = asset.assetType;
-  transfer.underlying = asset.underlying;
   transfer.maturity = asset.maturity;
+
+  if (!isDefined(asset.underlying)) log.critical("Unknown underlying for asset {}", [asset.id])
+  transfer.underlying = asset.underlying as string;
 
   updateBalance(asset, transfer);
 
@@ -50,8 +53,10 @@ export function handleERC1155BatchTransfer(event: TransferBatch): void {
     // inherit asset properties
     transfer.asset = asset.id;
     transfer.assetType = asset.assetType;
-    transfer.underlying = asset.underlying;
     transfer.maturity = asset.maturity;
+
+    if (!isDefined(asset.underlying)) log.critical("Unknown underlying for asset {}", [asset.id])
+    transfer.underlying = asset.underlying as string;
 
     updateBalance(asset, transfer);
 
@@ -76,7 +81,9 @@ export function handleERC20Transfer(event: TransferEvent): void {
     // inherit asset properties
     transfer.asset = asset.id;
     transfer.assetType = asset.assetType;
-    transfer.underlying = asset.underlying;
+
+    if (!isDefined(asset.underlying)) log.critical("Unknown underlying for asset {}", [asset.id])
+    transfer.underlying = asset.underlying as string;
 
     updateBalance(asset, transfer);
 

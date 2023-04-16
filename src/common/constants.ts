@@ -11,6 +11,7 @@ export const SNOTE_CURRENCY_ID = 2 ** 32;
 // Enum Values as Constants
 
 // Asset Type
+export const Underlying = 'Underlying'
 export const nToken = 'nToken'
 export const PrimeCash = 'PrimeCash'
 export const PrimeDebt = 'PrimeDebt'

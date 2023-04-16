@@ -31,8 +31,10 @@ export function convertValueToUnderlying(value: BigInt, asset: Asset, blockTime:
     notionalAddress = dataSource.address()
   }
 
+  if (!isDefined(asset.underlying)) log.critical("Unknown underlying for asset {}", [asset.id])
+
   let notional = Notional.bind(notionalAddress)
-  let currencyId = I32.parseInt(asset.underlying) as i32
+  let currencyId = I32.parseInt(asset.underlying as string) as i32
   let underlyingExternal: ethereum.CallResult<BigInt>;
   return null
 

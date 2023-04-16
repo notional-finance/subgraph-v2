@@ -2,7 +2,7 @@ import { ethereum, BigInt } from "@graphprotocol/graph-ts";
 import { Notional, Notional__decodeERC1155IdResult } from "../../generated/Governance/Notional";
 import { Asset } from "../../generated/schema";
 import { fCash, INTERNAL_TOKEN_PRECISION, PRIME_CASH_VAULT_MATURITY, VaultCash, VaultDebt, VaultShare } from "./constants";
-import { getUnderlying } from "./entities";
+import { getAsset } from "./entities";
 
 const FCASH_ASSET_TYPE = 1
 const VAULT_SHARE_ASSET_TYPE = 9
@@ -12,7 +12,7 @@ const VAULT_CASH_ASSET_TYPE = 111
 function _setAssetType(decodedId: Notional__decodeERC1155IdResult, asset: Asset): void {
   let assetType = decodedId.getAssetType().toI32()
   let maturity = decodedId.getMaturity().toString()
-  let underlying = getUnderlying(decodedId.getCurrencyId().toString())
+  let underlying = getAsset(decodedId.getCurrencyId().toString())
   let underlyingSymbol = underlying.symbol;
 
   if (assetType == FCASH_ASSET_TYPE) {
@@ -65,7 +65,8 @@ export function getOrCreateERC1155Asset(erc1155ID: BigInt, event: ethereum.Event
     // Initialize this at zero
     asset.totalSupply = BigInt.zero();
     asset.precision = INTERNAL_TOKEN_PRECISION;
-    asset.emitterAddress = event.address;
+    asset.tokenAddress = event.address;
+    asset.hasTransferFee = false;
     
     asset.lastUpdateBlockNumber = event.block.number.toI32();
     asset.lastUpdateTimestamp = event.block.timestamp.toI32();

@@ -1,4 +1,5 @@
 enum AssetType {
+  Underlying,
   nToken,
   WrappedfCash,
   PrimeCash,
@@ -34,28 +35,12 @@ enum TransferType {
   Transfer
 }
 
-type Underlying @entity {
-  "ID is equal to the currency ID on Notional"
-  id: ID!
-  firstUpdateBlockNumber: Int!
-  firstUpdateTimestamp: Int!
-  firstUpdateTransactionHash: Int!
-
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
-
-  name: String!
-  symbol: String!
-  precision: BigInt!
-  tokenAddress: Bytes!
-  hasTransferFee: Boolean!
-
-  assets: [Asset!] @derivedFrom(field: "underlying")
-}
-
 type Asset @entity {
-  "ERC20 interfaces have the address as the id, ERC1155 use the uint256 id"
+  """ID space varies by asset type:
+    - Proxy ERC20 interfaces have the address as the id
+    - ERC1155 assets have the uint256 identifier as the id
+    - Underlying Currencies have the uin16 currency id as the id
+  """
   id: ID!
 
   firstUpdateBlockNumber: Int!
@@ -68,15 +53,15 @@ type Asset @entity {
 
   assetType: AssetType!
   assetInterface: AssetInterface!
+  "A link to the underlying asset if this asset is not underlying itself"
+  underlying: Asset
   
   name: String!
   symbol: String!
-  underlying: Underlying!
   totalSupply: BigInt!
   precision: BigInt!
-
-  balanceOf: [Balance!] @derivedFrom(field: "asset")
-  transfers: [Transfer!] @derivedFrom(field: "asset")
+  "Set to true for underlying tokens that have a transfer fee"
+  hasTransferFee: Boolean!
 
   isfCashDebt: Boolean!
   "Maturities are only set for some asset types"
@@ -85,7 +70,11 @@ type Asset @entity {
   vaultAddress: Bytes
 
   "Set to the ERC20 address or Notional Proxy for ERC1155 addresses"
-  emitterAddress: Bytes!
+  tokenAddress: Bytes!
+
+  balanceOf: [Balance!] @derivedFrom(field: "asset")
+  transfers: [Transfer!] @derivedFrom(field: "asset")
+  oracles: [Oracle!] @derivedFrom(field: "quote")
 }
 
 type Balance @entity {
@@ -131,7 +120,7 @@ type Transfer @entity {
   "Link to the asset entity for this transfer"
   asset: Asset!
   assetType: AssetType!
-  underlying: Underlying!
+  underlying: Asset!
   "Only set for some transfer types"
   maturity: Int
 
@@ -179,7 +168,6 @@ type Transaction @entity {
   "Internal index of the last transfer that was bundled"
   _lastBundledTransfer: Int!
 
-  # TODO: if we can't query via derivedFrom then these need to be manually appended
   transfers: [Transfer!] @derivedFrom(field: "transactionHash")
   transferBundles: [TransferBundle!] @derivedFrom(field: "transactionHash")
   transactionTypes: [TransactionType!] @derivedFrom(field: "transactionHash")
@@ -204,3 +192,55 @@ type Account @entity {
   transfersFrom: [Transfer!] @derivedFrom(field: "from")
   transfersTo: [Transfer!] @derivedFrom(field: "to")
 }
+
+# Exchange Rates
+enum OracleType {
+  Chainlink,
+  fCashOracleRate,
+  fCashSpotRate,
+  fCashSettlementRate,
+  PrimeCashToUnderlyingOracleRate,
+  PrimeCashToUnderlyingSpotRate,
+  PrimeCashToMoneyMarketOracleRate,
+  PrimeCashToMoneyMarketSpotRate,
+  PrimeDebtToUnderlyingSpotRate,
+  PrimeDebtToMoneyMarketSpotRate,
+  VaultShareOracleRate,
+}
+
+type OracleRegistry @entity {
+  "ID is hardcoded to zero"
+  id: ID!
+  "All oracles, required for block update handler"
+  oracles: [Oracle!]
+}
+
+type Oracle @entity {
+  "Base Currency Id:Quote Currency Id"
+  id: ID!
+
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  base: Asset!
+  quote: Asset!
+  ratePrecision: BigInt!
+  latestRate: BigInt!
+  oracleAddress: Bytes!
+  oracleType: OracleType!
+
+  historicalRates: [ExchangeRate!] @derivedFrom(field: "oracle")
+}
+
+type ExchangeRate @entity {
+  "External Oracle ID:Block Number"
+  id: ID!
+  blockNumber: Int!
+  timestamp: Int!
+  rate: BigInt!
+
+  oracle: Oracle!
+}
+
+# Configuration
