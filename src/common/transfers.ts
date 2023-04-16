@@ -1,8 +1,9 @@
-import { Address, ethereum, BigInt, log } from "@graphprotocol/graph-ts";
+import { Address, ethereum, BigInt, log, dataSource } from "@graphprotocol/graph-ts";
 import { Asset, Transfer } from "../../generated/schema";
-import { ZERO_ADDRESS } from "./constants";
+import { fCash, NOTE, nToken, PrimeCash, PrimeDebt, PRIME_CASH_VAULT_MATURITY, VaultCash, VaultDebt, VaultShare, ZERO_ADDRESS } from "./constants";
 import { createTransferBundle, getAccount, getTransaction } from "./entities";
 import { BundleCriteria } from "./bundles";
+import { Notional } from "../../generated/Governance/Notional";
 
 export function decodeTransferType(from: Address, to: Address): string {
   if (from == ZERO_ADDRESS) {
@@ -19,9 +20,53 @@ export function decodeSystemAccount(addr: Address, event: ethereum.Event): strin
   return account.systemAccountType;
 }
 
-export function convertValueToUnderlying(value: BigInt, asset: Asset): BigInt {
-  // TODO
-  return value
+export function convertValueToUnderlying(value: BigInt, asset: Asset, blockTime: BigInt): BigInt | null {
+  // There is no corresponding underlying for NOTE so just return null
+  if (asset.assetType == NOTE) return null
+
+  let notionalAddress: Address;
+  if (asset.assetInterface == 'ERC20') {
+    notionalAddress = dataSource.context().getBytes('notional') as Address
+  } else {
+    notionalAddress = dataSource.address()
+  }
+
+  let notional = Notional.bind(notionalAddress)
+  let currencyId = I32.parseInt(asset.underlying) as i32
+  let underlyingExternal: ethereum.CallResult<BigInt>;
+  return null
+
+  /*
+  if (asset.assetType == nToken) {
+    // TODO: Cannot rely on proxy being available, convert manually
+  } else if (
+    asset.assetType == PrimeDebt ||
+    (asset.assetType == VaultDebt && asset.maturity == PRIME_CASH_VAULT_MATURITY)
+  ) {
+    // TODO: Convert via notional
+  } else if (asset.assetType == PrimeCash || asset.assetType == VaultCash) {
+    underlyingExternal = notional.try_convertCashBalanceToExternal(currencyId, value, true)
+  } else if (
+    asset.assetType == fCash ||
+    (asset.assetType == VaultDebt && asset.maturity != PRIME_CASH_VAULT_MATURITY)
+  ) {
+    if (asset.maturity <= blockTime) {
+      // If the fCash has matured then get the settled value
+      underlyingExternal = notional.try_convertSettledfCash(
+        currencyId, asset.maturity, value, blockTime
+      );
+    } else {
+      underlyingExternal = notional.try_getPresentfCashValue(
+        currencyId, asset.maturity, value, blockTime, false
+      );
+    }
+  } else if (asset.assetType == VaultShare) {
+    let vault = IStrategyVault.bind(asset.vaultAddress);
+    underlyingExternal = vault.try_convertStrategyToUnderlying();
+  }
+
+  return underlyingExternal.reverted ? null : underlyingExternal.value;
+  */
 }
 
 export function processTransfer(transfer: Transfer, event: ethereum.Event): void {
@@ -99,5 +144,5 @@ export function scanTransferBundle(
     }
   }
 
-    return false
+  return false
 }

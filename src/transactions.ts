@@ -1,5 +1,6 @@
 import { TransferBatch, TransferSingle } from "../generated/Governance/Notional";
 import { Transfer as TransferEvent } from "../generated/templates/ERC20Proxy/ERC20";
+import { updateBalance } from "./balances";
 import { getAsset, createTransfer } from "./common/entities";
 import { getOrCreateERC1155Asset } from "./common/erc1155";
 import { convertValueToUnderlying, decodeSystemAccount, decodeTransferType, processTransfer } from "./common/transfers";
@@ -25,6 +26,8 @@ export function handleERC1155Transfer(event: TransferSingle): void {
   transfer.underlying = asset.underlying;
   transfer.maturity = asset.maturity;
 
+  updateBalance(asset, transfer);
+
   // Calls transfer.save() inside
   processTransfer(transfer, event)
 }
@@ -44,11 +47,13 @@ export function handleERC1155BatchTransfer(event: TransferBatch): void {
     transfer.value = event.params.values[i];
     transfer.valueInUnderlying = convertValueToUnderlying(event.params.values[i], asset, event.block.timestamp);
 
-  // inherit asset properties
+    // inherit asset properties
     transfer.asset = asset.id;
     transfer.assetType = asset.assetType;
     transfer.underlying = asset.underlying;
     transfer.maturity = asset.maturity;
+
+    updateBalance(asset, transfer);
 
     // Calls transfer.save() inside
     processTransfer(transfer, event)
@@ -72,6 +77,8 @@ export function handleERC20Transfer(event: TransferEvent): void {
     transfer.asset = asset.id;
     transfer.assetType = asset.assetType;
     transfer.underlying = asset.underlying;
+
+    updateBalance(asset, transfer);
 
     // Calls transfer.save() inside
     processTransfer(transfer, event)
