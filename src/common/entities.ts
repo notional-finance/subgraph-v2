@@ -1,6 +1,16 @@
-import { ethereum } from "@graphprotocol/graph-ts";
+import { Address, dataSource, ethereum, log } from "@graphprotocol/graph-ts";
+import { Notional } from "../../generated/Governance/Notional";
 import { Account, Asset, Balance, Transaction, Transfer, TransferBundle } from "../../generated/schema";
 import { FeeReserve, FEE_RESERVE, None, SettlementReserve, SETTLEMENT_RESERVE, ZeroAddress, ZERO_ADDRESS } from "./constants";
+
+export function getNotional(): Notional {
+  if (dataSource.network() == 'mainnet') {
+    return Notional.bind(Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369"))
+  }
+
+  log.critical("Unsupported network {}", [dataSource.network()])
+  return null as Notional
+}
 
 export function getAsset(id: string): Asset {
   let entity = Asset.load(id);

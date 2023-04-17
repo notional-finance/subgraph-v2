@@ -1,9 +1,8 @@
 import { Address, ethereum, BigInt, log, dataSource } from "@graphprotocol/graph-ts";
 import { Asset, Transfer } from "../../generated/schema";
 import { fCash, NOTE, nToken, PrimeCash, PrimeDebt, PRIME_CASH_VAULT_MATURITY, VaultCash, VaultDebt, VaultShare, ZERO_ADDRESS } from "./constants";
-import { createTransferBundle, getAccount, getTransaction } from "./entities";
+import { createTransferBundle, getAccount, getNotional, getTransaction } from "./entities";
 import { BundleCriteria } from "./bundles";
-import { Notional } from "../../generated/Governance/Notional";
 
 export function decodeTransferType(from: Address, to: Address): string {
   if (from == ZERO_ADDRESS) {
@@ -33,7 +32,7 @@ export function convertValueToUnderlying(value: BigInt, asset: Asset, blockTime:
 
   if (!isDefined(asset.underlying)) log.critical("Unknown underlying for asset {}", [asset.id])
 
-  let notional = Notional.bind(notionalAddress)
+  let notional = getNotional()
   let currencyId = I32.parseInt(asset.underlying as string) as i32
   let underlyingExternal: ethereum.CallResult<BigInt>;
   return null
