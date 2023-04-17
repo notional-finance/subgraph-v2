@@ -30,8 +30,21 @@ export const SettlementReserve = 'SettlementReserve';
 export const Vault = 'Vault';
 export const Notional = 'Notional';
 
-
 // Transfer Type
 export const Mint = 'Mint'
 export const Burn = 'Burn'
 export const Transfer = 'Transfer'
+
+
+// Oracle Type
+export const Chainlink = 'Chainlink';
+export const fCashOracleRate = 'fCashOracleRate';
+export const fCashSpotRate = 'fCashSpotRate';
+export const fCashSettlementRate = 'fCashSettlementRate';
+export const PrimeCashToUnderlyingOracleSupplyRate = 'PrimeCashToUnderlyingOracleSupplyRate';
+export const PrimeCashToMoneyMarketOracleSupplyRate = 'PrimeCashToMoneyMarketOracleSupplyRate';
+export const PrimeCashToUnderlyingExchangeRate = 'PrimeCashToUnderlyingExchangeRate';
+export const PrimeCashToMoneyMarketExchangeRate = 'PrimeCashToMoneyMarketExchangeRate';
+export const PrimeDebtToUnderlyingExchangeRate = 'PrimeDebtToUnderlyingExchangeRate';
+export const PrimeDebtToMoneyMarketExchangeRate = 'PrimeDebtToMoneyMarketExchangeRate';
+export const VaultShareOracleRate = 'VaultShareOracleRate';
