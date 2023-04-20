@@ -1,41 +1,56 @@
 import { Address, ethereum, BigInt, log, dataSource } from "@graphprotocol/graph-ts";
 import { Asset, Transfer } from "../../generated/schema";
-import { fCash, NOTE, nToken, PrimeCash, PrimeDebt, PRIME_CASH_VAULT_MATURITY, VaultCash, VaultDebt, VaultShare, ZERO_ADDRESS } from "./constants";
+import {
+  fCash,
+  NOTE,
+  nToken,
+  PrimeCash,
+  PrimeDebt,
+  PRIME_CASH_VAULT_MATURITY,
+  VaultCash,
+  VaultDebt,
+  VaultShare,
+  ZERO_ADDRESS,
+} from "./constants";
 import { createTransferBundle, getAccount, getNotional, getTransaction } from "./entities";
 import { BundleCriteria } from "./bundles";
 
 export function decodeTransferType(from: Address, to: Address): string {
   if (from == ZERO_ADDRESS) {
-    return 'Mint'
+    return "Mint";
   } else if (to == ZERO_ADDRESS) {
-    return 'Burn'
+    return "Burn";
   } else {
-    return 'Transfer'
+    return "Transfer";
   }
 }
 
 export function decodeSystemAccount(addr: Address, event: ethereum.Event): string {
-  let account = getAccount(addr.toHexString(), event)
+  let account = getAccount(addr.toHexString(), event);
   return account.systemAccountType;
 }
 
-export function convertValueToUnderlying(value: BigInt, asset: Asset, blockTime: BigInt): BigInt | null {
+export function convertValueToUnderlying(
+  value: BigInt,
+  asset: Asset,
+  blockTime: BigInt
+): BigInt | null {
   // There is no corresponding underlying for NOTE so just return null
-  if (asset.assetType == NOTE) return null
+  if (asset.assetType == NOTE) return null;
 
   let notionalAddress: Address;
-  if (asset.assetInterface == 'ERC20') {
-    notionalAddress = dataSource.context().getBytes('notional') as Address
+  if (asset.assetInterface == "ERC20") {
+    notionalAddress = dataSource.context().getBytes("notional") as Address;
   } else {
-    notionalAddress = dataSource.address()
+    notionalAddress = dataSource.address();
   }
 
-  if (!isDefined(asset.underlying)) log.critical("Unknown underlying for asset {}", [asset.id])
+  if (!isDefined(asset.underlying)) log.critical("Unknown underlying for asset {}", [asset.id]);
 
-  let notional = getNotional()
-  let currencyId = I32.parseInt(asset.underlying as string) as i32
+  let notional = getNotional();
+  let currencyId = I32.parseInt(asset.underlying as string) as i32;
   let underlyingExternal: ethereum.CallResult<BigInt>;
-  return null
+  return null;
 
   /*
   if (asset.assetType == nToken) {
@@ -71,13 +86,13 @@ export function convertValueToUnderlying(value: BigInt, asset: Asset, blockTime:
 }
 
 export function processTransfer(transfer: Transfer, event: ethereum.Event): void {
-  let txn = getTransaction(event)
-  
-  let transferArray = (txn._transfers || new Array<string>()) as string[]
-  let bundleArray = (txn._transferBundles || new Array<string>()) as string[]
+  let txn = getTransaction(event);
+
+  let transferArray = (txn._transfers || new Array<string>()) as string[];
+  let bundleArray = (txn._transferBundles || new Array<string>()) as string[];
 
   // Append the transfer to the transfer array
-  transferArray.push(transfer.id)
+  transferArray.push(transfer.id);
   transfer.save();
 
   // Scan unbundled transfers
@@ -118,32 +133,34 @@ export function scanTransferBundle(
       }
     }
 
-    let window = transferArray.slice(startIndex - lookBehind).map<Transfer>((transferId: string) => {
-      // The transfer must always be found at this point
-      let t = Transfer.load(transferId)
-      if (t == null) log.critical("{} transfer id not found", [transferId])
-      return t as Transfer
-    })
+    let window = transferArray
+      .slice(startIndex - lookBehind)
+      .map<Transfer>((transferId: string) => {
+        // The transfer must always be found at this point
+        let t = Transfer.load(transferId);
+        if (t == null) log.critical("{} transfer id not found", [transferId]);
+        return t as Transfer;
+      });
 
     if (criteria.func(window)) {
-      let bundleSize = criteria.bundleSize
+      let bundleSize = criteria.bundleSize;
       let windowStartIndex = criteria.rewrite ? 0 : lookBehind;
-      let startLogIndex = window[windowStartIndex].logIndex
-      let endLogIndex = window[windowStartIndex + bundleSize - 1].logIndex
-      let bundle = createTransferBundle(txnHash, criteria.bundleName, startLogIndex, endLogIndex)
+      let startLogIndex = window[windowStartIndex].logIndex;
+      let endLogIndex = window[windowStartIndex + bundleSize - 1].logIndex;
+      let bundle = createTransferBundle(txnHash, criteria.bundleName, startLogIndex, endLogIndex);
 
       for (let i = windowStartIndex; i < bundleSize; i++) {
         // Update the bundle id on all the transfers
-        window[i].bundle = bundle.id
-        window[i].save()
+        window[i].bundle = bundle.id;
+        window[i].save();
       }
 
-      bundleArray.push(bundle.id)
-      bundle.save()
+      bundleArray.push(bundle.id);
+      bundle.save();
 
-      return true
+      return true;
     }
   }
 
-  return false
+  return false;
 }

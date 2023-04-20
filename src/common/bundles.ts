@@ -1,6 +1,24 @@
 import { BigInt } from "@graphprotocol/graph-ts";
-import { Transfer } from "../../generated/schema"
-import { Burn, fCash, FeeReserve, Mint, None, NOTE, Notional, nToken, PrimeCash, PrimeDebt, PRIME_CASH_VAULT_MATURITY, SettlementReserve, Transfer as _Transfer, Vault, VaultCash, VaultDebt, VaultShare } from "./constants";
+import { Transfer } from "../../generated/schema";
+import {
+  Burn,
+  fCash,
+  FeeReserve,
+  Mint,
+  None,
+  NOTE,
+  Notional,
+  nToken,
+  PrimeCash,
+  PrimeDebt,
+  PRIME_CASH_VAULT_MATURITY,
+  SettlementReserve,
+  Transfer as _Transfer,
+  Vault,
+  VaultCash,
+  VaultDebt,
+  VaultShare,
+} from "./constants";
 
 class Criteria {
   bundleName: string;
@@ -714,56 +732,66 @@ export let BundleCriteria = new Array<Criteria>();
 const CAN_START = true;
 const REWRITE = true;
 
-BundleCriteria.push(new Criteria("Deposit", 1, deposit, 1, CAN_START))
-BundleCriteria.push(new Criteria("Mint pCash Fee", 1, mint_pcash_fee))
-BundleCriteria.push(new Criteria("Withdraw", 1, withdraw, 1, CAN_START))
-BundleCriteria.push(new Criteria("Deposit and Transfer", 1, deposit_transfer, 1, CAN_START, REWRITE))
-BundleCriteria.push(new Criteria("Transfer Asset", 1, transfer_asset))
-BundleCriteria.push(new Criteria("Transfer Incentive", 1, transfer_incentive))
-BundleCriteria.push(new Criteria("Vault Entry Transfer", 1, vault_entry_transfer, 1))
-BundleCriteria.push(new Criteria("nToken Purchase Negative Residual", 4, ntoken_purchase_negative_residual, 1))
-BundleCriteria.push(new Criteria("nToken Purchase Positive Residual", 2, ntoken_purchase_positive_residual, 1))
-BundleCriteria.push(new Criteria("nToken Residual Transfer", 1, ntoken_residual_transfer, 1))
+BundleCriteria.push(new Criteria("Deposit", 1, deposit, 1, CAN_START));
+BundleCriteria.push(new Criteria("Mint pCash Fee", 1, mint_pcash_fee));
+BundleCriteria.push(new Criteria("Withdraw", 1, withdraw, 1, CAN_START));
+BundleCriteria.push(
+  new Criteria("Deposit and Transfer", 1, deposit_transfer, 1, CAN_START, REWRITE)
+);
+BundleCriteria.push(new Criteria("Transfer Asset", 1, transfer_asset));
+BundleCriteria.push(new Criteria("Transfer Incentive", 1, transfer_incentive));
+BundleCriteria.push(new Criteria("Vault Entry Transfer", 1, vault_entry_transfer, 1));
+BundleCriteria.push(
+  new Criteria("nToken Purchase Negative Residual", 4, ntoken_purchase_negative_residual, 1)
+);
+BundleCriteria.push(
+  new Criteria("nToken Purchase Positive Residual", 2, ntoken_purchase_positive_residual, 1)
+);
+BundleCriteria.push(new Criteria("nToken Residual Transfer", 1, ntoken_residual_transfer, 1));
 
-BundleCriteria.push(new Criteria("Settle Cash", 1, settle_cash))
-BundleCriteria.push(new Criteria("Settle fCash", 1, settle_fcash))
-BundleCriteria.push(new Criteria("Settle Cash nToken", 1, settle_cash_ntoken))
-BundleCriteria.push(new Criteria("Settle fCash nToken", 1, settle_fcash_ntoken))
-BundleCriteria.push(new Criteria("Settle Cash Vault", 1, settle_cash_vault))
-BundleCriteria.push(new Criteria("Settle fCash Vault", 1, settle_fcash_vault))
+BundleCriteria.push(new Criteria("Settle Cash", 1, settle_cash));
+BundleCriteria.push(new Criteria("Settle fCash", 1, settle_fcash));
+BundleCriteria.push(new Criteria("Settle Cash nToken", 1, settle_cash_ntoken));
+BundleCriteria.push(new Criteria("Settle fCash nToken", 1, settle_fcash_ntoken));
+BundleCriteria.push(new Criteria("Settle Cash Vault", 1, settle_cash_vault));
+BundleCriteria.push(new Criteria("Settle fCash Vault", 1, settle_fcash_vault));
 
-BundleCriteria.push(new Criteria("Borrow Prime Cash", 2, borrow_prime_cash))
-BundleCriteria.push(new Criteria("Global Settlement", 2, global_settlement))
-BundleCriteria.push(new Criteria("Repay Prime Cash", 2, repay_prime_cash))
-BundleCriteria.push(new Criteria("Borrow Prime Cash Vault", 2, borrow_prime_cash_vault))
-BundleCriteria.push(new Criteria("Repay Prime Cash Vault", 2, repay_prime_cash_vault))
-BundleCriteria.push(new Criteria("Borrow fCash", 2, borrow_fcash))
-BundleCriteria.push(new Criteria("Repay fCash", 2, repay_fcash))
-BundleCriteria.push(new Criteria("Borrow fCash Vault", 2, borrow_fcash_vault))
-BundleCriteria.push(new Criteria("Repay fCash Vault", 2, repay_fcash_vault))
-BundleCriteria.push(new Criteria("nToken Add Liquidity", 2, ntoken_add_liquidity))
-BundleCriteria.push(new Criteria("nToken Remove Liquidity", 2, ntoken_remove_liquidity))
-BundleCriteria.push(new Criteria("Mint nToken", 2, mint_ntoken))
-BundleCriteria.push(new Criteria("Redeem nToken", 2, redeem_ntoken))
+BundleCriteria.push(new Criteria("Borrow Prime Cash", 2, borrow_prime_cash));
+BundleCriteria.push(new Criteria("Global Settlement", 2, global_settlement));
+BundleCriteria.push(new Criteria("Repay Prime Cash", 2, repay_prime_cash));
+BundleCriteria.push(new Criteria("Borrow Prime Cash Vault", 2, borrow_prime_cash_vault));
+BundleCriteria.push(new Criteria("Repay Prime Cash Vault", 2, repay_prime_cash_vault));
+BundleCriteria.push(new Criteria("Borrow fCash", 2, borrow_fcash));
+BundleCriteria.push(new Criteria("Repay fCash", 2, repay_fcash));
+BundleCriteria.push(new Criteria("Borrow fCash Vault", 2, borrow_fcash_vault));
+BundleCriteria.push(new Criteria("Repay fCash Vault", 2, repay_fcash_vault));
+BundleCriteria.push(new Criteria("nToken Add Liquidity", 2, ntoken_add_liquidity));
+BundleCriteria.push(new Criteria("nToken Remove Liquidity", 2, ntoken_remove_liquidity));
+BundleCriteria.push(new Criteria("Mint nToken", 2, mint_ntoken));
+BundleCriteria.push(new Criteria("Redeem nToken", 2, redeem_ntoken));
 
-BundleCriteria.push(new Criteria("Buy fCash", 3, buy_fcash))
-BundleCriteria.push(new Criteria("Buy fCash Vault", 3, buy_fcash_vault))
-BundleCriteria.push(new Criteria("nToken Deleverage", 3, ntoken_deleverage))
-BundleCriteria.push(new Criteria("Sell fCash", 3, sell_fcash))
-BundleCriteria.push(new Criteria("Sell fCash Vault", 3, sell_fcash_vault))
+BundleCriteria.push(new Criteria("Buy fCash", 3, buy_fcash));
+BundleCriteria.push(new Criteria("Buy fCash Vault", 3, buy_fcash_vault));
+BundleCriteria.push(new Criteria("nToken Deleverage", 3, ntoken_deleverage));
+BundleCriteria.push(new Criteria("Sell fCash", 3, sell_fcash));
+BundleCriteria.push(new Criteria("Sell fCash Vault", 3, sell_fcash_vault));
 
-BundleCriteria.push(new Criteria("Vault Fees", 2, vault_fees))
-BundleCriteria.push(new Criteria("Vault Redeem", 3, vault_redeem))
-BundleCriteria.push(new Criteria("Vault Lend at Zero", 4, vault_lend_at_zero))
+BundleCriteria.push(new Criteria("Vault Fees", 2, vault_fees));
+BundleCriteria.push(new Criteria("Vault Redeem", 3, vault_redeem));
+BundleCriteria.push(new Criteria("Vault Lend at Zero", 4, vault_lend_at_zero));
 
-BundleCriteria.push(new Criteria("Vault Roll", 2, vault_roll, 2, false, REWRITE))
-BundleCriteria.push(new Criteria("Vault Entry", 2, vault_entry, 2))
-BundleCriteria.push(new Criteria("Vault Exit", 2, vault_exit))
-BundleCriteria.push(new Criteria("Vault Settle", 4, vault_settle))
-BundleCriteria.push(new Criteria("Vault Deleverage fCash", 2, vault_deleverage_fcash))
-BundleCriteria.push(new Criteria("Vault Deleverage Prime Debt", 2, vault_deleverage_prime_debt))
-BundleCriteria.push(new Criteria("Vault Liquidate Cash", 6, vault_liquidate_cash))
+BundleCriteria.push(new Criteria("Vault Roll", 2, vault_roll, 2, false, REWRITE));
+BundleCriteria.push(new Criteria("Vault Entry", 2, vault_entry, 2));
+BundleCriteria.push(new Criteria("Vault Exit", 2, vault_exit));
+BundleCriteria.push(new Criteria("Vault Settle", 4, vault_settle));
+BundleCriteria.push(new Criteria("Vault Deleverage fCash", 2, vault_deleverage_fcash));
+BundleCriteria.push(new Criteria("Vault Deleverage Prime Debt", 2, vault_deleverage_prime_debt));
+BundleCriteria.push(new Criteria("Vault Liquidate Cash", 6, vault_liquidate_cash));
 
-BundleCriteria.push(new Criteria("Vault Secondary Borrow", 2, vault_secondary_borrow, 2, false, false, 1))
-BundleCriteria.push(new Criteria("Vault Secondary Repay", 2, vault_secondary_repay, 2, false, false, 1))
-BundleCriteria.push(new Criteria("Vault Secondary Settle", 2, vault_secondary_settle))
+BundleCriteria.push(
+  new Criteria("Vault Secondary Borrow", 2, vault_secondary_borrow, 2, false, false, 1)
+);
+BundleCriteria.push(
+  new Criteria("Vault Secondary Repay", 2, vault_secondary_repay, 2, false, false, 1)
+);
+BundleCriteria.push(new Criteria("Vault Secondary Settle", 2, vault_secondary_settle));

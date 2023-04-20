@@ -1,15 +1,34 @@
 import { Address, dataSource, ethereum, log } from "@graphprotocol/graph-ts";
 import { Notional } from "../../generated/Governance/Notional";
-import { Account, Asset, Balance, Transaction, Transfer, TransferBundle } from "../../generated/schema";
-import { FeeReserve, FEE_RESERVE, None, SettlementReserve, SETTLEMENT_RESERVE, ZeroAddress, ZERO_ADDRESS } from "./constants";
+import {
+  Account,
+  Asset,
+  Balance,
+  Oracle,
+  OracleRegistry,
+  Transaction,
+  Transfer,
+  TransferBundle,
+} from "../../generated/schema";
+import {
+  FeeReserve,
+  FEE_RESERVE,
+  None,
+  ORACLE_REGISTRY_ID,
+  SettlementReserve,
+  SETTLEMENT_RESERVE,
+  ZeroAddress,
+  ZERO_ADDRESS,
+} from "./constants";
 
 export function getNotional(): Notional {
-  if (dataSource.network() == 'mainnet') {
-    return Notional.bind(Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369"))
+  if (dataSource.network() == "mainnet") {
+    return Notional.bind(Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369"));
   }
 
-  log.critical("Unsupported network {}", [dataSource.network()])
-  return null as Notional
+  log.critical("Unsupported network {}", [dataSource.network()]);
+  // This return statement will never be reached
+  return null as Notional;
 }
 
 export function getAsset(id: string): Asset {
@@ -53,25 +72,30 @@ export function getAccount(id: string, event: ethereum.Event): Account {
     entity.lastUpdateTimestamp = event.block.timestamp.toI32();
     entity.lastUpdateTransactionHash = event.transaction.hash;
 
-    entity.save()
+    entity.save();
   }
 
   return entity as Account;
 }
 
 export function createTransfer(event: ethereum.Event, index: i32): Transfer {
-  let id = event.transaction.hash.toHexString() + ":" + event.transactionLogIndex.toString() + ":" + index.toString()
-  let transfer = new Transfer(id)
+  let id =
+    event.transaction.hash.toHexString() +
+    ":" +
+    event.transactionLogIndex.toString() +
+    ":" +
+    index.toString();
+  let transfer = new Transfer(id);
   transfer.blockNumber = event.block.number.toI32();
   transfer.timestamp = event.block.timestamp.toI32();
   transfer.transactionHash = event.transaction.hash.toString();
   transfer.logIndex = event.transactionLogIndex.toI32();
 
-  return transfer
+  return transfer;
 }
 
 export function getTransaction(event: ethereum.Event): Transaction {
-  let transaction = new Transaction(event.transaction.hash.toHexString())
+  let transaction = new Transaction(event.transaction.hash.toHexString());
   transaction.blockNumber = event.block.number.toI32();
   transaction.timestamp = event.block.timestamp.toI32();
   transaction.transactionHash = event.transaction.hash;
@@ -84,7 +108,39 @@ export function getTransaction(event: ethereum.Event): Transaction {
   return transaction;
 }
 
-export function createTransferBundle(txnHash: string, bundleName: string, startLogIndex: i32, endLogIndex: i32): TransferBundle {
-  let bundleId = txnHash + ":" + startLogIndex.toString() + ":" + endLogIndex.toString() + ":" + bundleName;
+export function createTransferBundle(
+  txnHash: string,
+  bundleName: string,
+  startLogIndex: i32,
+  endLogIndex: i32
+): TransferBundle {
+  let bundleId =
+    txnHash + ":" + startLogIndex.toString() + ":" + endLogIndex.toString() + ":" + bundleName;
   return new TransferBundle(bundleId);
+}
+
+export function getOracleRegistry(): OracleRegistry {
+  let registry = OracleRegistry.load(ORACLE_REGISTRY_ID);
+  if (registry == null) {
+    registry = new OracleRegistry(ORACLE_REGISTRY_ID);
+    registry.chainlinkOracles = new Array<string>();
+    registry.listedVaults = new Array<Address>();
+    registry.fCashEnabled = new Array<string>();
+    registry.save();
+  }
+
+  return registry as OracleRegistry;
+}
+
+export function getOracle(base: Asset, quote: Asset, oracleType: string): Oracle {
+  let id = base.id + ":" + quote.id + ":" + oracleType;
+  let oracle = Oracle.load(id);
+  if (oracle == null) {
+    oracle = new Oracle(id);
+    oracle.base = base.id;
+    oracle.quote = quote.id;
+    oracle.oracleType = oracleType;
+  }
+
+  return oracle as Oracle;
 }

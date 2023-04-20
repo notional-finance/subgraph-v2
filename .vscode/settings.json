@@ -3,5 +3,16 @@
         "Negativef",
         "Positivef",
         "Wrappedf"
-    ]
+    ],
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+    "editor.detectIndentation": true,
+    "typescript.validate.enable": true,
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": true
+    },
+    "[typescript]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "eslint.validate": ["json"]
 }
