@@ -224,27 +224,26 @@ type CurrencyConfiguration @entity {
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
 
-  underlying: Asset!
-  pCash: Asset!
+  underlying: Asset
+  pCash: Asset
   "Some currencies will not allow prime debt"
   pDebt: Asset
 
+  maxUnderlyingSupply: BigInt
+
   "Exchange Rate Parameters"
-  collateralHaircut: Int!
-  debtBuffer: Int!
-  liquidationDiscount: Int!
+  collateralHaircut: Int
+  debtBuffer: Int
+  liquidationDiscount: Int
 
   "Prime Cash Parameters"
-  primeCashRateOracleTimeWindowSeconds: Int!
-  primeCashHoldingsOracle: Bytes!
-  primeCashCurve: InterestRateCurve!
+  primeCashRateOracleTimeWindowSeconds: Int
+  primeCashHoldingsOracle: Bytes
+  primeCashCurve: InterestRateCurve
+  primeDebtAllowed: Boolean
 
   "Time window in seconds that the rate oracle will be averaged over"
   fCashRateOracleTimeWindowSeconds: Int
-  "Current set of interest rate curves for the fCash markets"
-  fCashCurrentCurves: [InterestRateCurve!]
-  "Next set of interest rate curves for the fCash markets"
-  fCashNextCurves: [InterestRateCurve!]
   "Share of the fees given to the protocol, denominated in percentage"
   fCashReserveFeeSharePercent: Int
   "Debt buffer specified in basis points"
@@ -255,9 +254,20 @@ type CurrencyConfiguration @entity {
   fCashLiquidationHaircutBasisPoints: Int
   "Discount on negative fCash given to the liquidator in basis points"
   fCashLiquidationDebtBufferBasisPoints: Int
+  "Current set of interest rate curves for the fCash markets"
+  fCashActiveCurves: [InterestRateCurve!]
+  "Next set of interest rate curves for the fCash markets"
+  fCashNextCurves: [InterestRateCurve!]
 
   "The minimum threshold of the reserve before they can be harvested"
   treasuryReserveBuffer: BigInt
+  
+  "Addresses of potential prime cash holdings"
+  primeCashHoldings: [Bytes!]
+  "Rebalancing targets"
+  rebalancingTargets: [Int!]
+  "Rebalancing cooldown"
+  rebalancingCooldown: Int
 
   "Proportion of deposits that go into each corresponding market"
   depositShares: [Int!]
@@ -265,9 +275,11 @@ type CurrencyConfiguration @entity {
   leverageThresholds: [Int!]
   "Market proportions used during market initialization"
   proportions: [Int!]
+  deprecated_anchorRates: [Int!]
 
   "Annual incentive emission rate"
   incentiveEmissionRate: BigInt
+  secondaryIncentiveRewarder: Bytes
 
   "Residual purchase incentive in basis points"
   residualPurchaseIncentiveBasisPoints: Int
@@ -356,6 +368,7 @@ type VaultConfiguration @entity {
 
   maxSecondaryBorrowCapacity: [BigInt!]
   totalUsedSecondaryBorrowCapacity: [BigInt!]
+  minAccountSecondaryBorrow: [BigInt!]
 }
   # TODO: all of this information should sit on the account and total supply entities
   "All maturities of this strategy vault"
@@ -363,14 +376,11 @@ type VaultConfiguration @entity {
 
 enum WhitelistedCapability {
   GlobalTransferOperator,
-  AuthorizedCallbackContract,
-  SecondaryIncentiveRewarder
+  AuthorizedCallbackContract
 }
 
-type WhitelistedContracts @entity {
+type WhitelistedContract @entity {
   id: ID!
-  name: String!
-  lastUpdateBlockHash: Bytes!
   lastUpdateBlockNumber: Int!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
@@ -378,6 +388,29 @@ type WhitelistedContracts @entity {
 }
 
 ### Balances ###
+
+type Balance @entity {
+  "Address of Account:ID of Asset"
+  id: ID!
+  "Link back to the asset"
+  asset: Asset!
+  "Address of the account that holds this balance"
+  account: Account!
+
+  firstUpdateBlockNumber: Int!
+  firstUpdateTimestamp: Int!
+  firstUpdateTransactionHash: Bytes!
+
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+  
+  balance: BigInt!
+}
+
+## TODO: fcash market
+
+### Treasury ###
 
 type Incentives @entity {
   "ID is the currency id"
@@ -399,21 +432,5 @@ type Incentives @entity {
   migrationTime: BigInt
 }
 
-type Balance @entity {
-  "Address of Account:ID of Asset"
-  id: ID!
-  "Link back to the asset"
-  asset: Asset!
-  "Address of the account that holds this balance"
-  account: Account!
-
-  firstUpdateBlockNumber: Int!
-  firstUpdateTimestamp: Int!
-  firstUpdateTransactionHash: Bytes!
-
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
-  
-  balance: BigInt!
-}
+# Staked NOTE
+# Vault Reinvestments?

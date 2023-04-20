@@ -12,6 +12,7 @@ export const SNOTE_CURRENCY_ID = 2 ** 32;
 export const ORACLE_REGISTRY_ID = "0";
 export const ETH_CURRENCY_ID = "1";
 export const RATE_PRECISION = BigInt.fromI32(10).pow(9);
+export const BASIS_POINT = 1e5 as i32;
 export const SCALAR_PRECISION = BigInt.fromI32(10).pow(18);
 export const DOUBLE_SCALAR_PRECISION = BigInt.fromI32(10).pow(36);
 
@@ -63,3 +64,7 @@ export const PrimeDebtToUnderlyingExchangeRate = "PrimeDebtToUnderlyingExchangeR
 export const PrimeDebtToMoneyMarketExchangeRate = "PrimeDebtToMoneyMarketExchangeRate";
 export const MoneyMarketToUnderlyingExchangeRate = "MoneyMarketToUnderlyingExchangeRate";
 export const VaultShareOracleRate = "VaultShareOracleRate";
+
+// Whitelisted Capability
+export const GlobalTransferOperator = "GlobalTransferOperator";
+export const AuthorizedCallbackContract = "AuthorizedCallbackContract";

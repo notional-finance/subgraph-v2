@@ -1,5 +1,5 @@
 import { ethereum, BigInt, Bytes } from "@graphprotocol/graph-ts";
-import { Notional, Notional__decodeERC1155IdResult } from "../../generated/Governance/Notional";
+import { Notional__decodeERC1155IdResult } from "../../generated/Assets/Notional";
 import { Asset } from "../../generated/schema";
 import {
   fCash,
@@ -58,7 +58,11 @@ function _setAssetType(decodedId: Notional__decodeERC1155IdResult, asset: Asset)
   }
 }
 
-export function getOrCreateERC1155Asset(erc1155ID: BigInt, block: ethereum.Block, txnHash: Bytes | null): Asset {
+export function getOrCreateERC1155Asset(
+  erc1155ID: BigInt,
+  block: ethereum.Block,
+  txnHash: Bytes | null
+): Asset {
   let asset = Asset.load(erc1155ID.toString());
   if (asset == null) {
     let notional = getNotional();

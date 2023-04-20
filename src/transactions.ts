@@ -1,5 +1,5 @@
 import { log } from "@graphprotocol/graph-ts";
-import { TransferBatch, TransferSingle } from "../generated/Governance/Notional";
+import { TransferBatch, TransferSingle } from "../generated/Assets/Notional";
 import { Transfer as TransferEvent } from "../generated/templates/ERC20Proxy/ERC20";
 import { updateBalance } from "./balances";
 import { getAsset, createTransfer } from "./common/entities";

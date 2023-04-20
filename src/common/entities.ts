@@ -1,5 +1,5 @@
 import { Address, Bytes, dataSource, ethereum, log } from "@graphprotocol/graph-ts";
-import { Notional } from "../../generated/Governance/Notional";
+import { Notional } from "../../generated/Assets/Notional";
 import {
   Account,
   Asset,
@@ -100,7 +100,6 @@ export function getTransaction(event: ethereum.Event): Transaction {
   transaction.timestamp = event.block.timestamp.toI32();
   transaction.transactionHash = event.transaction.hash;
 
-  transaction._transactionTypes = new Array<string>();
   transaction._transferBundles = new Array<string>();
   transaction._transfers = new Array<string>();
   transaction._lastBundledTransfer = 0;

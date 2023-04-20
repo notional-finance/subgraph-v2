@@ -4,7 +4,7 @@ repository: https://github.com/notional-finance/contracts-v2
 schema:
   file: ./schema.graphql
 dataSources:
-  - name: Governance
+  - name: Assets
     kind: ethereum/contract
     network: {{ networkName }}
     source:
@@ -96,6 +96,83 @@ dataSources:
           handler: handleRebalance
       blockHandlers:
         - handler: handleBlockOracleUpdate
+  - name: Configuration
+    kind: ethereum/contract
+    network: {{ networkName }}
+    source:
+      address: '{{ notional }}'
+      abi: Notional
+      startBlock: {{ startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/configuration.ts
+      entities:
+        - CurrencyConfiguration
+        - VaultConfiguration
+        - WhitelistedContract
+        - InterestRateCurve
+      abis:
+        - name: Notional
+          file: ./abi/Notional.json
+        - name: PrimeCashHoldingsOracle
+          file: ./abi/PrimeCashHoldingsOracle.json
+      eventHandlers:
+        - event: ListCurrency(uint16)
+          handler: handleListCurrency
+        - event: UpdateETHRate(uint16)
+          handler: handleUpdateETHRate
+        # Prime Cash Parameters
+        - event: PrimeCashCurveChanged(indexed uint16)
+          handler: handleUpdatePrimeCashCurve
+        - event: PrimeCashHoldingsOracleUpdated(indexed uint16,address)
+          handler: handleUpdatePrimeCashOracle
+        - event: UpdateMaxUnderlyingSupply(indexed uint16,uint256)
+          handler: handleUpdateMaxUnderlyingSupply
+          # Check for prime debt enablement
+        - event: PrimeProxyDeployed(indexed uint16,address,bool)
+          handler: handleDeployPrimeProxy
+        # fCash and nToken Parameters
+        - event: UpdateCashGroup(uint16)
+          handler: handleUpdateCashGroup
+        - event: UpdateDepositParameters(uint16)
+          handler: handleUpdateDepositParameters
+        - event: UpdateInitializationParameters(uint16)
+          handler: handleUpdateInitializationParameters
+        - event: UpdateTokenCollateralParameters(uint16)
+          handler: handleUpdateTokenCollateralParameters
+        - event: UpdateInterestRateCurve(indexed uint16,indexed uint8)
+          handler: handleUpdateInterestRateCurve
+        - event: MarketsInitialized(uint16)
+          handler: handleMarketsInitialized
+        # Treasury Actions
+        - event: UpdateIncentiveEmissionRate(uint16,uint32)
+          handler: handleUpdateIncentiveEmissionRate
+        - event: ReserveBufferUpdated(uint16,uint256)
+          handler: handleReserveBufferUpdate
+        - event: RebalancingTargetsUpdated(uint16,(address,uint8)[])
+          handler: handleRebalancingTargetsUpdated
+        - event: RebalancingCooldownUpdated(uint16,uint40)
+          handler: handleRebalancingCooldownUpdated
+        # Whitelisted Contract
+        - event: UpdateGlobalTransferOperator(address,bool)
+          handler: handleUpdateGlobalTransferOperator
+        - event: UpdateAuthorizedCallbackContract(address,bool)
+          handler: handleUpdateAuthorizedCallbackContract
+        - event: UpdateSecondaryIncentiveRewarder(indexed uint16,address)
+          handler: handleUpdateSecondaryIncentiveRewarder
+        # Vaults
+        - event: VaultUpdated(indexed address,bool,uint80)
+          handler: handleVaultUpdated
+        - event: VaultPauseStatus(indexed address,bool)
+          handler: handleVaultPauseStatus
+        - event: VaultDeleverageStatus(indexed address,bool)
+          handler: handleVaultDeleverageStatus
+        - event: VaultUpdateSecondaryBorrowCapacity(indexed address,indexed uint16,uint80)
+          handler: handleVaultUpdateSecondaryBorrowCapacity
+        - event: VaultBorrowCapacityChange(indexed address,indexed uint16,uint256) 
+          handler: handleVaultBorrowCapacityChange
 templates:
   - name: ERC20Proxy
     kind: ethereum/contract

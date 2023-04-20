@@ -1119,13 +1119,19 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "uint16",
+        "name": "currencyId",
+        "type": "uint16"
+      },
+      {
         "indexed": false,
-        "internalType": "address",
-        "name": "pool",
-        "type": "address"
+        "internalType": "uint256",
+        "name": "maxUnderlyingSupply",
+        "type": "uint256"
       }
     ],
-    "name": "UpdateLendingPool",
+    "name": "UpdateMaxUnderlyingSupply",
     "type": "event"
   },
   {
@@ -4614,6 +4620,67 @@
           }
         ],
         "internalType": "struct PrimeCashFactors",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint16",
+        "name": "currencyId",
+        "type": "uint16"
+      }
+    ],
+    "name": "getPrimeInterestRateCurve",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "kinkUtilization1",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "kinkUtilization2",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "kinkRate1",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "kinkRate2",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "maxRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "minFeeRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "maxFeeRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "feeRatePercent",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct InterestRateParameters",
         "name": "",
         "type": "tuple"
       }
