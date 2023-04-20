@@ -1,5 +1,7 @@
 import { Address, ethereum, BigInt, log, dataSource } from "@graphprotocol/graph-ts";
 import { Asset, Transfer } from "../../generated/schema";
+import { IStrategyVault } from "../../generated/Transactions/IStrategyVault";
+import { ERC4626 } from "../../generated/Transactions/ERC4626";
 import {
   fCash,
   NOTE,
@@ -50,39 +52,52 @@ export function convertValueToUnderlying(
   let notional = getNotional();
   let currencyId = I32.parseInt(asset.underlying as string) as i32;
   let underlyingExternal: ethereum.CallResult<BigInt>;
-  return null;
 
-  /*
   if (asset.assetType == nToken) {
     // TODO: Cannot rely on proxy being available, convert manually
   } else if (
     asset.assetType == PrimeDebt ||
     (asset.assetType == VaultDebt && asset.maturity == PRIME_CASH_VAULT_MATURITY)
   ) {
-    // TODO: Convert via notional
+    let pDebtAddress = notional.pDebtAddress(currencyId);
+    let pDebt = ERC4626.bind(pDebtAddress);
+    underlyingExternal = pDebt.try_convertToAssets(value);
   } else if (asset.assetType == PrimeCash || asset.assetType == VaultCash) {
-    underlyingExternal = notional.try_convertCashBalanceToExternal(currencyId, value, true)
+    underlyingExternal = notional.try_convertCashBalanceToExternal(currencyId, value, true);
   } else if (
     asset.assetType == fCash ||
     (asset.assetType == VaultDebt && asset.maturity != PRIME_CASH_VAULT_MATURITY)
   ) {
-    if (asset.maturity <= blockTime) {
+    if (asset.maturity <= blockTime.toI32()) {
       // If the fCash has matured then get the settled value
       underlyingExternal = notional.try_convertSettledfCash(
-        currencyId, asset.maturity, value, blockTime
+        currencyId,
+        BigInt.fromI32(asset.maturity),
+        value,
+        blockTime
       );
     } else {
       underlyingExternal = notional.try_getPresentfCashValue(
-        currencyId, asset.maturity, value, blockTime, false
+        currencyId,
+        BigInt.fromI32(asset.maturity),
+        value,
+        blockTime,
+        false
       );
     }
   } else if (asset.assetType == VaultShare) {
-    let vault = IStrategyVault.bind(asset.vaultAddress);
-    underlyingExternal = vault.try_convertStrategyToUnderlying();
+    let vault = IStrategyVault.bind(asset.vaultAddress as Address);
+    underlyingExternal = vault.try_convertStrategyToUnderlying(
+      asset.vaultAddress as Address,
+      value,
+      BigInt.fromI32(asset.maturity)
+    );
+  } else {
+    // Unknown asset type
+    return null;
   }
 
   return underlyingExternal.reverted ? null : underlyingExternal.value;
-  */
 }
 
 export function processTransfer(transfer: Transfer, event: ethereum.Event): void {

@@ -48,6 +48,10 @@ dataSources:
       abis:
         - name: Notional
           file: ./abi/Notional.json
+        - name: IStrategyVault
+          file: ./abi/IStrategyVault.json
+        - name: ERC4626
+          file: ./abi/ERC4626.json
       eventHandlers:
         - event: TransferSingle(indexed address,indexed address,indexed address,uint256,uint256)
           handler: handleERC1155Transfer
