@@ -18,7 +18,6 @@ dataSources:
       file: ./src/assets.ts
       entities:
         - Asset
-        - Underlying
       abis:
         - name: Notional
           file: ./abi/Notional.json
@@ -44,7 +43,6 @@ dataSources:
       entities:
         - Transfer
         - Asset
-        - Underlying
         - Balance
         - Account
       abis:
@@ -55,6 +53,45 @@ dataSources:
           handler: handleERC1155Transfer
         - event: TransferBatch(indexed address,indexed address,indexed address,uint256[],uint256[])
           handler: handleERC1155BatchTransfer
+  - name: ExchangeRates
+    kind: ethereum/contract
+    network: {{ networkName }}
+    source:
+      address: '{{ notional }}'
+      abi: Notional
+      startBlock: {{ startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/exchange_rates.ts
+      entities:
+        - Asset
+        - Oracle
+        - OracleRegistry
+        - ExchangeRate
+      abis:
+        - name: Notional
+          file: ./abi/Notional.json
+        - name: Aggregator
+          file: ./abi/Aggregator.json
+        - name: IStrategyVault
+          file: ./abi/IStrategyVault.json
+      eventHandlers:
+        - event: UpdateETHRate(uint16)
+          handler: handleUpdateETHRate
+        - event: VaultUpdated(indexed address,bool,uint80)
+          handler: handleVaultListing
+        - event: DeployNToken(uint16,address)
+          handler: handlefCashEnabled
+        - event: PrimeCashInterestAccrued(indexed uint16)
+          handler: handlePrimeCashAccrued
+        - event: SetPrimeSettlementRate(indexed uint256,indexed uint256,int256,int256)
+          handler: handleSettlementRate
+        - event: CurrencyRebalanced(uint16,uint256,uint256)
+          handler: handleRebalance
+      blockHandlers:
+        - handler: handleBlockOracleUpdate
 templates:
   - name: ERC20Proxy
     kind: ethereum/contract

@@ -15,10 +15,13 @@ export const RATE_PRECISION = BigInt.fromI32(10).pow(9);
 export const SCALAR_PRECISION = BigInt.fromI32(10).pow(18);
 export const DOUBLE_SCALAR_PRECISION = BigInt.fromI32(10).pow(36);
 
-export const FCASH_ASSET_TYPE_ID = 9;
-export const VAULT_SHARE_ASSET_TYPE_ID = 9;
-export const VAULT_DEBT_ASSET_TYPE_ID = 10;
-export const VAULT_CASH_ASSET_TYPE_ID = 11;
+// Refresh the oracle every hour
+export const ORACLE_REFRESH_SECONDS = 360;
+
+export const FCASH_ASSET_TYPE_ID = BigInt.fromI32(1);
+export const VAULT_SHARE_ASSET_TYPE_ID = BigInt.fromI32(9);
+export const VAULT_DEBT_ASSET_TYPE_ID = BigInt.fromI32(10);
+export const VAULT_CASH_ASSET_TYPE_ID = BigInt.fromI32(11);
 
 // Enum Values as Constants
 
@@ -52,7 +55,8 @@ export const Chainlink = "Chainlink";
 export const fCashOracleRate = "fCashOracleRate";
 export const fCashSettlementRate = "fCashSettlementRate";
 export const PrimeCashToUnderlyingOracleInterestRate = "PrimeCashToUnderlyingOracleInterestRate";
-export const PrimeCashToMoneyMarketOracleInterestRate = "PrimeCashToMoneyMarketOracleInterestRate";
+export const MoneyMarketToUnderlyingOracleInterestRate =
+  "MoneyMarketToUnderlyingOracleInterestRate";
 export const PrimeCashToUnderlyingExchangeRate = "PrimeCashToUnderlyingExchangeRate";
 export const PrimeCashToMoneyMarketExchangeRate = "PrimeCashToMoneyMarketExchangeRate";
 export const PrimeDebtToUnderlyingExchangeRate = "PrimeDebtToUnderlyingExchangeRate";

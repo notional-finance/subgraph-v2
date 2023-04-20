@@ -1,4 +1,4 @@
-import { Address, dataSource, ethereum, log } from "@graphprotocol/graph-ts";
+import { Address, Bytes, dataSource, ethereum, log } from "@graphprotocol/graph-ts";
 import { Notional } from "../../generated/Governance/Notional";
 import {
   Account,
@@ -124,8 +124,10 @@ export function getOracleRegistry(): OracleRegistry {
   if (registry == null) {
     registry = new OracleRegistry(ORACLE_REGISTRY_ID);
     registry.chainlinkOracles = new Array<string>();
-    registry.listedVaults = new Array<Address>();
+    registry.listedVaults = new Array<Bytes>();
     registry.fCashEnabled = new Array<string>();
+    registry.lastRefreshBlockNumber = 0;
+    registry.lastRefreshTimestamp = 0;
     registry.save();
   }
 

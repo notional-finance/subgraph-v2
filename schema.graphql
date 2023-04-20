@@ -45,11 +45,11 @@ type Asset @entity {
 
   firstUpdateBlockNumber: Int!
   firstUpdateTimestamp: Int!
-  firstUpdateTransactionHash: Bytes!
+  firstUpdateTransactionHash: Bytes
 
   lastUpdateBlockNumber: Int!
   lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
+  lastUpdateTransactionHash: Bytes
 
   assetType: AssetType!
   assetInterface: AssetInterface!
@@ -197,44 +197,51 @@ type Account @entity {
 enum OracleType {
   Chainlink,
   fCashOracleRate,
-  fCashSpotRate,
   fCashSettlementRate,
-  PrimeCashToUnderlyingOracleSupplyRate,
-  PrimeCashToMoneyMarketOracleSupplyRate,
-  PrimeCashToUnderlyingSpotRate,
-  PrimeCashToMoneyMarketSpotRate,
-  PrimeDebtToUnderlyingSpotRate,
-  PrimeDebtToMoneyMarketSpotRate,
+  PrimeCashToMoneyMarketOracleInterestRate,
+  MoneyMarketToUnderlyingOracleInterestRate,
+  PrimeCashToUnderlyingExchangeRate,
+  PrimeCashToMoneyMarketExchangeRate,
+  PrimeDebtToUnderlyingExchangeRate,
+  PrimeDebtToMoneyMarketExchangeRate,
+  MoneyMarketToUnderlyingExchangeRate
   VaultShareOracleRate,
 }
 
 type OracleRegistry @entity {
   "ID is hardcoded to zero"
   id: ID!
-  "All oracles, required for block update handler"
-  oracles: [Oracle!]
+  lastRefreshBlockNumber: Int!
+  lastRefreshTimestamp: Int!
+
+  chainlinkOracles: [Oracle!]!
+  "Underlying assets that have fCash listed"
+  fCashEnabled: [Asset!]!
+  "Vault Addresses"
+  listedVaults: [Bytes!]!
 }
 
 type Oracle @entity {
-  "Base Currency Id:Quote Currency Id"
+  "Base Asset Id:Quote Asset Id:Oracle Type"
   id: ID!
 
   lastUpdateBlockNumber: Int!
   lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
+  "Some oracles are updated via block handlers and do not have a txn hash for updates"
+  lastUpdateTransactionHash: Bytes
 
   base: Asset!
   quote: Asset!
   ratePrecision: BigInt!
-  latestRate: BigInt!
   oracleAddress: Bytes!
   oracleType: OracleType!
+  latestRate: BigInt
 
   historicalRates: [ExchangeRate!] @derivedFrom(field: "oracle")
 }
 
 type ExchangeRate @entity {
-  "External Oracle ID:Block Number"
+  "External Oracle ID:Block Number:Transaction Index"
   id: ID!
   blockNumber: Int!
   timestamp: Int!
