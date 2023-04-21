@@ -37,9 +37,8 @@ enum TransferType {
 
 type Asset @entity {
   """ID space varies by asset type:
-    - Proxy ERC20 interfaces have the address as the id
-    - ERC1155 assets have the uint256 identifier as the id
-    - Underlying Currencies have the uin16 currency id as the id
+    - ERC20: token address
+    - ERC1155: `emitter address:tokenId`
   """
   id: ID!
 
@@ -55,11 +54,14 @@ type Asset @entity {
   assetInterface: AssetInterface!
   "A link to the underlying asset if this asset is not underlying itself"
   underlying: Asset
+  "Set to the notional currency id if this asset is listed on Notional"
+  currencyId: Int
   
   name: String!
   symbol: String!
-  totalSupply: BigInt!
   precision: BigInt!
+  "Only updated for Notional entities"
+  totalSupply: BigInt
   "Set to true for underlying tokens that have a transfer fee"
   hasTransferFee: Boolean!
 

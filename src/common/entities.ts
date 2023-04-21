@@ -3,6 +3,7 @@ import { Notional } from "../../generated/Assets/Notional";
 import {
   Account,
   Asset,
+  CurrencyConfiguration,
   Incentive,
   Oracle,
   OracleRegistry,
@@ -153,7 +154,10 @@ export function getIncentives(currencyId: i32, event: ethereum.Event): Incentive
   return incentives;
 }
 
-export function getCurrencyId(asset: Asset): i32 {
-  if (!isDefined(asset.underlying)) log.critical("Unknown underlying for asset {}", [asset.id]);
-  return I32.parseInt(asset.underlying as string);
+export function getUnderlying(currencyId: i32): Asset {
+  let c = CurrencyConfiguration.load(currencyId.toString());
+  if (c) return getAsset(c.underlying as string);
+
+  log.critical("Underlying not found for {}", [currencyId.toString()]);
+  return null as Asset;
 }

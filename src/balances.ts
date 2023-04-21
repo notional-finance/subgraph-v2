@@ -19,7 +19,7 @@ import {
   ZeroAddress,
   Transfer as _Transfer,
 } from "./common/constants";
-import { getAccount, getAsset, getCurrencyId, getIncentives, getNotional } from "./common/entities";
+import { getAccount, getAsset, getIncentives, getNotional } from "./common/entities";
 import { updateMarket } from "./common/market";
 
 function getBalance(account: Account, asset: Asset, event: ethereum.Event): Balance {
@@ -83,19 +83,19 @@ function updateVaultAssetTotalSupply(
 ): void {
   if (asset.assetType == VaultCash) {
     if (transfer.transferType == Mint) {
-      asset.totalSupply = asset.totalSupply.plus(transfer.value);
+      asset.totalSupply = (asset.totalSupply as BigInt).plus(transfer.value);
     } else if (transfer.transferType == Burn) {
-      asset.totalSupply = asset.totalSupply.minus(transfer.value);
+      asset.totalSupply = (asset.totalSupply as BigInt).minus(transfer.value);
     }
 
     // Updates the vault prime cash balance which equals the vault cash total supply.
     let vault = getAccount((asset.vaultAddress as Address).toHexString(), event);
-    let currencyId = getCurrencyId(asset);
+    let currencyId = asset.currencyId;
     let notional = getNotional();
     let primeCashAsset = getAsset(notional.pCashAddress(currencyId).toHexString());
     let vaultPrimeCashBalance = getBalance(vault, primeCashAsset, event);
 
-    vaultPrimeCashBalance.balance = asset.totalSupply;
+    vaultPrimeCashBalance.balance = asset.totalSupply as BigInt;
     _saveBalance(vaultPrimeCashBalance);
   }
 
@@ -109,7 +109,7 @@ function updateVaultAssetTotalSupply(
     asset.totalSupply = vaultState.totalVaultShares;
   } else if (asset.assetType == VaultDebt) {
     if (asset.maturity == PRIME_CASH_VAULT_MATURITY) {
-      let pDebtAddress = notional.pDebtAddress(getCurrencyId(asset));
+      let pDebtAddress = notional.pDebtAddress(asset.currencyId);
       let pDebt = ERC4626.bind(pDebtAddress);
       asset.totalSupply = pDebt.convertToShares(vaultState.totalDebtUnderlying);
     } else {
@@ -120,16 +120,17 @@ function updateVaultAssetTotalSupply(
 
 function updatefCashTotalDebtOutstanding(asset: Asset): void {
   let notional = getNotional();
-  let currencyId = getCurrencyId(asset);
-  let totalDebt = notional.getTotalfCashDebtOutstanding(currencyId, BigInt.fromI32(asset.maturity));
+  let totalDebt = notional.getTotalfCashDebtOutstanding(
+    asset.currencyId,
+    BigInt.fromI32(asset.maturity)
+  );
   // Total debt is returned as a negative number.
   asset.totalSupply = totalDebt.neg();
   asset.save();
 }
 
 function updateNTokenIncentives(asset: Asset, event: ethereum.Event): void {
-  let currencyId = getCurrencyId(asset);
-  let incentives = getIncentives(currencyId, event);
+  let incentives = getIncentives(asset.currencyId, event);
   let notional = getNotional();
   incentives.accumulatedNOTEPerNToken = notional
     .getNTokenAccount(asset.tokenAddress as Address)
@@ -185,7 +186,7 @@ function updateNToken(
 
   if (asset.assetType == fCash) {
     balance.balance = notional.balanceOf(nTokenAddress, BigInt.fromString(asset.id));
-    updateMarket(getCurrencyId(asset), asset.maturity, event);
+    updateMarket(asset.currencyId, asset.maturity, event);
   } else if (asset.assetType == PrimeCash) {
     let acct = notional.getNTokenAccount(nTokenAddress);
     balance.balance = acct.getCashBalance();
@@ -197,22 +198,21 @@ function updateVaultState(asset: Asset, vault: Account, balance: Balance): void 
   let notional = getNotional();
   let vaultAddress = Address.fromHexString(vault.id) as Address;
   let vaultConfig = notional.getVaultConfig(vaultAddress);
-  let currencyId = getCurrencyId(asset);
   let totalDebtUnderlying: BigInt;
 
-  if (currencyId == vaultConfig.borrowCurrencyId) {
+  if (asset.currencyId == vaultConfig.borrowCurrencyId) {
     totalDebtUnderlying = notional.getVaultState(vaultAddress, BigInt.fromI32(asset.maturity))
       .totalDebtUnderlying;
   } else {
     totalDebtUnderlying = notional.getSecondaryBorrow(
       vaultAddress,
-      currencyId,
+      asset.currencyId,
       BigInt.fromI32(asset.maturity)
     );
   }
 
   if (asset.assetType == PrimeDebt) {
-    let pDebtAddress = notional.pDebtAddress(currencyId);
+    let pDebtAddress = notional.pDebtAddress(asset.currencyId);
     let pDebt = ERC4626.bind(pDebtAddress);
     balance.balance = pDebt.convertToShares(totalDebtUnderlying);
   } else if (asset.assetType == fCash) {

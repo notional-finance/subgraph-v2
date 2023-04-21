@@ -7,10 +7,8 @@ export const SETTLEMENT_RESERVE = Address.fromHexString(
 );
 export const PRIME_CASH_VAULT_MATURITY = 2 ** 40 - 1;
 export const INTERNAL_TOKEN_PRECISION = BigInt.fromI32(10).pow(8);
-export const NOTE_CURRENCY_ID = 2 ** 32 - 1;
-export const SNOTE_CURRENCY_ID = 2 ** 32;
+export const ETH_CURRENCY_ID = 1 as i32;
 export const ORACLE_REGISTRY_ID = "0";
-export const ETH_CURRENCY_ID = "1";
 export const RATE_PRECISION = BigInt.fromI32(10).pow(9);
 export const BASIS_POINT = 1e5 as i32;
 export const SCALAR_PRECISION = BigInt.fromI32(10).pow(18);

@@ -1,7 +1,7 @@
 import { BigInt, ethereum } from "@graphprotocol/graph-ts";
 import { Notional__getActiveMarketsResultValue0Struct } from "../../generated/Assets/Notional";
 import { ActiveMarkets, Market, MarketSnapshot } from "../../generated/schema";
-import { getNotional } from "./entities";
+import { getNotional, getUnderlying } from "./entities";
 
 const DAY = 86400;
 const QUARTER = DAY * 90;
@@ -51,7 +51,7 @@ function getMarket(
   let market = Market.load(id);
   if (market == null) {
     market = new Market(id);
-    market.underlying = currencyId.toString();
+    market.underlying = getUnderlying(currencyId).id;
     market.maturity = maturity;
     market.settlementDate = settlementDate;
     market.marketIndex = getMarketIndex(maturity, settlementDate);

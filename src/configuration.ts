@@ -111,10 +111,12 @@ export function handleListCurrency(event: ListCurrency): void {
   configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
   configuration.lastUpdateTransactionHash = event.transaction.hash;
 
-  let underlying = getAsset(event.params.newCurrencyId.toString());
   let notional = getNotional();
+  let underlyingToken = notional.getCurrency(event.params.newCurrencyId);
+  let underlyingId = underlyingToken.getUnderlyingToken().tokenAddress.toHexString();
 
-  configuration.underlying = underlying.id;
+  // Set the underlying id directly here to avoid race conditions
+  configuration.underlying = underlyingId;
   configuration.pCash = notional.pCashAddress(event.params.newCurrencyId).toHexString();
   let pDebtAddress = notional.pDebtAddress(event.params.newCurrencyId);
   if (pDebtAddress != ZERO_ADDRESS) {

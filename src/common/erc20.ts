@@ -3,11 +3,9 @@ import { Asset } from "../../generated/schema";
 import { ERC20 } from "../../generated/templates/ERC20Proxy/ERC20";
 import { ERC20Proxy } from "../../generated/templates";
 import { getAccount } from "./entities";
-import { INTERNAL_TOKEN_PRECISION } from "./constants";
+import { ZERO_ADDRESS } from "./constants";
 
-export function getTokenNameAndSymbol(tokenAddress: Address): string[] {
-  log.debug("Fetching token symbol and name at {}", [tokenAddress.toHexString()]);
-  let erc20 = ERC20.bind(tokenAddress);
+export function getTokenNameAndSymbol(erc20: ERC20): string[] {
   let nameResult = erc20.try_name();
   let name: string;
   let symbol: string;
@@ -28,35 +26,18 @@ export function getTokenNameAndSymbol(tokenAddress: Address): string[] {
 }
 
 export function createERC20ProxyAsset(
-  asset: Asset,
   tokenAddress: Address,
+  assetType: string,
   event: ethereum.Event
-): void {
-  let symbolAndName = getTokenNameAndSymbol(tokenAddress);
-  asset.assetInterface = "ERC20";
-  asset.name = symbolAndName[0];
-  asset.symbol = symbolAndName[1];
-  asset.precision = INTERNAL_TOKEN_PRECISION;
-  asset.tokenAddress = tokenAddress;
-  // None of the Notional tokens have transfer fees
-  asset.hasTransferFee = false;
-
-  asset.lastUpdateBlockNumber = event.block.number.toI32();
-  asset.lastUpdateTimestamp = event.block.timestamp.toI32();
-  asset.lastUpdateTransactionHash = event.transaction.hash;
-
-  asset.firstUpdateBlockNumber = event.block.number.toI32();
-  asset.firstUpdateTimestamp = event.block.timestamp.toI32();
-  asset.firstUpdateTransactionHash = event.transaction.hash;
+): Asset {
+  let asset = createERC20TokenAsset(tokenAddress, false, event);
   asset.totalSupply = BigInt.zero();
-
-  log.debug("Updated asset variables for entity {}", [asset.id]);
-  asset.save();
+  asset.assetType = assetType;
 
   // Creates a new data source to listen for transfer events on
   let context = new DataSourceContext();
-  context.setString("name", symbolAndName[0]);
-  context.setString("symbol", symbolAndName[1]);
+  context.setString("name", asset.name);
+  context.setString("symbol", asset.symbol);
   context.setString("assetType", asset.assetType);
   context.setString("underlying", asset.underlying as string); // Underlying must be set at this point
   // Notional will always be the event emitter when creating new proxy assets
@@ -72,4 +53,48 @@ export function createERC20ProxyAsset(
   account.systemAccountType = asset.assetType;
 
   account.save();
+
+  return asset;
+}
+
+export function createERC20TokenAsset(
+  tokenAddress: Address,
+  hasTransferFee: boolean,
+  event: ethereum.Event
+): Asset {
+  let asset = Asset.load(tokenAddress.toHexString());
+  if (asset) return asset;
+
+  // If asset does not exist, then create it here
+  asset = new Asset(tokenAddress.toHexString());
+
+  if (tokenAddress == ZERO_ADDRESS) {
+    asset.name = "Ether";
+    asset.symbol = "ETH";
+    asset.precision = BigInt.fromI32(10).pow(18);
+  } else {
+    let erc20 = ERC20.bind(tokenAddress);
+    let symbolAndName = getTokenNameAndSymbol(erc20);
+    let decimals = erc20.decimals();
+    asset.name = symbolAndName[0];
+    asset.symbol = symbolAndName[1];
+    asset.precision = BigInt.fromI32(10).pow(decimals as u8);
+  }
+
+  asset.assetInterface = "ERC20";
+  asset.tokenAddress = tokenAddress;
+  asset.hasTransferFee = hasTransferFee;
+
+  asset.lastUpdateBlockNumber = event.block.number.toI32();
+  asset.lastUpdateTimestamp = event.block.timestamp.toI32();
+  asset.lastUpdateTransactionHash = event.transaction.hash;
+
+  asset.firstUpdateBlockNumber = event.block.number.toI32();
+  asset.firstUpdateTimestamp = event.block.timestamp.toI32();
+  asset.firstUpdateTransactionHash = event.transaction.hash;
+
+  log.debug("Updated asset variables for entity {}", [asset.id]);
+  asset.save();
+
+  return asset;
 }

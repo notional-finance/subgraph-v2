@@ -32,7 +32,13 @@ import {
   VAULT_SHARE_ASSET_TYPE_ID,
   ZERO_ADDRESS,
 } from "./common/constants";
-import { getAsset, getNotional, getOracle, getOracleRegistry } from "./common/entities";
+import {
+  getAsset,
+  getNotional,
+  getOracle,
+  getOracleRegistry,
+  getUnderlying,
+} from "./common/entities";
 import { getOrCreateERC1155Asset } from "./common/erc1155";
 
 function updateExchangeRate(
@@ -70,7 +76,7 @@ export function updateVaultOracles(vaultAddress: Address, block: ethereum.Block)
   let notional = getNotional();
   let vaultConfig = notional.getVaultConfig(vaultAddress);
   let vault = IStrategyVault.bind(vaultAddress);
-  let base = getAsset(vaultConfig.borrowCurrencyId.toString());
+  let base = getUnderlying(vaultConfig.borrowCurrencyId);
 
   let activeMarkets = notional.try_getActiveMarkets(vaultConfig.borrowCurrencyId);
   if (activeMarkets.reverted) return;
@@ -103,10 +109,10 @@ export function updateVaultOracles(vaultAddress: Address, block: ethereum.Block)
   }
 }
 
-export function updatefCashOracles(baseId: string, block: ethereum.Block): void {
+export function updatefCashOracles(underlyingId: string, block: ethereum.Block): void {
   let notional = getNotional();
-  let currencyId = I32.parseInt(baseId);
-  let base = getAsset(baseId);
+  let base = getAsset(underlyingId);
+  let currencyId = base.currencyId;
   let activeMarkets = notional.try_getActiveMarkets(currencyId);
   if (activeMarkets.reverted) return;
 
@@ -143,8 +149,8 @@ export function updatefCashOracles(baseId: string, block: ethereum.Block): void 
 /**** EVENT HANDLERS *******/
 
 export function handleUpdateETHRate(event: UpdateETHRate): void {
-  let quoteAsset = getAsset(event.params.currencyId.toString());
-  let ethBaseAsset = getAsset(ETH_CURRENCY_ID);
+  let quoteAsset = getUnderlying(event.params.currencyId);
+  let ethBaseAsset = getUnderlying(ETH_CURRENCY_ID);
   let notional = getNotional();
   let rateStorage = notional.getRateStorage(event.params.currencyId);
   let ethRate = rateStorage.getEthRate();
@@ -153,7 +159,7 @@ export function handleUpdateETHRate(event: UpdateETHRate): void {
   oracle.ratePrecision = ratePrecision;
   oracle.oracleAddress = ethRate.rateOracle;
 
-  if (quoteAsset.id === ETH_CURRENCY_ID) {
+  if (quoteAsset.currencyId === ETH_CURRENCY_ID) {
     // Set the ETH rate oracle just once to its own hardcoded rate of 1
     oracle.latestRate = ratePrecision;
     oracle.save();
@@ -185,7 +191,7 @@ export function handleVaultListing(event: VaultUpdated): void {
 }
 
 export function handlefCashEnabled(event: DeployNToken): void {
-  let base = getAsset(event.params.currencyId.toString());
+  let base = getUnderlying(event.params.currencyId);
   let registry = getOracleRegistry();
   let fCashEnabled = registry.fCashEnabled;
   if (!fCashEnabled.includes(base.id)) {
@@ -197,7 +203,7 @@ export function handlefCashEnabled(event: DeployNToken): void {
 
 export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
   let notional = getNotional();
-  let base = getAsset(event.params.currencyId.toString());
+  let base = getUnderlying(event.params.currencyId);
   let pCashAddress = notional.pCashAddress(event.params.currencyId);
   let pCashAsset = getAsset(pCashAddress.toHexString());
   let factors = notional.getPrimeFactorsStored(event.params.currencyId);
@@ -284,7 +290,7 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
 
 export function handleRebalance(event: CurrencyRebalanced): void {
   let notional = getNotional();
-  let base = getAsset(event.params.currencyId.toString());
+  let base = getUnderlying(event.params.currencyId);
   let pCashAddress = notional.pCashAddress(event.params.currencyId);
   let pCashAsset = getAsset(pCashAddress.toHexString());
 
@@ -330,7 +336,7 @@ export function handleSettlementRate(event: SetPrimeSettlementRate): void {
   posOracle.lastUpdateTransactionHash = event.transaction.hash;
   posOracle.save();
 
-  let base = getAsset(event.params.currencyId.toString());
+  let base = getUnderlying(event.params.currencyId.toI32());
   let fCashOracle = getOracle(base, positivefCash, fCashSettlementRate);
   // No need to create a new exchange rate object here, just set the latest rate to
   // zero since the fCash has matured

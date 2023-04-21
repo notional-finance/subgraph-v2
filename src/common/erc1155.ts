@@ -9,7 +9,7 @@ import {
   VaultDebt,
   VaultShare,
 } from "./constants";
-import { getAsset, getNotional } from "./entities";
+import { getNotional, getUnderlying } from "./entities";
 
 const FCASH_ASSET_TYPE = 1;
 const VAULT_SHARE_ASSET_TYPE = 9;
@@ -19,7 +19,7 @@ const VAULT_CASH_ASSET_TYPE = 111;
 function _setAssetType(decodedId: Notional__decodeERC1155IdResult, asset: Asset): void {
   let assetType = decodedId.getAssetType().toI32();
   let maturity = decodedId.getMaturity().toString();
-  let underlying = getAsset(decodedId.getCurrencyId().toString());
+  let underlying = getUnderlying(decodedId.getCurrencyId());
   let underlyingSymbol = underlying.symbol;
 
   if (assetType == FCASH_ASSET_TYPE) {
@@ -70,10 +70,12 @@ export function getOrCreateERC1155Asset(
 
     asset = new Asset(erc1155ID.toString());
     asset.assetInterface = "ERC1155";
-    asset.underlying = decodedId.getCurrencyId().toString();
+    asset.underlying = getUnderlying(decodedId.getCurrencyId()).id;
+    asset.currencyId = decodedId.getCurrencyId();
     asset.maturity = decodedId.getMaturity().toI32();
     asset.vaultAddress = decodedId.getVaultAddress();
     asset.isfCashDebt = decodedId.getIsfCashDebt();
+    asset.totalSupply = BigInt.zero();
     _setAssetType(decodedId, asset);
 
     // Initialize this at zero

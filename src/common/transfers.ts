@@ -14,13 +14,7 @@ import {
   VaultShare,
   ZERO_ADDRESS,
 } from "./constants";
-import {
-  createTransferBundle,
-  getAccount,
-  getCurrencyId,
-  getNotional,
-  getTransaction,
-} from "./entities";
+import { createTransferBundle, getAccount, getNotional, getTransaction } from "./entities";
 import { BundleCriteria } from "./bundles";
 
 export function decodeTransferType(from: Address, to: Address): string {
@@ -54,7 +48,7 @@ export function convertValueToUnderlying(
   }
 
   let notional = getNotional();
-  let currencyId = getCurrencyId(asset) as i32;
+  let currencyId = asset.currencyId as i32;
   let underlyingExternal: ethereum.CallResult<BigInt>;
 
   if (asset.assetType == nToken) {
