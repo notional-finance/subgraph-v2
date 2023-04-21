@@ -39,7 +39,7 @@ import {
   GlobalTransferOperator,
   ZERO_ADDRESS,
 } from "./common/constants";
-import { getAsset, getIncentives, getNotional } from "./common/entities";
+import { getIncentives, getNotional } from "./common/entities";
 import { setActiveMarkets } from "./common/market";
 
 function getCurrencyConfiguration(currencyId: i32): CurrencyConfiguration {

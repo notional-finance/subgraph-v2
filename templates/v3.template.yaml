@@ -45,6 +45,9 @@ dataSources:
         - Asset
         - Balance
         - Account
+        - Market
+        - MarketSnapshot
+        - Incentives
       abis:
         - name: Notional
           file: ./abi/Notional.json
@@ -113,6 +116,7 @@ dataSources:
         - VaultConfiguration
         - WhitelistedContract
         - InterestRateCurve
+        - ActiveMarkets
       abis:
         - name: Notional
           file: ./abi/Notional.json
@@ -175,9 +179,30 @@ dataSources:
           handler: handleVaultUpdateSecondaryBorrowCapacity
         - event: VaultBorrowCapacityChange(indexed address,indexed uint16,uint256) 
           handler: handleVaultBorrowCapacityChange
-  # TODO: add trading module events for oracles
+  - name: TradingModule
+    kind: ethereum/contract
+    network: {{ networkName }}
+    source:
+      address: '{{ tradingModule }}'
+      abi: TradingModule
+      startBlock: {{ startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/trading_module.ts
+      entities:
+        - Oracle
+      abis:
+        - name: TradingModule
+          file: ./abi/TradingModule.json
+      eventHandlers:
+        - event: PriceOracleUpdated(address,address)
+          handler: handlePriceOracleUpdate
+        - event: TokenPermissionsUpdated(address,address,(bool,uint32,uint32))
+          handler: handleTokenPermissionsUpdate
   # TODO: add treasury manager events
-  #- name: TradingModule
+  # TODO: add snote balancer pool and snote
 templates:
   - name: ERC20Proxy
     kind: ethereum/contract

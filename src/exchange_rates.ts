@@ -9,7 +9,7 @@ import {
 } from "../generated/ExchangeRates/Notional";
 import { IStrategyVault } from "../generated/ExchangeRates/IStrategyVault";
 import { Aggregator } from "../generated/ExchangeRates/Aggregator";
-import { ExchangeRate, Oracle } from "../generated/schema";
+import { Asset, ExchangeRate, Oracle } from "../generated/schema";
 import {
   Chainlink,
   DOUBLE_SCALAR_PRECISION,
@@ -68,7 +68,11 @@ export function updateChainlinkOracle(oracle: Oracle, block: ethereum.Block): vo
   let aggregator = Aggregator.bind(oracle.oracleAddress as Address);
   let latestRate = aggregator.try_latestAnswer();
   if (!latestRate.reverted) {
-    updateExchangeRate(oracle, latestRate.value, block, null);
+    let rate = oracle.mustInvert
+      ? oracle.ratePrecision.times(oracle.ratePrecision).div(latestRate.value)
+      : latestRate.value;
+
+    updateExchangeRate(oracle, rate, block, null);
   }
 }
 
@@ -146,22 +150,23 @@ export function updatefCashOracles(underlyingId: string, block: ethereum.Block):
   }
 }
 
-/**** EVENT HANDLERS *******/
-
-export function handleUpdateETHRate(event: UpdateETHRate): void {
-  let quoteAsset = getUnderlying(event.params.currencyId);
-  let ethBaseAsset = getUnderlying(ETH_CURRENCY_ID);
-  let notional = getNotional();
-  let rateStorage = notional.getRateStorage(event.params.currencyId);
-  let ethRate = rateStorage.getEthRate();
-  let ratePrecision = BigInt.fromI32(10).pow(ethRate.rateDecimalPlaces as u8);
-  let oracle = getOracle(ethBaseAsset, quoteAsset, Chainlink);
-  oracle.ratePrecision = ratePrecision;
-  oracle.oracleAddress = ethRate.rateOracle;
+export function registerChainlinkOracle(
+  baseAsset: Asset,
+  quoteAsset: Asset,
+  oracleAddress: Address,
+  mustInvert: boolean,
+  event: ethereum.Event
+): void {
+  let oracle = getOracle(baseAsset, quoteAsset, Chainlink);
+  let _oracle = Aggregator.bind(oracleAddress);
+  let decimals = _oracle.decimals();
+  oracle.ratePrecision = BigInt.fromI32(10).pow(decimals as u8);
+  oracle.oracleAddress = oracleAddress;
+  oracle.mustInvert = mustInvert;
 
   if (quoteAsset.currencyId === ETH_CURRENCY_ID) {
     // Set the ETH rate oracle just once to its own hardcoded rate of 1
-    oracle.latestRate = ratePrecision;
+    oracle.latestRate = oracle.ratePrecision;
     oracle.save();
   } else {
     // Will call oracle.save inside
@@ -175,6 +180,18 @@ export function handleUpdateETHRate(event: UpdateETHRate): void {
     registry.chainlinkOracles = chainlinkOracles;
     registry.save();
   }
+}
+
+/**** EVENT HANDLERS *******/
+
+export function handleUpdateETHRate(event: UpdateETHRate): void {
+  let quoteAsset = getUnderlying(event.params.currencyId);
+  let ethBaseAsset = getUnderlying(ETH_CURRENCY_ID);
+  let notional = getNotional();
+  let rateStorage = notional.getRateStorage(event.params.currencyId);
+  let ethRate = rateStorage.getEthRate();
+
+  registerChainlinkOracle(ethBaseAsset, quoteAsset, ethRate.rateOracle, ethRate.mustInvert, event);
 }
 
 export function handleVaultListing(event: VaultUpdated): void {

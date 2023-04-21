@@ -7,6 +7,7 @@ export const SETTLEMENT_RESERVE = Address.fromHexString(
 );
 export const PRIME_CASH_VAULT_MATURITY = 2 ** 40 - 1;
 export const INTERNAL_TOKEN_PRECISION = BigInt.fromI32(10).pow(8);
+export const USD_ASSET_ID = "0";
 export const ETH_CURRENCY_ID = 1 as i32;
 export const ORACLE_REGISTRY_ID = "0";
 export const RATE_PRECISION = BigInt.fromI32(10).pow(9);
