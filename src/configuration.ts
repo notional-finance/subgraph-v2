@@ -39,6 +39,7 @@ import {
   ZERO_ADDRESS,
 } from "./common/constants";
 import { getAsset, getNotional } from "./common/entities";
+import { setActiveMarkets } from "./common/market";
 
 function getCurrencyConfiguration(currencyId: i32): CurrencyConfiguration {
   let id = currencyId.toString();
@@ -363,6 +364,9 @@ export function handleMarketsInitialized(event: MarketsInitialized): void {
 
   configuration.fCashActiveCurves = fCashActiveCurves;
   configuration.save();
+
+  // Updates and sets the currently active markets
+  setActiveMarkets(event.params.currencyId, event);
 }
 
 export function handleUpdateIncentiveEmissionRate(event: UpdateIncentiveEmissionRate): void {

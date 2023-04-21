@@ -1,5 +1,5 @@
 import { Address, ethereum, log, store, BigInt } from "@graphprotocol/graph-ts";
-import { Account, Asset, Balance, Transfer } from "../generated/schema";
+import { Account, Asset, Balance, Market, MarketSnapshot, Transfer } from "../generated/schema";
 import { ERC20 } from "../generated/templates/ERC20Proxy/ERC20";
 import { ERC4626 } from "../generated/Transactions/ERC4626";
 import {
@@ -20,6 +20,7 @@ import {
   Transfer as _Transfer,
 } from "./common/constants";
 import { getAccount, getAsset, getCurrencyId, getNotional } from "./common/entities";
+import { updateMarket } from "./common/market";
 
 function getBalance(account: Account, asset: Asset, event: ethereum.Event): Balance {
   let id = account.id + ":" + asset.id;
@@ -52,7 +53,7 @@ function _updateBalance(
   if (systemAccount == ZeroAddress) {
     return;
   } else if (systemAccount == nToken) {
-    updateNToken(asset, account, balance);
+    updateNToken(asset, account, balance, event);
   } else if (systemAccount == Vault) {
     updateVaultState(asset, account, balance);
   } else if (systemAccount == FeeReserve || systemAccount == SettlementReserve) {
@@ -159,19 +160,23 @@ export function updateBalance(asset: Asset, transfer: Transfer, event: ethereum.
 }
 
 // Includes markets
-function updateNToken(asset: Asset, nTokenAccount: Account, balance: Balance): void {
+function updateNToken(
+  asset: Asset,
+  nTokenAccount: Account,
+  balance: Balance,
+  event: ethereum.Event
+): void {
   let notional = getNotional();
   let nTokenAddress = Address.fromHexString(nTokenAccount.id) as Address;
 
   if (asset.assetType == fCash) {
     balance.balance = notional.balanceOf(nTokenAddress, BigInt.fromString(asset.id));
+    updateMarket(getCurrencyId(asset), asset.maturity, event);
   } else if (asset.assetType == PrimeCash) {
     let acct = notional.getNTokenAccount(nTokenAddress);
     balance.balance = acct.getCashBalance();
   }
   _saveBalance(balance);
-
-  // TODO: Update market object
 }
 
 function updateVaultState(asset: Asset, vault: Account, balance: Balance): void {

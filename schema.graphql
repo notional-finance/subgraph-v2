@@ -408,7 +408,62 @@ type Balance @entity {
   balance: BigInt!
 }
 
-## TODO: fcash market
+### Markets ###
+
+type ActiveMarkets @entity {
+  "Currency ID"
+  id: ID!
+  underlying: Asset!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+  
+  markets: [Market!]!
+}
+
+type Market @entity {
+  "Currency Id:Settlement Date:Maturity combination"
+  id: ID!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  "Currency of this market"
+  underlying: Asset!
+  "Date that fCash from this market will mature"
+  maturity: Int!
+  "Date that this market will settle"
+  settlementDate: Int!
+  "Market index"
+  marketIndex: Int!
+  "Length of market maturity in seconds"
+  marketMaturityLengthSeconds: Int!
+
+  current: MarketSnapshot!
+  snapshots: [MarketSnapshot!] @derivedFrom(field: "market")
+}
+
+type MarketSnapshot @entity {
+  "Market ID:Transaction Hash"
+  id: ID!
+  market: Market!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+
+  "Total fCash available in the market"
+  totalfCash: BigInt!
+  "Total asset cash available in the market"
+  totalPrimeCash: BigInt!
+  "Total liquidity tokens available in the market"
+  totalLiquidity: BigInt!
+  "Last annualized interest rate the market traded at"
+  lastImpliedRate: Int!
+  "Oracle rate for the market, must be averaged in using previousTradeTime"
+  oracleRate: Int!
+  "Last time when a trade occurred on the market"
+  previousTradeTime: Int!
+}
 
 ### Treasury ###
 
