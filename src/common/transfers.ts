@@ -14,7 +14,13 @@ import {
   VaultShare,
   ZERO_ADDRESS,
 } from "./constants";
-import { createTransferBundle, getAccount, getNotional, getTransaction } from "./entities";
+import {
+  createTransferBundle,
+  getAccount,
+  getCurrencyId,
+  getNotional,
+  getTransaction,
+} from "./entities";
 import { BundleCriteria } from "./bundles";
 
 export function decodeTransferType(from: Address, to: Address): string {
@@ -47,10 +53,8 @@ export function convertValueToUnderlying(
     notionalAddress = dataSource.address();
   }
 
-  if (!isDefined(asset.underlying)) log.critical("Unknown underlying for asset {}", [asset.id]);
-
   let notional = getNotional();
-  let currencyId = I32.parseInt(asset.underlying as string) as i32;
+  let currencyId = getCurrencyId(asset) as i32;
   let underlyingExternal: ethereum.CallResult<BigInt>;
 
   if (asset.assetType == nToken) {

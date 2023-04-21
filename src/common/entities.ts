@@ -39,14 +39,6 @@ export function getAsset(id: string): Asset {
   return entity as Asset;
 }
 
-export function getBalance(id: string): Balance {
-  let entity = Balance.load(id);
-  if (entity == null) {
-    entity = new Balance(id);
-  }
-  return entity as Balance;
-}
-
 export function getAccount(id: string, event: ethereum.Event): Account {
   let entity = Account.load(id);
   if (entity == null) {
@@ -144,4 +136,9 @@ export function getOracle(base: Asset, quote: Asset, oracleType: string): Oracle
   }
 
   return oracle as Oracle;
+}
+
+export function getCurrencyId(asset: Asset): i32 {
+  if (!isDefined(asset.underlying)) log.critical("Unknown underlying for asset {}", [asset.id]);
+  return I32.parseInt(asset.underlying as string);
 }

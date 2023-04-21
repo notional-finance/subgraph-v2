@@ -48,7 +48,7 @@ export function createERC20ProxyAsset(
   asset.firstUpdateBlockNumber = event.block.number.toI32();
   asset.firstUpdateTimestamp = event.block.timestamp.toI32();
   asset.firstUpdateTransactionHash = event.transaction.hash;
-  updateERC20ProxyTotalSupply(asset);
+  asset.totalSupply = BigInt.zero();
 
   log.debug("Updated asset variables for entity {}", [asset.id]);
   asset.save();
@@ -72,17 +72,4 @@ export function createERC20ProxyAsset(
   account.systemAccountType = asset.assetType;
 
   account.save();
-}
-
-export function updateERC20ProxyTotalSupply(asset: Asset): void {
-  if (asset.assetInterface != "ERC20") return;
-  let erc20 = ERC20.bind(asset.tokenAddress as Address);
-  let totalSupply = erc20.try_totalSupply();
-  if (totalSupply.reverted) {
-    log.error("Unable to fetch total supply for {}", [asset.tokenAddress.toHexString()]);
-  } else {
-    asset.totalSupply = totalSupply.value;
-  }
-
-  asset.save();
 }

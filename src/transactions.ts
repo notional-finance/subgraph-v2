@@ -38,7 +38,7 @@ export function handleERC1155Transfer(event: TransferSingle): void {
   if (!isDefined(asset.underlying)) log.critical("Unknown underlying for asset {}", [asset.id]);
   transfer.underlying = asset.underlying as string;
 
-  updateBalance(asset, transfer);
+  updateBalance(asset, transfer, event);
 
   // Calls transfer.save() inside
   processTransfer(transfer, event);
@@ -71,7 +71,7 @@ export function handleERC1155BatchTransfer(event: TransferBatch): void {
     if (!isDefined(asset.underlying)) log.critical("Unknown underlying for asset {}", [asset.id]);
     transfer.underlying = asset.underlying as string;
 
-    updateBalance(asset, transfer);
+    updateBalance(asset, transfer, event);
 
     // Calls transfer.save() inside
     processTransfer(transfer, event);
@@ -102,7 +102,7 @@ export function handleERC20Transfer(event: TransferEvent): void {
   if (!isDefined(asset.underlying)) log.critical("Unknown underlying for asset {}", [asset.id]);
   transfer.underlying = asset.underlying as string;
 
-  updateBalance(asset, transfer);
+  updateBalance(asset, transfer, event);
 
   // Calls transfer.save() inside
   processTransfer(transfer, event);
