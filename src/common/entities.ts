@@ -3,8 +3,7 @@ import { Notional } from "../../generated/Assets/Notional";
 import {
   Account,
   Asset,
-  Balance,
-  Incentives,
+  Incentive,
   Oracle,
   OracleRegistry,
   Transaction,
@@ -139,11 +138,11 @@ export function getOracle(base: Asset, quote: Asset, oracleType: string): Oracle
   return oracle as Oracle;
 }
 
-export function getIncentives(currencyId: i32, event: ethereum.Event): Incentives {
+export function getIncentives(currencyId: i32, event: ethereum.Event): Incentive {
   let id = currencyId.toString();
-  let incentives = Incentives.load(id);
+  let incentives = Incentive.load(id);
   if (incentives == null) {
-    incentives = new Incentives(id);
+    incentives = new Incentive(id);
     incentives.currencyConfiguration = id;
   }
 

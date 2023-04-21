@@ -467,7 +467,7 @@ type MarketSnapshot @entity {
 
 ### Treasury ###
 
-type Incentives @entity {
+type Incentive @entity {
   "ID is the currency id"
   id: ID!
   lastUpdateBlockNumber: Int!
