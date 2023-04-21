@@ -470,6 +470,10 @@ type MarketSnapshot @entity {
 type Incentives @entity {
   "ID is the currency id"
   id: ID!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
   currencyConfiguration: CurrencyConfiguration!
 
   "Current accumulated NOTE per nToken"

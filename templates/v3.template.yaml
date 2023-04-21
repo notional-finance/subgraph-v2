@@ -147,6 +147,8 @@ dataSources:
         - event: MarketsInitialized(uint16)
           handler: handleMarketsInitialized
         # Treasury Actions
+        - event: IncentivesMigrated(uint16,uint256,uint256,uint256)
+          handler: handleIncentivesMigrated
         - event: UpdateIncentiveEmissionRate(uint16,uint32)
           handler: handleUpdateIncentiveEmissionRate
         - event: ReserveBufferUpdated(uint16,uint256)
@@ -173,6 +175,9 @@ dataSources:
           handler: handleVaultUpdateSecondaryBorrowCapacity
         - event: VaultBorrowCapacityChange(indexed address,indexed uint16,uint256) 
           handler: handleVaultBorrowCapacityChange
+  # TODO: add trading module events for oracles
+  # TODO: add treasury manager events
+  #- name: TradingModule
 templates:
   - name: ERC20Proxy
     kind: ethereum/contract

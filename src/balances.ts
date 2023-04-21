@@ -1,5 +1,5 @@
 import { Address, ethereum, log, store, BigInt } from "@graphprotocol/graph-ts";
-import { Account, Asset, Balance, Market, MarketSnapshot, Transfer } from "../generated/schema";
+import { Account, Asset, Balance, Transfer } from "../generated/schema";
 import { ERC20 } from "../generated/templates/ERC20Proxy/ERC20";
 import { ERC4626 } from "../generated/Transactions/ERC4626";
 import {
@@ -19,7 +19,7 @@ import {
   ZeroAddress,
   Transfer as _Transfer,
 } from "./common/constants";
-import { getAccount, getAsset, getCurrencyId, getNotional } from "./common/entities";
+import { getAccount, getAsset, getCurrencyId, getIncentives, getNotional } from "./common/entities";
 import { updateMarket } from "./common/market";
 
 function getBalance(account: Account, asset: Asset, event: ethereum.Event): Balance {
@@ -127,6 +127,16 @@ function updatefCashTotalDebtOutstanding(asset: Asset): void {
   asset.save();
 }
 
+function updateNTokenIncentives(asset: Asset, event: ethereum.Event): void {
+  let currencyId = getCurrencyId(asset);
+  let incentives = getIncentives(currencyId, event);
+  let notional = getNotional();
+  incentives.accumulatedNOTEPerNToken = notional
+    .getNTokenAccount(asset.tokenAddress as Address)
+    .getAccumulatedNOTEPerNToken();
+  incentives.save();
+}
+
 function _saveBalance(balance: Balance): void {
   // Delete zero balances from cluttering up the store.
   if (balance.balance.isZero()) {
@@ -148,6 +158,10 @@ export function updateBalance(asset: Asset, transfer: Transfer, event: ethereum.
     asset.assetType == VaultCash
   ) {
     updateVaultAssetTotalSupply(asset, transfer, event);
+  }
+
+  if (asset.assetType == nToken) {
+    updateNTokenIncentives(asset, event);
   }
 
   let fromAccount = getAccount(transfer.from, event);

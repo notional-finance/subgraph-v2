@@ -4,6 +4,7 @@ import {
   Account,
   Asset,
   Balance,
+  Incentives,
   Oracle,
   OracleRegistry,
   Transaction,
@@ -136,6 +137,21 @@ export function getOracle(base: Asset, quote: Asset, oracleType: string): Oracle
   }
 
   return oracle as Oracle;
+}
+
+export function getIncentives(currencyId: i32, event: ethereum.Event): Incentives {
+  let id = currencyId.toString();
+  let incentives = Incentives.load(id);
+  if (incentives == null) {
+    incentives = new Incentives(id);
+    incentives.currencyConfiguration = id;
+  }
+
+  incentives.lastUpdateBlockNumber = event.block.number.toI32();
+  incentives.lastUpdateTimestamp = event.block.timestamp.toI32();
+  incentives.lastUpdateTransactionHash = event.transaction.hash;
+
+  return incentives;
 }
 
 export function getCurrencyId(asset: Asset): i32 {

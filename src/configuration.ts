@@ -1,5 +1,6 @@
 import { Address, BigInt, ByteArray, Bytes } from "@graphprotocol/graph-ts";
 import {
+  IncentivesMigrated,
   ListCurrency,
   MarketsInitialized,
   PrimeCashCurveChanged,
@@ -38,7 +39,7 @@ import {
   GlobalTransferOperator,
   ZERO_ADDRESS,
 } from "./common/constants";
-import { getAsset, getNotional } from "./common/entities";
+import { getAsset, getIncentives, getNotional } from "./common/entities";
 import { setActiveMarkets } from "./common/market";
 
 function getCurrencyConfiguration(currencyId: i32): CurrencyConfiguration {
@@ -377,6 +378,15 @@ export function handleUpdateIncentiveEmissionRate(event: UpdateIncentiveEmission
 
   configuration.incentiveEmissionRate = event.params.newEmissionRate;
   configuration.save();
+}
+
+export function handleIncentivesMigrated(event: IncentivesMigrated): void {
+  let currencyId = event.params.currencyId as i32;
+  let incentives = getIncentives(currencyId, event);
+  incentives.migrationEmissionRate = event.params.migrationEmissionRate;
+  incentives.migrationTime = event.params.migrationTime;
+  incentives.finalIntegralTotalSupply = event.params.finalIntegralTotalSupply;
+  incentives.save();
 }
 
 export function handleUpdateSecondaryIncentiveRewarder(
