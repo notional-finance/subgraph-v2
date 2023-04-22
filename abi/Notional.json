@@ -2356,6 +2356,30 @@
         "type": "uint16"
       },
       {
+        "internalType": "int256",
+        "name": "nTokenBalance",
+        "type": "int256"
+      }
+    ],
+    "name": "convertNTokenToUnderlying",
+    "outputs": [
+      {
+        "internalType": "int256",
+        "name": "",
+        "type": "int256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint16",
+        "name": "currencyId",
+        "type": "uint16"
+      },
+      {
         "internalType": "uint256",
         "name": "maturity",
         "type": "uint256"

@@ -52,7 +52,7 @@ export function convertValueToUnderlying(
   let underlyingExternal: ethereum.CallResult<BigInt>;
 
   if (asset.assetType == nToken) {
-    // TODO: Cannot rely on proxy being available, convert manually
+    underlyingExternal = notional.try_convertNTokenToUnderlying(currencyId, value);
   } else if (
     asset.assetType == PrimeDebt ||
     (asset.assetType == VaultDebt && asset.maturity == PRIME_CASH_VAULT_MATURITY)
