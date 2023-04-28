@@ -22,6 +22,7 @@ export const FCASH_ASSET_TYPE_ID = BigInt.fromI32(1);
 export const VAULT_SHARE_ASSET_TYPE_ID = BigInt.fromI32(9);
 export const VAULT_DEBT_ASSET_TYPE_ID = BigInt.fromI32(10);
 export const VAULT_CASH_ASSET_TYPE_ID = BigInt.fromI32(11);
+export const LEGACY_NTOKEN_ASSET_TYPE_ID = BigInt.fromI32(12);
 
 // Enum Values as Constants
 

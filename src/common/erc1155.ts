@@ -4,12 +4,13 @@ import { Asset } from "../../generated/schema";
 import {
   fCash,
   INTERNAL_TOKEN_PRECISION,
+  LEGACY_NTOKEN_ASSET_TYPE_ID,
   PRIME_CASH_VAULT_MATURITY,
   VaultCash,
   VaultDebt,
   VaultShare,
 } from "./constants";
-import { getNotional, getUnderlying } from "./entities";
+import { getAsset, getNotional, getUnderlying } from "./entities";
 
 const FCASH_ASSET_TYPE = 1;
 const VAULT_SHARE_ASSET_TYPE = 9;
@@ -63,11 +64,17 @@ export function getOrCreateERC1155Asset(
   block: ethereum.Block,
   txnHash: Bytes | null
 ): Asset {
+  let notional = getNotional();
+  let decodedId = notional.decodeERC1155Id(erc1155ID);
+
+  if (decodedId.getAssetType() == LEGACY_NTOKEN_ASSET_TYPE_ID) {
+    // In this case return the asset as the ERC20 nToken asset
+    let nTokenAddress = notional.nTokenAddress(decodedId.getCurrencyId());
+    return getAsset(nTokenAddress.toHexString());
+  }
+
   let asset = Asset.load(erc1155ID.toString());
   if (asset == null) {
-    let notional = getNotional();
-    let decodedId = notional.decodeERC1155Id(erc1155ID);
-
     asset = new Asset(erc1155ID.toString());
     asset.assetInterface = "ERC1155";
     asset.underlying = getUnderlying(decodedId.getCurrencyId()).id;
