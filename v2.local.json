@@ -1,8 +1,8 @@
 {
-  "chainId": 1337,
-  "networkName": "arbitrum-one",
+  "chainId": 42161,
+  "networkName": "arbitrum",
   "note": "0xCFEAead4947f0705A14ec42aC3D44129E1Ef3eD5",
   "notional": "0x1344A36A1B56144C3Bc62E7757377D288fDE0369",
   "tradingModule": "0x594734c7e06C3D483466ADBCe401C6Bd269746C8",
-  "startBlock": 0
+  "startBlock": 85509698
 }

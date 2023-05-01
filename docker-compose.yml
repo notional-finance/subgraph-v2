@@ -18,7 +18,7 @@ services:
             postgres_db: graph-node
             ipfs: "ipfs:5001"
             ethereum: "${NETWORK_NAME}:${RPC_URL}"
-            RUST_LOG: warn
+            RUST_LOG: debug
             GRAPH_LOG: debug
     ipfs:
         image: ipfs/go-ipfs:v0.4.23

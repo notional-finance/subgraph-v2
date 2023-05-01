@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
-export NETWORK_NAME="arbitrum-one"
-export RPC_URL="http://localhost:8545"
+export NETWORK_NAME="arbitrum"
+export RPC_URL="http://host.docker.internal:8545"
 yarn run prepare:local
 yarn run codegen
 docker-compose down
