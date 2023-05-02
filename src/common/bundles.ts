@@ -578,16 +578,20 @@ const vault_roll = (w: Transfer[]): boolean => {
     vault_settle(w)
   ) && (
     w[0].transferType == Burn &&
-    w[0].assetType == VaultDebt
+    w[0].assetType == VaultDebt &&
+    !w[0].value.isZero()
   ) && (
     w[1].transferType == Burn &&
-    w[1].assetType == VaultShare
+    w[1].assetType == VaultShare && 
+    !w[1].value.isZero()
   ) && (
     w[2].transferType == Mint &&
-    w[2].assetType == VaultDebt
+    w[2].assetType == VaultDebt &&
+    !w[2].value.isZero()
   ) && (
     w[3].transferType == Burn &&
-    w[3].assetType == VaultShare
+    w[3].assetType == VaultShare &&
+    !w[3].value.isZero()
   )
 }
 
@@ -612,9 +616,6 @@ const vault_exit = (w: Transfer[]): boolean => {
   ) && (
     w[1].transferType == Burn &&
     w[1].assetType == VaultShare
-  ) && !(
-    w[0].maturity <= w[0].timestamp &&
-    w[1].maturity <= w[1].timestamp
   )
 }
 
@@ -691,6 +692,15 @@ const vault_secondary_borrow = (w: Transfer[]): boolean => {
   )
 }
 
+const vault_secondary_deposit = (w: Transfer[]): boolean => {
+  return (
+    w[0].transferType == Mint &&
+    w[0].assetType == PrimeCash &&
+    w[0].toSystemAccount == Vault
+  )
+
+}
+
 const vault_secondary_repay = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == Burn &&
@@ -728,6 +738,64 @@ const vault_secondary_settle = (w: Transfer[]): boolean => {
   )
 }
 
+const vault_withdraw_cash = (w: Transfer[]): boolean => {
+  return (
+    w[0].transferType == _Transfer &&
+    w[0].fromSystemAccount == Vault &&
+    w[0].assetType == PrimeCash &&
+    w[0].toSystemAccount == None
+  ) && (
+    w[1].transferType == Burn &&
+    w[1].fromSystemAccount == None &&
+    w[1].assetType == PrimeCash
+  )
+}
+
+const vault_burn_cash = (w: Transfer[]): boolean => {
+  return (
+    w[0].transferType == _Transfer &&
+    w[0].assetType == VaultCash
+  )
+}
+
+const vault_liquidate_excess_cash = (w: Transfer[]): boolean => {
+  return (
+    w[0].transferType == _Transfer &&
+    w[0].assetType == PrimeCash &&
+    w[0].fromSystemAccount == Vault
+  ) && (
+    w[1].transferType == Burn &&
+    w[1].assetType == PrimeCash &&
+    w[1].fromSystemAccount == None
+  ) && (
+    w[2].transferType == Burn &&
+    w[2].assetType == VaultCash
+  ) && (
+    w[3].transferType == Mint &&
+    w[3].assetType == PrimeCash &&
+    w[3].fromSystemAccount == None
+  ) && (
+    w[4].transferType == _Transfer &&
+    w[4].assetType == PrimeCash &&
+    w[4].toSystemAccount == Vault
+  ) && (
+    w[5].transferType == Mint &&
+    w[5].assetType == VaultCash
+  )
+}
+
+const vault_settle_cash = (w: Transfer[]): boolean => {
+  return (
+    w[0].transferType == Burn &&
+    w[0].assetType == VaultCash
+  ) && (
+    w[1].transferType == Mint &&
+    w[1].assetType == VaultCash &&
+    w[1].maturity == PRIME_CASH_VAULT_MATURITY
+  )
+
+}
+
 export let BundleCriteria = new Array<Criteria>();
 const CAN_START = true;
 const REWRITE = true;
@@ -741,6 +809,8 @@ BundleCriteria.push(
 BundleCriteria.push(new Criteria("Transfer Asset", 1, transfer_asset));
 BundleCriteria.push(new Criteria("Transfer Incentive", 1, transfer_incentive));
 BundleCriteria.push(new Criteria("Vault Entry Transfer", 1, vault_entry_transfer, 1));
+// This is a secondary vault entry transfer
+BundleCriteria.push(new Criteria("Vault Entry Transfer", 2, vault_entry_transfer, 1, false, false, 1));
 BundleCriteria.push(
   new Criteria("nToken Purchase Negative Residual", 4, ntoken_purchase_negative_residual, 1)
 );
@@ -783,10 +853,13 @@ BundleCriteria.push(new Criteria("Vault Lend at Zero", 4, vault_lend_at_zero));
 BundleCriteria.push(new Criteria("Vault Roll", 2, vault_roll, 2, false, REWRITE));
 BundleCriteria.push(new Criteria("Vault Entry", 2, vault_entry, 2));
 BundleCriteria.push(new Criteria("Vault Exit", 2, vault_exit));
-BundleCriteria.push(new Criteria("Vault Settle", 4, vault_settle));
+BundleCriteria.push(new Criteria("Vault Settle", 2, vault_settle, 2, false, REWRITE));
 BundleCriteria.push(new Criteria("Vault Deleverage fCash", 2, vault_deleverage_fcash));
 BundleCriteria.push(new Criteria("Vault Deleverage Prime Debt", 2, vault_deleverage_prime_debt));
 BundleCriteria.push(new Criteria("Vault Liquidate Cash", 6, vault_liquidate_cash));
+BundleCriteria.push(new Criteria("Vault Withdraw Cash", 2, vault_withdraw_cash));
+BundleCriteria.push(new Criteria("Vault Burn Cash", 1, vault_burn_cash));
+BundleCriteria.push(new Criteria("Vault Settle Cash", 1, vault_settle_cash, 1, false, REWRITE));
 
 BundleCriteria.push(
   new Criteria("Vault Secondary Borrow", 2, vault_secondary_borrow, 2, false, false, 1)
@@ -795,3 +868,4 @@ BundleCriteria.push(
   new Criteria("Vault Secondary Repay", 2, vault_secondary_repay, 2, false, false, 1)
 );
 BundleCriteria.push(new Criteria("Vault Secondary Settle", 2, vault_secondary_settle));
+BundleCriteria.push(new Criteria("Vault Liquidate Excess Cash", 1, vault_liquidate_excess_cash, 5, false, REWRITE));

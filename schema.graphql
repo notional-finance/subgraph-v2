@@ -252,6 +252,12 @@ type CurrencyConfiguration @entity {
   fCashDebtBufferBasisPoints: Int
   "fCash haircut specified in basis points"
   fCashHaircutBasisPoints: Int
+  "Minimum oracle rate applied to fCash haircut"
+  fCashMinOracleRate: Int
+  "Maximum oracle rate applied to fCash buffer"
+  fCashMaxOracleRate: Int
+  "Maximum discount factor applied to fCash haircut"
+  fCashMaxDiscountFactor: Int
   "Discount on fCash given to the liquidator in basis points"
   fCashLiquidationHaircutBasisPoints: Int
   "Discount on negative fCash given to the liquidator in basis points"

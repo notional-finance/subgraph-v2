@@ -37,6 +37,7 @@ import {
   AuthorizedCallbackContract,
   BASIS_POINT,
   GlobalTransferOperator,
+  RATE_PRECISION,
   ZERO_ADDRESS,
 } from "./common/constants";
 import { getIncentives, getNotional } from "./common/entities";
@@ -199,12 +200,16 @@ export function handleUpdateCashGroup(event: UpdateCashGroup): void {
 
   configuration.fCashRateOracleTimeWindowSeconds = cashGroup.rateOracleTimeWindow5Min * 5 * 60;
   configuration.fCashReserveFeeSharePercent = cashGroup.reserveFeeShare;
-  configuration.fCashDebtBufferBasisPoints = cashGroup.debtBuffer5BPS * 5 * BASIS_POINT;
-  configuration.fCashHaircutBasisPoints = cashGroup.fCashHaircut5BPS * 5 * BASIS_POINT;
+  configuration.fCashDebtBufferBasisPoints = cashGroup.debtBuffer25BPS * 25 * BASIS_POINT;
+  configuration.fCashHaircutBasisPoints = cashGroup.fCashHaircut25BPS * 25 * BASIS_POINT;
   configuration.fCashLiquidationDebtBufferBasisPoints =
-    cashGroup.liquidationDebtBuffer5BPS * 5 * BASIS_POINT;
+    cashGroup.liquidationDebtBuffer25BPS * 25 * BASIS_POINT;
   configuration.fCashLiquidationHaircutBasisPoints =
-    cashGroup.liquidationfCashHaircut5BPS * 5 * BASIS_POINT;
+    cashGroup.liquidationfCashHaircut25BPS * 25 * BASIS_POINT;
+  configuration.fCashMinOracleRate = cashGroup.minOracleRate25BPS * 25 * BASIS_POINT;
+  configuration.fCashMaxOracleRate = cashGroup.maxOracleRate25BPS * 25 * BASIS_POINT;
+  configuration.fCashMaxDiscountFactor =
+    RATE_PRECISION.toI32() - cashGroup.maxDiscountFactor5BPS * 5 * BASIS_POINT;
 
   configuration.save();
 }

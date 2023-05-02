@@ -132,7 +132,7 @@ export function scanTransferBundle(
   for (let i = 0; i < BundleCriteria.length; i++) {
     let criteria = BundleCriteria[i];
     // Go to the next criteria if the window size does not match
-    if (transferArray.length - startIndex != criteria.windowSize) continue;
+    if (transferArray.length - startIndex < criteria.windowSize) continue;
 
     let lookBehind = criteria.lookBehind;
     // Check if the lookbehind is satisfied
@@ -147,7 +147,7 @@ export function scanTransferBundle(
     }
 
     let window = transferArray
-      .slice(startIndex - lookBehind)
+      .slice(startIndex - lookBehind, startIndex + criteria.windowSize)
       .map<Transfer>((transferId: string) => {
         // The transfer must always be found at this point
         let t = Transfer.load(transferId);

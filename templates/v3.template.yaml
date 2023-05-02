@@ -91,7 +91,7 @@ dataSources:
           handler: handleVaultListing
         - event: DeployNToken(uint16,address)
           handler: handlefCashEnabled
-        - event: PrimeCashInterestAccrued(indexed uint16)
+        - event: PrimeCashInterestAccrued(indexed uint16,uint256,uint256,uint256)
           handler: handlePrimeCashAccrued
         - event: SetPrimeSettlementRate(indexed uint256,indexed uint256,int256,int256)
           handler: handleSettlementRate
