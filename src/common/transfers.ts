@@ -1,4 +1,4 @@
-import { Address, ethereum, BigInt, log, dataSource } from "@graphprotocol/graph-ts";
+import { Address, ethereum, BigInt, log, dataSource, Bytes } from "@graphprotocol/graph-ts";
 import { Asset, Transfer } from "../../generated/schema";
 import { IStrategyVault } from "../../generated/Transactions/IStrategyVault";
 import { ERC4626 } from "../../generated/Transactions/ERC4626";
@@ -40,13 +40,6 @@ export function convertValueToUnderlying(
   // There is no corresponding underlying for NOTE so just return null
   if (asset.assetType == NOTE) return null;
 
-  let notionalAddress: Address;
-  if (asset.assetInterface == "ERC20") {
-    notionalAddress = dataSource.context().getBytes("notional") as Address;
-  } else {
-    notionalAddress = dataSource.address();
-  }
-
   let notional = getNotional();
   let currencyId = asset.currencyId as i32;
   let underlyingExternal: ethereum.CallResult<BigInt>;
@@ -55,7 +48,9 @@ export function convertValueToUnderlying(
     underlyingExternal = notional.try_convertNTokenToUnderlying(currencyId, value);
   } else if (
     asset.assetType == PrimeDebt ||
-    (asset.assetType == VaultDebt && asset.maturity == PRIME_CASH_VAULT_MATURITY)
+    (asset.assetType == VaultDebt &&
+      asset.get("maturity") != null &&
+      asset.maturity == PRIME_CASH_VAULT_MATURITY)
   ) {
     let pDebtAddress = notional.pDebtAddress(currencyId);
     let pDebt = ERC4626.bind(pDebtAddress);
@@ -64,7 +59,9 @@ export function convertValueToUnderlying(
     underlyingExternal = notional.try_convertCashBalanceToExternal(currencyId, value, true);
   } else if (
     asset.assetType == fCash ||
-    (asset.assetType == VaultDebt && asset.maturity != PRIME_CASH_VAULT_MATURITY)
+    (asset.assetType == VaultDebt &&
+      asset.get("maturity") != null &&
+      asset.maturity != PRIME_CASH_VAULT_MATURITY)
   ) {
     if (asset.maturity <= blockTime.toI32()) {
       // If the fCash has matured then get the settled value
@@ -84,9 +81,9 @@ export function convertValueToUnderlying(
       );
     }
   } else if (asset.assetType == VaultShare) {
-    let vault = IStrategyVault.bind(asset.vaultAddress as Address);
+    let vault = IStrategyVault.bind(Address.fromBytes(asset.vaultAddress as Bytes));
     underlyingExternal = vault.try_convertStrategyToUnderlying(
-      asset.vaultAddress as Address,
+      Address.fromBytes(asset.vaultAddress as Bytes),
       value,
       BigInt.fromI32(asset.maturity)
     );
@@ -113,7 +110,9 @@ export function processTransfer(transfer: Transfer, event: ethereum.Event): void
     txn._lastBundledTransfer,
     transferArray,
     bundleArray,
-    event.transaction.hash.toHexString()
+    event.transaction.hash.toHexString(),
+    event.block.number.toI32(),
+    event.block.timestamp.toI32()
   );
 
   if (didBundle) txn._lastBundledTransfer = transferArray.length - 1;
@@ -127,7 +126,9 @@ export function scanTransferBundle(
   startIndex: i32,
   transferArray: string[],
   bundleArray: string[],
-  txnHash: string
+  txnHash: string,
+  blockNumber: i32,
+  timestamp: i32
 ): boolean {
   for (let i = 0; i < BundleCriteria.length; i++) {
     let criteria = BundleCriteria[i];
@@ -161,6 +162,10 @@ export function scanTransferBundle(
       let startLogIndex = window[windowStartIndex].logIndex;
       let endLogIndex = window[windowStartIndex + bundleSize - 1].logIndex;
       let bundle = createTransferBundle(txnHash, criteria.bundleName, startLogIndex, endLogIndex);
+      bundle.blockNumber = blockNumber;
+      bundle.timestamp = timestamp;
+      bundle.transactionHash = txnHash;
+      bundle.bundleName = criteria.bundleName;
 
       for (let i = windowStartIndex; i < bundleSize; i++) {
         // Update the bundle id on all the transfers

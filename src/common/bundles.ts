@@ -214,7 +214,7 @@ const settle_fcash = (w: Transfer[]): boolean => {
     w[0].assetType == fCash &&
     w[0].fromSystemAccount != nToken &&
     w[0].fromSystemAccount != Vault &&
-    (isDefined(w[0].maturity) && w[0].maturity <= w[0].timestamp)
+    (w[0].get("maturity") != null && w[0].maturity <= w[0].timestamp)
   )
 }
 
@@ -223,7 +223,7 @@ const settle_fcash_ntoken = (w: Transfer[]): boolean => {
     w[0].transferType == Burn &&
     w[0].assetType == fCash &&
     w[0].fromSystemAccount == nToken &&
-    (isDefined(w[0].maturity) && w[0].maturity <= w[0].timestamp)
+    (w[0].get("maturity") != null && w[0].maturity <= w[0].timestamp)
   )
 }
 
@@ -232,7 +232,7 @@ const settle_fcash_vault = (w: Transfer[]): boolean => {
     w[0].transferType == Burn &&
     w[0].assetType == fCash &&
     w[0].fromSystemAccount == Vault &&
-    (isDefined(w[0].maturity) && w[0].maturity <= w[0].timestamp)
+    (w[0].get("maturity") != null && w[0].maturity <= w[0].timestamp)
   )
 }
 

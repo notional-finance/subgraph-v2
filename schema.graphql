@@ -164,7 +164,7 @@ enum OracleType {
   Chainlink,
   fCashOracleRate,
   fCashSettlementRate,
-  PrimeCashToMoneyMarketOracleInterestRate,
+  PrimeCashToUnderlyingOracleInterestRate,
   MoneyMarketToUnderlyingOracleInterestRate,
   PrimeCashToUnderlyingExchangeRate,
   PrimeCashToMoneyMarketExchangeRate,
@@ -304,7 +304,6 @@ type CurrencyConfiguration @entity {
 type InterestRateCurve @entity {
   "ID is the currency id:market index:true if current"
   id: ID!
-  lastUpdateBlockHash: Bytes!
   lastUpdateBlockNumber: Int!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!

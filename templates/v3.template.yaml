@@ -21,6 +21,8 @@ dataSources:
       abis:
         - name: Notional
           file: ./abi/Notional.json
+        - name: ERC20
+          file: ./abi/ERC20.json
       eventHandlers:
         - event: ListCurrency(uint16)
           handler: handleListCurrency
@@ -221,6 +223,8 @@ templates:
         - Balance
         - Account
       abis:
+        - name: Notional
+          file: ./abi/Notional.json
         - name: ERC20
           file: ./abi/ERC20.json
       eventHandlers:

@@ -30,16 +30,14 @@ export function createERC20ProxyAsset(
   assetType: string,
   event: ethereum.Event
 ): Asset {
-  let asset = createERC20TokenAsset(tokenAddress, false, event);
+  let asset = createERC20TokenAsset(tokenAddress, false, event, assetType);
   asset.totalSupply = BigInt.zero();
-  asset.assetType = assetType;
 
   // Creates a new data source to listen for transfer events on
   let context = new DataSourceContext();
   context.setString("name", asset.name);
   context.setString("symbol", asset.symbol);
   context.setString("assetType", asset.assetType);
-  context.setString("underlying", asset.underlying as string); // Underlying must be set at this point
   // Notional will always be the event emitter when creating new proxy assets
   context.setBytes("notional", event.address);
   ERC20Proxy.createWithContext(tokenAddress, context);
@@ -60,7 +58,8 @@ export function createERC20ProxyAsset(
 export function createERC20TokenAsset(
   tokenAddress: Address,
   hasTransferFee: boolean,
-  event: ethereum.Event
+  event: ethereum.Event,
+  assetType: string
 ): Asset {
   let asset = Asset.load(tokenAddress.toHexString());
   if (asset) return asset;
@@ -84,6 +83,8 @@ export function createERC20TokenAsset(
   asset.assetInterface = "ERC20";
   asset.tokenAddress = tokenAddress;
   asset.hasTransferFee = hasTransferFee;
+  asset.assetType = assetType;
+  asset.isfCashDebt = false;
 
   asset.lastUpdateBlockNumber = event.block.number.toI32();
   asset.lastUpdateTimestamp = event.block.timestamp.toI32();

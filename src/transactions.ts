@@ -33,9 +33,9 @@ function _logTransfer(
   // inherit asset properties
   transfer.asset = asset.id;
   transfer.assetType = asset.assetType;
-  transfer.maturity = asset.maturity;
+  if (asset.get("maturity") != null) transfer.maturity = asset.maturity;
 
-  if (!isDefined(asset.underlying)) log.critical("Unknown underlying for asset {}", [asset.id]);
+  if (asset.get("underlying") == null) log.critical("Unknown underlying for asset {}", [asset.id]);
   transfer.underlying = asset.underlying as string;
 
   updateBalance(asset, transfer, event);

@@ -25,6 +25,8 @@ import {
 export function getNotional(): Notional {
   if (dataSource.network() == "mainnet") {
     return Notional.bind(Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369"));
+  } else if (dataSource.network() == "arbitrum-one") {
+    return Notional.bind(Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369"));
   }
 
   log.critical("Unsupported network {}", [dataSource.network()]);
@@ -81,7 +83,7 @@ export function createTransfer(event: ethereum.Event, index: i32): Transfer {
   let transfer = new Transfer(id);
   transfer.blockNumber = event.block.number.toI32();
   transfer.timestamp = event.block.timestamp.toI32();
-  transfer.transactionHash = event.transaction.hash.toString();
+  transfer.transactionHash = event.transaction.hash.toHexString();
   transfer.logIndex = event.transactionLogIndex.toI32();
 
   return transfer;
@@ -134,6 +136,7 @@ export function getOracle(base: Asset, quote: Asset, oracleType: string): Oracle
     oracle.base = base.id;
     oracle.quote = quote.id;
     oracle.oracleType = oracleType;
+    oracle.mustInvert = false;
   }
 
   return oracle as Oracle;

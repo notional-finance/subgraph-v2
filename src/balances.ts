@@ -1,4 +1,4 @@
-import { Address, ethereum, log, store, BigInt } from "@graphprotocol/graph-ts";
+import { Address, ethereum, log, store, BigInt, Bytes } from "@graphprotocol/graph-ts";
 import { Account, Asset, Balance, Transfer } from "../generated/schema";
 import { ERC20 } from "../generated/templates/ERC20Proxy/ERC20";
 import { ERC4626 } from "../generated/Transactions/ERC4626";
@@ -33,6 +33,7 @@ function getBalance(account: Account, asset: Asset, event: ethereum.Event): Bala
     entity.firstUpdateBlockNumber = event.block.number.toI32();
     entity.firstUpdateTimestamp = event.block.timestamp.toI32();
     entity.firstUpdateTransactionHash = event.transaction.hash;
+    entity.balance = BigInt.zero();
   }
 
   entity.lastUpdateBlockNumber = event.block.number.toI32();
@@ -65,7 +66,7 @@ function _updateBalance(
 
 function updateERC20ProxyTotalSupply(asset: Asset): void {
   if (asset.assetInterface != "ERC20") return;
-  let erc20 = ERC20.bind(asset.tokenAddress as Address);
+  let erc20 = ERC20.bind(Address.fromBytes(asset.tokenAddress));
   let totalSupply = erc20.try_totalSupply();
   if (totalSupply.reverted) {
     log.error("Unable to fetch total supply for {}", [asset.tokenAddress.toHexString()]);
@@ -89,7 +90,7 @@ function updateVaultAssetTotalSupply(
     }
 
     // Updates the vault prime cash balance which equals the vault cash total supply.
-    let vault = getAccount((asset.vaultAddress as Address).toHexString(), event);
+    let vault = getAccount(Address.fromBytes(asset.vaultAddress as Bytes).toHexString(), event);
     let currencyId = asset.currencyId;
     let notional = getNotional();
     let primeCashAsset = getAsset(notional.pCashAddress(currencyId).toHexString());
@@ -101,7 +102,7 @@ function updateVaultAssetTotalSupply(
 
   let notional = getNotional();
   let vaultState = notional.getVaultState(
-    asset.vaultAddress as Address,
+    Address.fromBytes(asset.vaultAddress as Bytes),
     BigInt.fromI32(asset.maturity)
   );
 
@@ -133,7 +134,7 @@ function updateNTokenIncentives(asset: Asset, event: ethereum.Event): void {
   let incentives = getIncentives(asset.currencyId, event);
   let notional = getNotional();
   incentives.accumulatedNOTEPerNToken = notional
-    .getNTokenAccount(asset.tokenAddress as Address)
+    .getNTokenAccount(Address.fromBytes(asset.tokenAddress as Bytes))
     .getAccumulatedNOTEPerNToken();
   incentives.save();
 }
@@ -182,7 +183,7 @@ function updateNToken(
   event: ethereum.Event
 ): void {
   let notional = getNotional();
-  let nTokenAddress = Address.fromHexString(nTokenAccount.id) as Address;
+  let nTokenAddress = Address.fromBytes(Address.fromHexString(nTokenAccount.id));
 
   if (asset.assetType == fCash) {
     balance.balance = notional.balanceOf(nTokenAddress, BigInt.fromString(asset.id));
@@ -196,7 +197,7 @@ function updateNToken(
 
 function updateVaultState(asset: Asset, vault: Account, balance: Balance): void {
   let notional = getNotional();
-  let vaultAddress = Address.fromHexString(vault.id) as Address;
+  let vaultAddress = Address.fromBytes(Address.fromHexString(vault.id));
   let vaultConfig = notional.getVaultConfig(vaultAddress);
   let totalDebtUnderlying: BigInt;
 
@@ -216,7 +217,7 @@ function updateVaultState(asset: Asset, vault: Account, balance: Balance): void 
     let pDebt = ERC4626.bind(pDebtAddress);
     balance.balance = pDebt.convertToShares(totalDebtUnderlying);
   } else if (asset.assetType == fCash) {
-    balance.balance == totalDebtUnderlying;
+    balance.balance = totalDebtUnderlying;
   }
 
   _saveBalance(balance);
@@ -243,7 +244,7 @@ function updateReserves(reserve: Account, balance: Balance, transfer: Transfer):
 function updateAccount(asset: Asset, account: Account, balance: Balance): void {
   // updates vault account balances directly
   let notional = getNotional();
-  let accountAddress = Address.fromHexString(account.id) as Address;
+  let accountAddress = Address.fromBytes(Address.fromHexString(account.id));
 
   // updates account balances directly
   if (asset.assetInterface == "ERC1155") {
@@ -251,7 +252,7 @@ function updateAccount(asset: Asset, account: Account, balance: Balance): void {
     // and vault assets
     balance.balance = notional.balanceOf(accountAddress, BigInt.fromString(asset.id));
   } else {
-    let erc20 = ERC20.bind(asset.tokenAddress as Address);
+    let erc20 = ERC20.bind(Address.fromBytes(asset.tokenAddress as Bytes));
     balance.balance = erc20.balanceOf(accountAddress);
   }
 

@@ -15,7 +15,7 @@ import {
   PrimeDebt,
   Underlying,
 } from "./common/constants";
-import { getAccount, getUnderlying } from "./common/entities";
+import { getAccount, getNotional, getUnderlying } from "./common/entities";
 import { createERC20ProxyAsset, createERC20TokenAsset } from "./common/erc20";
 
 function _initializeNOTEToken(notional: Notional, event: ethereum.Event): void {
@@ -34,12 +34,11 @@ export function handleListCurrency(event: ListCurrency): void {
   let underlying = createERC20TokenAsset(
     underlyingToken.tokenAddress,
     underlyingToken.hasTransferFee,
-    event
+    event,
+    Underlying
   );
 
-  underlying.assetType = Underlying;
   underlying.currencyId = event.params.newCurrencyId;
-
   underlying.lastUpdateBlockNumber = event.block.number.toI32();
   underlying.lastUpdateTimestamp = event.block.timestamp.toI32();
   underlying.lastUpdateTransactionHash = event.transaction.hash;
@@ -71,14 +70,19 @@ export function handleDeployNToken(event: DeployNToken): void {
 
 export function handleDeployPrimeProxy(event: PrimeProxyDeployed): void {
   let currencyId = event.params.currencyId as i32;
-  let nTokenAddress = event.params.proxy;
+  let proxyAddress = event.params.proxy;
   let asset = createERC20ProxyAsset(
-    nTokenAddress,
+    proxyAddress,
     event.params.isCashProxy ? PrimeCash : PrimeDebt,
     event
   );
 
+  // This is required due to the order in which events are emitted (this is
+  // emitted prior to list currency)
+  let notional = getNotional();
+  let results = notional.getCurrency(event.params.currencyId);
+
   asset.currencyId = currencyId;
-  asset.underlying = getUnderlying(currencyId).id;
+  asset.underlying = results.getUnderlyingToken().tokenAddress.toHexString();
   asset.save();
 }

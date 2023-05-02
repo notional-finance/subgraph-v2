@@ -310,6 +310,9 @@ export function handleUpdatePrimeCashCurve(event: PrimeCashCurveChanged): void {
   curve.minFeeRate = _curve.minFeeRate.toI32();
   curve.maxFeeRate = _curve.maxFeeRate.toI32();
   curve.feeRatePercent = _curve.feeRatePercent.toI32();
+  curve.lastUpdateBlockNumber = event.block.number.toI32();
+  curve.lastUpdateTimestamp = event.block.timestamp.toI32();
+  curve.lastUpdateTransactionHash = event.transaction.hash;
   curve.save();
 
   configuration.primeCashCurve = curve.id;
@@ -336,6 +339,9 @@ export function handleUpdateInterestRateCurve(event: UpdateInterestRateCurve): v
     curve.minFeeRate = next[i].minFeeRate.toI32();
     curve.maxFeeRate = next[i].maxFeeRate.toI32();
     curve.feeRatePercent = next[i].feeRatePercent.toI32();
+    curve.lastUpdateBlockNumber = event.block.number.toI32();
+    curve.lastUpdateTimestamp = event.block.timestamp.toI32();
+    curve.lastUpdateTransactionHash = event.transaction.hash;
     curve.save();
 
     fCashNextCurves.push(curve.id);
@@ -536,7 +542,7 @@ export function handleVaultUpdated(event: VaultUpdated): void {
   vault.deleverageDisabled = checkFlag(flags, 8);
 
   vault.maxPrimaryBorrowCapacity = event.params.maxPrimaryBorrowCapacity;
-  if (!isDefined(vault.totalUsedPrimaryBorrowCapacity)) {
+  if (vault.get("totalUsedPrimaryBorrowCapacity") == null) {
     vault.totalUsedPrimaryBorrowCapacity = BigInt.fromI32(0);
   }
 

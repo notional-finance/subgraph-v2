@@ -4,14 +4,14 @@ import {
   PriceOracleUpdated,
   TokenPermissionsUpdated,
 } from "../generated/TradingModule/TradingModule";
-import { USD_ASSET_ID } from "./common/constants";
+import { Underlying, USD_ASSET_ID } from "./common/constants";
 import { getAsset } from "./common/entities";
 import { createERC20TokenAsset } from "./common/erc20";
 import { registerChainlinkOracle } from "./exchange_rates";
 
 export function handlePriceOracleUpdate(event: PriceOracleUpdated): void {
   let usdBaseAsset = getAsset(USD_ASSET_ID);
-  let quoteAsset = createERC20TokenAsset(event.params.token, false, event);
+  let quoteAsset = createERC20TokenAsset(event.params.token, false, event, Underlying);
   registerChainlinkOracle(usdBaseAsset, quoteAsset, event.params.oracle, false, event);
 }
 
