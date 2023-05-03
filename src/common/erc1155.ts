@@ -26,10 +26,10 @@ function _setAssetType(decodedId: Notional__decodeERC1155IdResult, asset: Asset)
   if (assetType == FCASH_ASSET_TYPE) {
     asset.assetType = fCash;
     if (decodedId.getIsfCashDebt()) {
-      asset.name = "f" + underlyingSymbol + " debt maturing " + maturity;
+      asset.name = "f" + underlyingSymbol + " Debt Maturing " + maturity;
       asset.symbol = "-f" + underlyingSymbol + ":fixed@" + maturity;
     } else {
-      asset.name = "f" + underlyingSymbol + " maturing " + maturity;
+      asset.name = "f" + underlyingSymbol + " Maturing " + maturity;
       asset.symbol = "f" + underlyingSymbol + ":fixed@" + maturity;
     }
     return;
@@ -37,8 +37,8 @@ function _setAssetType(decodedId: Notional__decodeERC1155IdResult, asset: Asset)
 
   let vaultMaturityString =
     decodedId.getMaturity().toI32() == PRIME_CASH_VAULT_MATURITY
-      ? " open term"
-      : " fixed term @ " + maturity;
+      ? " Open Term"
+      : " Fixed Term @ " + maturity;
   let vaultMaturitySymbol =
     decodedId.getMaturity().toI32() == PRIME_CASH_VAULT_MATURITY ? ":open" : ":fixed@" + maturity;
   let vaultAddress = decodedId.getVaultAddress().toHexString();
