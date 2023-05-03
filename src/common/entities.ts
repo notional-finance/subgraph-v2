@@ -77,7 +77,8 @@ export function createTransfer(event: ethereum.Event, index: i32): Transfer {
   let id =
     event.transaction.hash.toHexString() +
     ":" +
-    event.transactionLogIndex.toString() +
+    // Pad the start with zeros to ensure that the sort order is preserved
+    event.transactionLogIndex.toString().padStart(6, "0") +
     ":" +
     index.toString();
   let transfer = new Transfer(id);
@@ -90,16 +91,19 @@ export function createTransfer(event: ethereum.Event, index: i32): Transfer {
 }
 
 export function getTransaction(event: ethereum.Event): Transaction {
-  let transaction = new Transaction(event.transaction.hash.toHexString());
-  transaction.blockNumber = event.block.number.toI32();
-  transaction.timestamp = event.block.timestamp.toI32();
-  transaction.transactionHash = event.transaction.hash;
+  let transaction = Transaction.load(event.transaction.hash.toHexString());
+  if (transaction == null) {
+    transaction = new Transaction(event.transaction.hash.toHexString());
+    transaction.blockNumber = event.block.number.toI32();
+    transaction.timestamp = event.block.timestamp.toI32();
+    transaction.transactionHash = event.transaction.hash;
 
-  transaction._transferBundles = new Array<string>();
-  transaction._transfers = new Array<string>();
-  transaction._lastBundledTransfer = 0;
+    transaction._transferBundles = new Array<string>();
+    transaction._transfers = new Array<string>();
+    transaction._nextStartIndex = 0;
+  }
 
-  return transaction;
+  return transaction as Transaction;
 }
 
 export function createTransferBundle(
@@ -109,7 +113,15 @@ export function createTransferBundle(
   endLogIndex: i32
 ): TransferBundle {
   let bundleId =
-    txnHash + ":" + startLogIndex.toString() + ":" + endLogIndex.toString() + ":" + bundleName;
+    txnHash +
+    ":" +
+    // Pad numbers to ensure sort order is preserved
+    startLogIndex.toString().padStart(6, "0") +
+    ":" +
+    // Pad numbers to ensure sort order is preserved
+    endLogIndex.toString().padStart(6, "0") +
+    ":" +
+    bundleName;
   return new TransferBundle(bundleId);
 }
 

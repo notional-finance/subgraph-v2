@@ -119,6 +119,8 @@ type TransferBundle @entity {
   transactionHash: Transaction!
 
   bundleName: String!
+  startLogIndex: Int!
+  endLogIndex: Int!
   transfers: [Transfer!] @derivedFrom(field: "bundle")
 }
 
@@ -129,10 +131,10 @@ type Transaction @entity {
   timestamp: Int!
   transactionHash: Bytes!
 
-  _transfers: [Transfer!]
-  _transferBundles: [TransferBundle!]
-  "Internal index of the last transfer that was bundled"
-  _lastBundledTransfer: Int!
+  _transfers: [Transfer!]!
+  _transferBundles: [TransferBundle!]!
+  "Internal index of the next index in _transfer to start scanning at"
+  _nextStartIndex: Int!
 
   transfers: [Transfer!] @derivedFrom(field: "transactionHash")
   transferBundles: [TransferBundle!] @derivedFrom(field: "transactionHash")

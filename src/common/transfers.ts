@@ -98,27 +98,24 @@ export function convertValueToUnderlying(
 export function processTransfer(transfer: Transfer, event: ethereum.Event): void {
   let txn = getTransaction(event);
 
-  let transferArray = (txn._transfers || new Array<string>()) as string[];
-  let bundleArray = (txn._transferBundles || new Array<string>()) as string[];
+  let transferArray = txn._transfers as string[];
+  let bundleArray = txn._transferBundles as string[];
 
   // Append the transfer to the transfer array
   transferArray.push(transfer.id);
   transfer.save();
 
   // Scan unbundled transfers
-  let didBundle = scanTransferBundle(
-    txn._lastBundledTransfer,
+  txn._nextStartIndex = scanTransferBundle(
+    txn._nextStartIndex,
     transferArray,
     bundleArray,
     event.transaction.hash.toHexString(),
     event.block.number.toI32(),
     event.block.timestamp.toI32()
   );
-
-  if (didBundle) txn._lastBundledTransfer = transferArray.length - 1;
   txn._transferBundles = bundleArray;
   txn._transfers = transferArray;
-
   txn.save();
 }
 
@@ -129,7 +126,7 @@ export function scanTransferBundle(
   txnHash: string,
   blockNumber: i32,
   timestamp: i32
-): boolean {
+): i32 {
   for (let i = 0; i < BundleCriteria.length; i++) {
     let criteria = BundleCriteria[i];
     // Go to the next criteria if the window size does not match
@@ -157,28 +154,33 @@ export function scanTransferBundle(
       });
 
     if (criteria.func(window)) {
-      let bundleSize = criteria.bundleSize;
       let windowStartIndex = criteria.rewrite ? 0 : lookBehind;
+      let windowEndIndex = lookBehind + criteria.bundleSize - 1;
       let startLogIndex = window[windowStartIndex].logIndex;
-      let endLogIndex = window[windowStartIndex + bundleSize - 1].logIndex;
+      let endLogIndex = window[windowEndIndex].logIndex;
       let bundle = createTransferBundle(txnHash, criteria.bundleName, startLogIndex, endLogIndex);
       bundle.blockNumber = blockNumber;
       bundle.timestamp = timestamp;
       bundle.transactionHash = txnHash;
       bundle.bundleName = criteria.bundleName;
+      bundle.startLogIndex = startLogIndex;
+      bundle.endLogIndex = endLogIndex;
 
-      for (let i = windowStartIndex; i < bundleSize; i++) {
+      for (let i = windowStartIndex; i <= windowEndIndex; i++) {
         // Update the bundle id on all the transfers
-        window[i].bundle = bundle.id;
-        window[i].save();
+        let transfer = window[i];
+        transfer.bundle = bundle.id;
+        transfer.save();
       }
 
+      if (criteria.rewrite) bundleArray.pop();
       bundleArray.push(bundle.id);
       bundle.save();
 
-      return true;
+      // Marks the next start index in the transaction level transfer array
+      return startIndex + criteria.bundleSize;
     }
   }
 
-  return false;
+  return startIndex;
 }
