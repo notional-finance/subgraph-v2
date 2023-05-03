@@ -19,7 +19,7 @@ services:
             ipfs: "ipfs:5001"
             ethereum: "${NETWORK_NAME}:${RPC_URL}"
             RUST_LOG: warn
-            GRAPH_LOG: trace
+            GRAPH_LOG: info
     ipfs:
         image: ipfs/go-ipfs:v0.4.23
         ports:
