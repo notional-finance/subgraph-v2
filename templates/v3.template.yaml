@@ -227,6 +227,8 @@ templates:
           file: ./abi/Notional.json
         - name: ERC20
           file: ./abi/ERC20.json
+        - name: ERC4626
+          file: ./abi/ERC4626.json
       eventHandlers:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleERC20Transfer

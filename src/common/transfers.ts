@@ -1,4 +1,4 @@
-import { Address, ethereum, BigInt, log, dataSource, Bytes } from "@graphprotocol/graph-ts";
+import { Address, ethereum, BigInt, log, Bytes } from "@graphprotocol/graph-ts";
 import { Token, Transfer } from "../../generated/schema";
 import { IStrategyVault } from "../../generated/Transactions/IStrategyVault";
 import { ERC4626 } from "../../generated/Transactions/ERC4626";
