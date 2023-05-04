@@ -1,5 +1,5 @@
 import { Address, ethereum, log, store, BigInt, Bytes } from "@graphprotocol/graph-ts";
-import { Account, Asset, Balance, Transfer } from "../generated/schema";
+import { Account, Token, Balance, Transfer } from "../generated/schema";
 import { ERC20 } from "../generated/templates/ERC20Proxy/ERC20";
 import { ERC4626 } from "../generated/Transactions/ERC4626";
 import {
@@ -22,13 +22,13 @@ import {
 import { getAccount, getAsset, getIncentives, getNotional } from "./common/entities";
 import { updateMarket } from "./common/market";
 
-function getBalance(account: Account, asset: Asset, event: ethereum.Event): Balance {
-  let id = account.id + ":" + asset.id;
+function getBalance(account: Account, token: Token, event: ethereum.Event): Balance {
+  let id = account.id + ":" + token.id;
   let entity = Balance.load(id);
 
   if (entity == null) {
     entity = new Balance(id);
-    entity.asset = asset.id;
+    entity.token = token.id;
     entity.account = account.id;
     entity.firstUpdateBlockNumber = event.block.number.toI32();
     entity.firstUpdateTimestamp = event.block.timestamp.toI32();
@@ -45,96 +45,96 @@ function getBalance(account: Account, asset: Asset, event: ethereum.Event): Bala
 function _updateBalance(
   account: Account,
   systemAccount: string,
-  asset: Asset,
+  token: Token,
   transfer: Transfer,
   event: ethereum.Event
 ): void {
-  let balance = getBalance(account, asset, event);
+  let balance = getBalance(account, token, event);
 
   if (systemAccount == ZeroAddress) {
     return;
   } else if (systemAccount == nToken) {
-    updateNToken(asset, account, balance, event);
+    updateNToken(token, account, balance, event);
   } else if (systemAccount == Vault) {
-    updateVaultState(asset, account, balance);
+    updateVaultState(token, account, balance);
   } else if (systemAccount == FeeReserve || systemAccount == SettlementReserve) {
     updateReserves(account, balance, transfer);
   } else {
-    updateAccount(asset, account, balance);
+    updateAccount(token, account, balance);
   }
 }
 
-function updateERC20ProxyTotalSupply(asset: Asset): void {
-  if (asset.assetInterface != "ERC20") return;
-  let erc20 = ERC20.bind(Address.fromBytes(asset.tokenAddress));
+function updateERC20ProxyTotalSupply(token: Token): void {
+  if (token.tokenInterface != "ERC20") return;
+  let erc20 = ERC20.bind(Address.fromBytes(token.tokenAddress));
   let totalSupply = erc20.try_totalSupply();
   if (totalSupply.reverted) {
-    log.error("Unable to fetch total supply for {}", [asset.tokenAddress.toHexString()]);
+    log.error("Unable to fetch total supply for {}", [token.tokenAddress.toHexString()]);
   } else {
-    asset.totalSupply = totalSupply.value;
+    token.totalSupply = totalSupply.value;
   }
 
-  asset.save();
+  token.save();
 }
 
 function updateVaultAssetTotalSupply(
-  asset: Asset,
+  token: Token,
   transfer: Transfer,
   event: ethereum.Event
 ): void {
-  if (asset.assetType == VaultCash) {
+  if (token.tokenType == VaultCash) {
     if (transfer.transferType == Mint) {
-      asset.totalSupply = (asset.totalSupply as BigInt).plus(transfer.value);
+      token.totalSupply = (token.totalSupply as BigInt).plus(transfer.value);
     } else if (transfer.transferType == Burn) {
-      asset.totalSupply = (asset.totalSupply as BigInt).minus(transfer.value);
+      token.totalSupply = (token.totalSupply as BigInt).minus(transfer.value);
     }
 
     // Updates the vault prime cash balance which equals the vault cash total supply.
-    let vault = getAccount(Address.fromBytes(asset.vaultAddress as Bytes).toHexString(), event);
-    let currencyId = asset.currencyId;
+    let vault = getAccount(Address.fromBytes(token.vaultAddress as Bytes).toHexString(), event);
+    let currencyId = token.currencyId;
     let notional = getNotional();
     let primeCashAsset = getAsset(notional.pCashAddress(currencyId).toHexString());
     let vaultPrimeCashBalance = getBalance(vault, primeCashAsset, event);
 
-    vaultPrimeCashBalance.balance = asset.totalSupply as BigInt;
+    vaultPrimeCashBalance.balance = token.totalSupply as BigInt;
     _saveBalance(vaultPrimeCashBalance);
   }
 
   let notional = getNotional();
   let vaultState = notional.getVaultState(
-    Address.fromBytes(asset.vaultAddress as Bytes),
-    BigInt.fromI32(asset.maturity)
+    Address.fromBytes(token.vaultAddress as Bytes),
+    BigInt.fromI32(token.maturity)
   );
 
-  if (asset.assetType == VaultShare) {
-    asset.totalSupply = vaultState.totalVaultShares;
-  } else if (asset.assetType == VaultDebt) {
-    if (asset.maturity == PRIME_CASH_VAULT_MATURITY) {
-      let pDebtAddress = notional.pDebtAddress(asset.currencyId);
+  if (token.tokenType == VaultShare) {
+    token.totalSupply = vaultState.totalVaultShares;
+  } else if (token.tokenType == VaultDebt) {
+    if (token.maturity == PRIME_CASH_VAULT_MATURITY) {
+      let pDebtAddress = notional.pDebtAddress(token.currencyId);
       let pDebt = ERC4626.bind(pDebtAddress);
-      asset.totalSupply = pDebt.convertToShares(vaultState.totalDebtUnderlying);
+      token.totalSupply = pDebt.convertToShares(vaultState.totalDebtUnderlying);
     } else {
-      asset.totalSupply = vaultState.totalDebtUnderlying;
+      token.totalSupply = vaultState.totalDebtUnderlying;
     }
   }
 }
 
-function updatefCashTotalDebtOutstanding(asset: Asset): void {
+function updatefCashTotalDebtOutstanding(token: Token): void {
   let notional = getNotional();
   let totalDebt = notional.getTotalfCashDebtOutstanding(
-    asset.currencyId,
-    BigInt.fromI32(asset.maturity)
+    token.currencyId,
+    BigInt.fromI32(token.maturity)
   );
   // Total debt is returned as a negative number.
-  asset.totalSupply = totalDebt.neg();
-  asset.save();
+  token.totalSupply = totalDebt.neg();
+  token.save();
 }
 
-function updateNTokenIncentives(asset: Asset, event: ethereum.Event): void {
-  let incentives = getIncentives(asset.currencyId, event);
+function updateNTokenIncentives(token: Token, event: ethereum.Event): void {
+  let incentives = getIncentives(token.currencyId, event);
   let notional = getNotional();
   incentives.accumulatedNOTEPerNToken = notional
-    .getNTokenAccount(Address.fromBytes(asset.tokenAddress as Bytes))
+    .getNTokenAccount(Address.fromBytes(token.tokenAddress as Bytes))
     .getAccumulatedNOTEPerNToken();
   incentives.save();
 }
@@ -148,36 +148,36 @@ function _saveBalance(balance: Balance): void {
   }
 }
 
-export function updateBalance(asset: Asset, transfer: Transfer, event: ethereum.Event): void {
+export function updateBalance(token: Token, transfer: Transfer, event: ethereum.Event): void {
   // Update the total supply figures on the assets first.
-  if (asset.assetType == PrimeCash || asset.assetType == PrimeDebt || asset.assetType == nToken) {
-    updateERC20ProxyTotalSupply(asset);
-  } else if (asset.assetType == fCash) {
-    updatefCashTotalDebtOutstanding(asset);
+  if (token.tokenType == PrimeCash || token.tokenType == PrimeDebt || token.tokenType == nToken) {
+    updateERC20ProxyTotalSupply(token);
+  } else if (token.tokenType == fCash) {
+    updatefCashTotalDebtOutstanding(token);
   } else if (
-    asset.assetType == VaultShare ||
-    asset.assetType == VaultDebt ||
-    asset.assetType == VaultCash
+    token.tokenType == VaultShare ||
+    token.tokenType == VaultDebt ||
+    token.tokenType == VaultCash
   ) {
-    updateVaultAssetTotalSupply(asset, transfer, event);
+    updateVaultAssetTotalSupply(token, transfer, event);
   }
 
-  if (asset.assetType == nToken) {
-    updateNTokenIncentives(asset, event);
+  if (token.tokenType == nToken) {
+    updateNTokenIncentives(token, event);
   }
 
   let fromAccount = getAccount(transfer.from, event);
-  _updateBalance(fromAccount, transfer.fromSystemAccount, asset, transfer, event);
+  _updateBalance(fromAccount, transfer.fromSystemAccount, token, transfer, event);
 
   if (transfer.from != transfer.to) {
     let toAccount = getAccount(transfer.to, event);
-    _updateBalance(toAccount, transfer.toSystemAccount, asset, transfer, event);
+    _updateBalance(toAccount, transfer.toSystemAccount, token, transfer, event);
   }
 }
 
 // Includes markets
 function updateNToken(
-  asset: Asset,
+  token: Token,
   nTokenAccount: Account,
   balance: Balance,
   event: ethereum.Event
@@ -185,38 +185,38 @@ function updateNToken(
   let notional = getNotional();
   let nTokenAddress = Address.fromBytes(Address.fromHexString(nTokenAccount.id));
 
-  if (asset.assetType == fCash) {
-    balance.balance = notional.balanceOf(nTokenAddress, BigInt.fromString(asset.id));
-    updateMarket(asset.currencyId, asset.maturity, event);
-  } else if (asset.assetType == PrimeCash) {
+  if (token.tokenType == fCash) {
+    balance.balance = notional.balanceOf(nTokenAddress, BigInt.fromString(token.id));
+    updateMarket(token.currencyId, token.maturity, event);
+  } else if (token.tokenType == PrimeCash) {
     let acct = notional.getNTokenAccount(nTokenAddress);
     balance.balance = acct.getCashBalance();
   }
   _saveBalance(balance);
 }
 
-function updateVaultState(asset: Asset, vault: Account, balance: Balance): void {
+function updateVaultState(token: Token, vault: Account, balance: Balance): void {
   let notional = getNotional();
   let vaultAddress = Address.fromBytes(Address.fromHexString(vault.id));
   let vaultConfig = notional.getVaultConfig(vaultAddress);
   let totalDebtUnderlying: BigInt;
 
-  if (asset.currencyId == vaultConfig.borrowCurrencyId) {
-    totalDebtUnderlying = notional.getVaultState(vaultAddress, BigInt.fromI32(asset.maturity))
+  if (token.currencyId == vaultConfig.borrowCurrencyId) {
+    totalDebtUnderlying = notional.getVaultState(vaultAddress, BigInt.fromI32(token.maturity))
       .totalDebtUnderlying;
   } else {
     totalDebtUnderlying = notional.getSecondaryBorrow(
       vaultAddress,
-      asset.currencyId,
-      BigInt.fromI32(asset.maturity)
+      token.currencyId,
+      BigInt.fromI32(token.maturity)
     );
   }
 
-  if (asset.assetType == PrimeDebt) {
-    let pDebtAddress = notional.pDebtAddress(asset.currencyId);
+  if (token.tokenType == PrimeDebt) {
+    let pDebtAddress = notional.pDebtAddress(token.currencyId);
     let pDebt = ERC4626.bind(pDebtAddress);
     balance.balance = pDebt.convertToShares(totalDebtUnderlying);
-  } else if (asset.assetType == fCash) {
+  } else if (token.tokenType == fCash) {
     balance.balance = totalDebtUnderlying;
   }
 
@@ -241,18 +241,18 @@ function updateReserves(reserve: Account, balance: Balance, transfer: Transfer):
   balance.save();
 }
 
-function updateAccount(asset: Asset, account: Account, balance: Balance): void {
+function updateAccount(token: Token, account: Account, balance: Balance): void {
   // updates vault account balances directly
   let notional = getNotional();
   let accountAddress = Address.fromBytes(Address.fromHexString(account.id));
 
   // updates account balances directly
-  if (asset.assetInterface == "ERC1155") {
+  if (token.tokenInterface == "ERC1155") {
     // Use the ERC1155 balance of selector which gets the balance directly for fCash
     // and vault assets
-    balance.balance = notional.balanceOf(accountAddress, BigInt.fromString(asset.id));
+    balance.balance = notional.balanceOf(accountAddress, BigInt.fromString(token.id));
   } else {
-    let erc20 = ERC20.bind(Address.fromBytes(asset.tokenAddress as Bytes));
+    let erc20 = ERC20.bind(Address.fromBytes(token.tokenAddress as Bytes));
     balance.balance = erc20.balanceOf(accountAddress);
   }
 

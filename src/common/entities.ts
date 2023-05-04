@@ -2,7 +2,7 @@ import { Address, Bytes, dataSource, ethereum, log } from "@graphprotocol/graph-
 import { Notional } from "../../generated/Assets/Notional";
 import {
   Account,
-  Asset,
+  Token,
   CurrencyConfiguration,
   Incentive,
   Oracle,
@@ -34,12 +34,12 @@ export function getNotional(): Notional {
   return null as Notional;
 }
 
-export function getAsset(id: string): Asset {
-  let entity = Asset.load(id);
+export function getAsset(id: string): Token {
+  let entity = Token.load(id);
   if (entity == null) {
-    entity = new Asset(id);
+    entity = new Token(id);
   }
-  return entity as Asset;
+  return entity as Token;
 }
 
 export function getAccount(id: string, event: ethereum.Event): Account {
@@ -140,7 +140,7 @@ export function getOracleRegistry(): OracleRegistry {
   return registry as OracleRegistry;
 }
 
-export function getOracle(base: Asset, quote: Asset, oracleType: string): Oracle {
+export function getOracle(base: Token, quote: Token, oracleType: string): Oracle {
   let id = base.id + ":" + quote.id + ":" + oracleType;
   let oracle = Oracle.load(id);
   if (oracle == null) {
@@ -169,10 +169,10 @@ export function getIncentives(currencyId: i32, event: ethereum.Event): Incentive
   return incentives;
 }
 
-export function getUnderlying(currencyId: i32): Asset {
+export function getUnderlying(currencyId: i32): Token {
   let c = CurrencyConfiguration.load(currencyId.toString());
   if (c) return getAsset(c.underlying as string);
 
   log.critical("Underlying not found for {}", [currencyId.toString()]);
-  return null as Asset;
+  return null as Token;
 }

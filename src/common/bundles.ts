@@ -52,16 +52,16 @@ const deposit = (w: Transfer[]): boolean => {
   if (w.length == 1) {
     return (
       w[0].transferType == Mint &&
-      w[0].assetType == PrimeCash &&
+      w[0].tokenType == PrimeCash &&
       w[0].to != FeeReserve
     )
   } else {
     return !( // not
       w[0].transferType == Mint &&
-      w[0].assetType == PrimeDebt
+      w[0].tokenType == PrimeDebt
     ) && (
       w[1].transferType == Mint &&
-      w[1].assetType == PrimeCash &&
+      w[1].tokenType == PrimeCash &&
       w[1].toSystemAccount == None
     )
   }
@@ -70,7 +70,7 @@ const deposit = (w: Transfer[]): boolean => {
 const mint_pcash_fee = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == Mint &&
-    w[0].assetType == PrimeCash &&
+    w[0].tokenType == PrimeCash &&
     w[0].toSystemAccount == FeeReserve
   )
 }
@@ -79,16 +79,16 @@ const withdraw = (w: Transfer[]): boolean => {
   if (w.length == 1) {
     return (
       w[0].transferType == Burn &&
-      w[0].assetType == PrimeCash &&
+      w[0].tokenType == PrimeCash &&
       w[0].to == None
     )
   } else {
     return !( // not
       w[0].transferType == Burn &&
-      w[0].assetType == PrimeDebt
+      w[0].tokenType == PrimeDebt
     ) && (
       w[1].transferType == Burn &&
-      w[1].assetType == PrimeCash &&
+      w[1].tokenType == PrimeCash &&
       w[1].toSystemAccount == None
     )
   }
@@ -99,21 +99,21 @@ const deposit_transfer = (w: Transfer[]): boolean => {
     deposit(w.slice(0, 1))
   ) && (
     w[1].transferType == _Transfer &&
-    w[1].assetType == PrimeCash &&
+    w[1].tokenType == PrimeCash &&
     w[1].toSystemAccount != nToken
   ) && (
     w[0].to == w[1].from &&
-    w[0].asset == w[1].asset
+    w[0].token == w[1].token
   )
 }
 
 const ntoken_residual_transfer = (w: Transfer[]): boolean => {
   return !( // not
-    w[0].assetType == PrimeCash &&
+    w[0].tokenType == PrimeCash &&
     w[0].transferType == _Transfer &&
     w[0].toSystemAccount == FeeReserve
   ) && (
-    w[1].assetType == fCash &&
+    w[1].tokenType == fCash &&
     w[1].transferType == _Transfer &&
     (w[1].fromSystemAccount == nToken || w[1].toSystemAccount == nToken)
   )
@@ -121,15 +121,15 @@ const ntoken_residual_transfer = (w: Transfer[]): boolean => {
 
 const ntoken_purchase_positive_residual = (w: Transfer[]): boolean => {
   return !( // not
-    w[0].assetType == PrimeCash &&
+    w[0].tokenType == PrimeCash &&
     w[0].transferType == _Transfer &&
     w[0].toSystemAccount == FeeReserve
   ) && (
-    w[1].assetType == PrimeCash &&
+    w[1].tokenType == PrimeCash &&
     w[1].transferType == _Transfer &&
     w[1].toSystemAccount == nToken
   ) && (
-    w[2].assetType == fCash &&
+    w[2].tokenType == fCash &&
     w[2].transferType == _Transfer &&
     w[2].fromSystemAccount == nToken
   )
@@ -137,26 +137,26 @@ const ntoken_purchase_positive_residual = (w: Transfer[]): boolean => {
 
 const ntoken_purchase_negative_residual = (w: Transfer[]): boolean => {
   return !( // not
-    w[0].assetType == PrimeCash &&
+    w[0].tokenType == PrimeCash &&
     w[0].transferType == _Transfer &&
     w[0].toSystemAccount == FeeReserve
   ) && (
-    w[1].assetType == PrimeCash &&
+    w[1].tokenType == PrimeCash &&
     w[1].transferType == _Transfer &&
     w[1].fromSystemAccount == nToken
   ) && (
     // Account transfers positive fcash
-    w[2].assetType == fCash &&
+    w[2].tokenType == fCash &&
     w[2].transferType == _Transfer &&
     w[2].fromSystemAccount == None &&
     w[2].toSystemAccount == nToken
   ) && (
     // nToken burns fcash pair
-    w[3].assetType == fCash &&
+    w[3].tokenType == fCash &&
     w[3].transferType == Burn &&
     w[3].fromSystemAccount == nToken
   ) && (
-    w[4].assetType == fCash &&
+    w[4].tokenType == fCash &&
     w[4].transferType == Burn &&
     w[4].fromSystemAccount == nToken
   ) && (
@@ -175,7 +175,7 @@ const transfer_asset = (w: Transfer[]): boolean => {
 const transfer_incentive = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == _Transfer &&
-    w[0].assetType == NOTE &&
+    w[0].tokenType == NOTE &&
     w[0].fromSystemAccount == Notional &&
     w[0].toSystemAccount == None
   )
@@ -186,7 +186,7 @@ const settle_cash = (w: Transfer[]): boolean => {
     w[0].fromSystemAccount == SettlementReserve &&
     w[0].transferType == _Transfer &&
     w[0].toSystemAccount == None &&
-    (w[0].assetType == PrimeCash || w[0].assetType == PrimeDebt)
+    (w[0].tokenType == PrimeCash || w[0].tokenType == PrimeDebt)
   )
 }
 
@@ -195,7 +195,7 @@ const settle_cash_ntoken = (w: Transfer[]): boolean => {
     w[0].fromSystemAccount == SettlementReserve &&
     w[0].transferType == _Transfer &&
     w[0].toSystemAccount == nToken &&
-    (w[0].assetType == PrimeCash || w[0].assetType == PrimeDebt)
+    (w[0].tokenType == PrimeCash || w[0].tokenType == PrimeDebt)
   )
 }
 
@@ -204,14 +204,14 @@ const settle_cash_vault = (w: Transfer[]): boolean => {
     w[0].fromSystemAccount == SettlementReserve &&
     w[0].transferType == _Transfer &&
     w[0].toSystemAccount == Vault &&
-    (w[0].assetType == PrimeCash || w[0].assetType == PrimeDebt)
+    (w[0].tokenType == PrimeCash || w[0].tokenType == PrimeDebt)
   )
 }
 
 const settle_fcash = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == Burn &&
-    w[0].assetType == fCash &&
+    w[0].tokenType == fCash &&
     w[0].fromSystemAccount != nToken &&
     w[0].fromSystemAccount != Vault &&
     (w[0].get("maturity") != null && w[0].maturity <= w[0].timestamp)
@@ -221,7 +221,7 @@ const settle_fcash = (w: Transfer[]): boolean => {
 const settle_fcash_ntoken = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == Burn &&
-    w[0].assetType == fCash &&
+    w[0].tokenType == fCash &&
     w[0].fromSystemAccount == nToken &&
     (w[0].get("maturity") != null && w[0].maturity <= w[0].timestamp)
   )
@@ -230,7 +230,7 @@ const settle_fcash_ntoken = (w: Transfer[]): boolean => {
 const settle_fcash_vault = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == Burn &&
-    w[0].assetType == fCash &&
+    w[0].tokenType == fCash &&
     w[0].fromSystemAccount == Vault &&
     (w[0].get("maturity") != null && w[0].maturity <= w[0].timestamp)
   )
@@ -238,12 +238,12 @@ const settle_fcash_vault = (w: Transfer[]): boolean => {
 
 const borrow_prime_cash = (w: Transfer[]): boolean => {
   return (
-    w[0].assetType == PrimeDebt &&
+    w[0].tokenType == PrimeDebt &&
     w[0].transferType == Mint &&
     w[0].toSystemAccount != SettlementReserve &&
     w[0].toSystemAccount != Vault
   ) && (
-    w[1].assetType == PrimeCash &&
+    w[1].tokenType == PrimeCash &&
     w[1].transferType == Mint &&
     w[1].toSystemAccount != SettlementReserve &&
     w[1].toSystemAccount != Vault
@@ -252,11 +252,11 @@ const borrow_prime_cash = (w: Transfer[]): boolean => {
 
 const global_settlement = (w: Transfer[]): boolean => {
   return (
-    w[0].assetType == PrimeDebt &&
+    w[0].tokenType == PrimeDebt &&
     w[0].transferType == Mint &&
     w[0].toSystemAccount == SettlementReserve
   ) && (
-    w[1].assetType == PrimeCash &&
+    w[1].tokenType == PrimeCash &&
     w[1].transferType == Mint &&
     w[1].toSystemAccount == SettlementReserve
   )
@@ -264,11 +264,11 @@ const global_settlement = (w: Transfer[]): boolean => {
 
 const borrow_prime_cash_vault = (w: Transfer[]): boolean => {
   return (
-    w[0].assetType == PrimeDebt &&
+    w[0].tokenType == PrimeDebt &&
     w[0].transferType == Mint &&
     w[0].toSystemAccount == Vault
   ) && (
-    w[1].assetType == PrimeCash &&
+    w[1].tokenType == PrimeCash &&
     w[1].transferType == Mint &&
     w[1].toSystemAccount == Vault
   )
@@ -276,12 +276,12 @@ const borrow_prime_cash_vault = (w: Transfer[]): boolean => {
 
 const repay_prime_cash = (w: Transfer[]): boolean => {
   return (
-    w[0].assetType == PrimeDebt &&
+    w[0].tokenType == PrimeDebt &&
     w[0].transferType == Burn &&
     w[0].toSystemAccount != SettlementReserve &&
     w[0].toSystemAccount != Vault
   ) && (
-    w[1].assetType == PrimeCash &&
+    w[1].tokenType == PrimeCash &&
     w[1].transferType == Burn &&
     w[1].toSystemAccount != SettlementReserve &&
     w[1].toSystemAccount != Vault
@@ -290,11 +290,11 @@ const repay_prime_cash = (w: Transfer[]): boolean => {
 
 const repay_prime_cash_vault = (w: Transfer[]): boolean => {
   return (
-    w[0].assetType == PrimeDebt &&
+    w[0].tokenType == PrimeDebt &&
     w[0].transferType == Burn &&
     w[0].toSystemAccount == Vault
   ) && (
-    w[1].assetType == PrimeCash &&
+    w[1].tokenType == PrimeCash &&
     w[1].transferType == Burn &&
     w[1].toSystemAccount == Vault
   )
@@ -302,10 +302,10 @@ const repay_prime_cash_vault = (w: Transfer[]): boolean => {
 
 const borrow_fcash = (w: Transfer[]): boolean => {
   return (
-    w[0].assetType == fCash &&
+    w[0].tokenType == fCash &&
     w[0].transferType == Mint
   ) && (
-    w[1].assetType == fCash &&
+    w[1].tokenType == fCash &&
     w[1].transferType == Mint
   ) && (
     w[0].logIndex == w[1].logIndex &&
@@ -315,10 +315,10 @@ const borrow_fcash = (w: Transfer[]): boolean => {
 
 const borrow_fcash_vault = (w: Transfer[]): boolean => {
   return (
-    w[0].assetType == fCash &&
+    w[0].tokenType == fCash &&
     w[0].transferType == Mint
   ) && (
-    w[1].assetType == fCash &&
+    w[1].tokenType == fCash &&
     w[1].transferType == Mint
   ) && (
     w[0].logIndex == w[1].logIndex &&
@@ -328,10 +328,10 @@ const borrow_fcash_vault = (w: Transfer[]): boolean => {
 
 const ntoken_add_liquidity = (w: Transfer[]): boolean => {
   return (
-    w[0].assetType == fCash &&
+    w[0].tokenType == fCash &&
     w[0].transferType == Mint
   ) && (
-    w[1].assetType == fCash &&
+    w[1].tokenType == fCash &&
     w[1].transferType == Mint
   ) && (
     w[0].logIndex == w[1].logIndex &&
@@ -341,10 +341,10 @@ const ntoken_add_liquidity = (w: Transfer[]): boolean => {
 
 const repay_fcash = (w: Transfer[]): boolean => {
   return (
-    w[0].assetType == fCash &&
+    w[0].tokenType == fCash &&
     w[0].transferType == Burn
   ) && (
-    w[1].assetType == fCash &&
+    w[1].tokenType == fCash &&
     w[1].transferType == Burn
   ) && (
     w[0].logIndex == w[1].logIndex &&
@@ -354,10 +354,10 @@ const repay_fcash = (w: Transfer[]): boolean => {
 
 const repay_fcash_vault = (w: Transfer[]): boolean => {
   return (
-    w[0].assetType == fCash &&
+    w[0].tokenType == fCash &&
     w[0].transferType == Burn
   ) && (
-    w[1].assetType == fCash &&
+    w[1].tokenType == fCash &&
     w[1].transferType == Burn
   ) && (
     w[0].logIndex == w[1].logIndex &&
@@ -367,10 +367,10 @@ const repay_fcash_vault = (w: Transfer[]): boolean => {
 
 const ntoken_remove_liquidity = (w: Transfer[]): boolean => {
   return (
-    w[0].assetType == fCash &&
+    w[0].tokenType == fCash &&
     w[0].transferType == Burn
   ) && (
-    w[1].assetType == fCash &&
+    w[1].tokenType == fCash &&
     w[1].transferType == Burn
   ) && (
     w[0].logIndex == w[1].logIndex &&
@@ -380,37 +380,37 @@ const ntoken_remove_liquidity = (w: Transfer[]): boolean => {
 
 const mint_ntoken = (w: Transfer[]): boolean => {
   return (
-    w[0].assetType == PrimeCash &&
+    w[0].tokenType == PrimeCash &&
     w[0].transferType == _Transfer &&
     w[0].toSystemAccount == nToken
   ) && (
-    w[1].assetType == nToken &&
+    w[1].tokenType == nToken &&
     w[1].transferType == Mint
   )
 }
 
 const redeem_ntoken = (w: Transfer[]): boolean => {
   return (
-    w[0].assetType == PrimeCash &&
+    w[0].tokenType == PrimeCash &&
     w[0].transferType == _Transfer &&
     w[0].fromSystemAccount == nToken
   ) && (
-    w[1].assetType == nToken &&
+    w[1].tokenType == nToken &&
     w[1].transferType == Burn
   )
 }
 const buy_fcash = (w: Transfer[]): boolean => {
   return (
-    w[0].assetType == PrimeCash &&
+    w[0].tokenType == PrimeCash &&
     w[0].transferType == _Transfer &&
     w[0].fromSystemAccount != Vault &&
     w[0].toSystemAccount == nToken
   ) && (
-    w[1].assetType == PrimeCash &&
+    w[1].tokenType == PrimeCash &&
     w[1].transferType == _Transfer &&
     w[1].toSystemAccount == FeeReserve
   ) && (
-    w[2].assetType == fCash &&
+    w[2].tokenType == fCash &&
     w[2].transferType == _Transfer &&
     w[2].fromSystemAccount == nToken &&
     w[2].toSystemAccount != nToken &&
@@ -420,16 +420,16 @@ const buy_fcash = (w: Transfer[]): boolean => {
 
 const buy_fcash_vault = (w: Transfer[]): boolean => {
   return (
-    w[0].assetType == PrimeCash &&
+    w[0].tokenType == PrimeCash &&
     w[0].transferType == _Transfer &&
     w[0].fromSystemAccount == Vault &&
     w[0].toSystemAccount == nToken
   ) && (
-    w[1].assetType == PrimeCash &&
+    w[1].tokenType == PrimeCash &&
     w[1].transferType == _Transfer &&
     w[1].toSystemAccount == FeeReserve
   ) && (
-    w[2].assetType == fCash &&
+    w[2].tokenType == fCash &&
     w[2].transferType == _Transfer &&
     w[2].fromSystemAccount == nToken &&
     w[2].toSystemAccount == Vault
@@ -438,16 +438,16 @@ const buy_fcash_vault = (w: Transfer[]): boolean => {
 
 const ntoken_deleverage = (w: Transfer[]): boolean => {
   return (
-    w[0].assetType == PrimeCash &&
+    w[0].tokenType == PrimeCash &&
     w[0].transferType == _Transfer &&
     w[0].fromSystemAccount == nToken &&
     w[0].toSystemAccount == nToken
   ) && (
-    w[1].assetType == PrimeCash &&
+    w[1].tokenType == PrimeCash &&
     w[1].transferType == _Transfer &&
     w[1].toSystemAccount == FeeReserve
   ) && (
-    w[2].assetType == fCash &&
+    w[2].tokenType == fCash &&
     w[2].transferType == _Transfer &&
     w[2].fromSystemAccount == nToken &&
     w[2].toSystemAccount == nToken
@@ -456,16 +456,16 @@ const ntoken_deleverage = (w: Transfer[]): boolean => {
 
 const sell_fcash = (w: Transfer[]): boolean => {
   return (
-    w[0].assetType == PrimeCash &&
+    w[0].tokenType == PrimeCash &&
     w[0].transferType == _Transfer &&
     w[0].fromSystemAccount == nToken &&
     w[0].toSystemAccount != Vault
   ) && (
-    w[1].assetType == PrimeCash &&
+    w[1].tokenType == PrimeCash &&
     w[1].transferType == _Transfer &&
     w[1].toSystemAccount == FeeReserve
   ) && (
-    w[2].assetType == fCash &&
+    w[2].tokenType == fCash &&
     w[2].transferType == _Transfer &&
     w[2].fromSystemAccount != Vault &&
     w[2].toSystemAccount == nToken
@@ -473,16 +473,16 @@ const sell_fcash = (w: Transfer[]): boolean => {
 }
 const sell_fcash_vault = (w: Transfer[]): boolean => {
   return (
-    w[0].assetType == PrimeCash &&
+    w[0].tokenType == PrimeCash &&
     w[0].transferType == _Transfer &&
     w[0].fromSystemAccount == nToken &&
     w[0].toSystemAccount == Vault
   ) && (
-    w[1].assetType == PrimeCash &&
+    w[1].tokenType == PrimeCash &&
     w[1].transferType == _Transfer &&
     w[1].toSystemAccount == FeeReserve
   ) && (
-    w[2].assetType == fCash &&
+    w[2].tokenType == fCash &&
     w[2].transferType == _Transfer &&
     w[2].fromSystemAccount == Vault &&
     w[2].toSystemAccount == nToken
@@ -491,11 +491,11 @@ const sell_fcash_vault = (w: Transfer[]): boolean => {
 
 const vault_fees = (w: Transfer[]): boolean => {
   return (
-    w[0].assetType == PrimeCash &&
+    w[0].tokenType == PrimeCash &&
     w[0].transferType == _Transfer &&
     w[0].toSystemAccount == FeeReserve
   ) && (
-    w[1].assetType == PrimeCash &&
+    w[1].tokenType == PrimeCash &&
     w[1].transferType == _Transfer &&
     w[1].toSystemAccount == nToken
   )
@@ -505,10 +505,10 @@ const vault_entry_transfer = (w: Transfer[]): boolean => {
   // Looks like a withdraw but is done by the vault
   return !( // not
     w[0].transferType == Mint &&
-    w[0].assetType == PrimeDebt
+    w[0].tokenType == PrimeDebt
   ) && (
     w[1].transferType == Burn &&
-    w[1].assetType == PrimeCash &&
+    w[1].tokenType == PrimeCash &&
     w[1].fromSystemAccount == Vault
   )
 }
@@ -516,15 +516,15 @@ const vault_entry_transfer = (w: Transfer[]): boolean => {
 const vault_redeem = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == Mint &&
-    w[0].assetType == PrimeCash &&
+    w[0].tokenType == PrimeCash &&
     w[0].toSystemAccount == Vault
   ) && (
     w[1].transferType == _Transfer &&
-    w[1].assetType == PrimeCash &&
+    w[1].tokenType == PrimeCash &&
     w[1].fromSystemAccount == Vault
   ) && (
     w[2].transferType == Burn &&
-    w[2].assetType == PrimeCash &&
+    w[2].tokenType == PrimeCash &&
     w[2].from == w[1].to
   )
 }
@@ -534,12 +534,12 @@ const vault_lend_at_zero = (w: Transfer[]): boolean => {
     w[0].transferType == _Transfer &&
     w[0].fromSystemAccount == Vault &&
     w[0].toSystemAccount == SettlementReserve &&
-    w[0].assetType == PrimeCash
+    w[0].tokenType == PrimeCash
   ) && (
-    w[1].assetType == fCash &&
+    w[1].tokenType == fCash &&
     w[1].transferType == Mint
   ) && (
-    w[2].assetType == fCash &&
+    w[2].tokenType == fCash &&
     w[2].transferType == Mint
   ) && (
     w[1].logIndex == w[2].logIndex &&
@@ -548,7 +548,7 @@ const vault_lend_at_zero = (w: Transfer[]): boolean => {
     w[3].transferType == _Transfer &&
     w[3].fromSystemAccount == SettlementReserve &&
     w[3].toSystemAccount == Vault &&
-    w[3].assetType == fCash &&
+    w[3].tokenType == fCash &&
     w[3].value.gt(BigInt.fromI32(0))
   )
 }
@@ -556,19 +556,19 @@ const vault_lend_at_zero = (w: Transfer[]): boolean => {
 const vault_settle = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == Burn &&
-    w[0].assetType == VaultDebt &&
+    w[0].tokenType == VaultDebt &&
     w[0].maturity <= w[0].timestamp
   ) && (
     w[1].transferType == Burn &&
-    w[1].assetType == VaultShare &&
+    w[1].tokenType == VaultShare &&
     w[1].maturity <= w[1].timestamp
   ) && (
     w[2].transferType == Mint &&
-    w[2].assetType == VaultDebt &&
+    w[2].tokenType == VaultDebt &&
     w[2].maturity == PRIME_CASH_VAULT_MATURITY
   ) && (
     w[3].transferType == Burn &&
-    w[3].assetType == VaultShare &&
+    w[3].tokenType == VaultShare &&
     w[3].maturity == PRIME_CASH_VAULT_MATURITY
   )
 }
@@ -578,19 +578,19 @@ const vault_roll = (w: Transfer[]): boolean => {
     vault_settle(w)
   ) && (
     w[0].transferType == Burn &&
-    w[0].assetType == VaultDebt &&
+    w[0].tokenType == VaultDebt &&
     !w[0].value.isZero()
   ) && (
     w[1].transferType == Burn &&
-    w[1].assetType == VaultShare && 
+    w[1].tokenType == VaultShare && 
     !w[1].value.isZero()
   ) && (
     w[2].transferType == Mint &&
-    w[2].assetType == VaultDebt &&
+    w[2].tokenType == VaultDebt &&
     !w[2].value.isZero()
   ) && (
     w[3].transferType == Burn &&
-    w[3].assetType == VaultShare &&
+    w[3].tokenType == VaultShare &&
     !w[3].value.isZero()
   )
 }
@@ -602,41 +602,41 @@ const vault_entry = (w: Transfer[]): boolean => {
     !vault_roll(w)
   ) && (
     w[2].transferType == Mint &&
-    w[2].assetType == VaultDebt
+    w[2].tokenType == VaultDebt
   ) && (
     w[3].transferType == Burn &&
-    w[3].assetType == VaultShare
+    w[3].tokenType == VaultShare
   )
 }
 
 const vault_exit = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == Burn &&
-    w[0].assetType == VaultDebt
+    w[0].tokenType == VaultDebt
   ) && (
     w[1].transferType == Burn &&
-    w[1].assetType == VaultShare
+    w[1].tokenType == VaultShare
   )
 }
 
 const vault_deleverage_fcash = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == Mint &&
-    w[0].assetType == VaultCash
+    w[0].tokenType == VaultCash
   ) && (
     w[1].transferType == _Transfer &&
-    w[1].assetType == VaultShare
+    w[1].tokenType == VaultShare
   )
 }
 
 const vault_deleverage_prime_debt = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == Burn &&
-    w[0].assetType == VaultDebt &&
+    w[0].tokenType == VaultDebt &&
     w[0].maturity == PRIME_CASH_VAULT_MATURITY
   ) && (
     w[1].transferType == _Transfer &&
-    w[1].assetType == VaultShare &&
+    w[1].tokenType == VaultShare &&
     w[1].maturity == PRIME_CASH_VAULT_MATURITY
   )
 }
@@ -646,27 +646,27 @@ const vault_liquidate_cash = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == _Transfer &&
     w[0].fromSystemAccount == Vault &&
-    w[0].asset == PrimeCash
+    w[0].tokenType == PrimeCash
   ) && (
     w[1].transferType == _Transfer &&
     w[1].toSystemAccount == Vault &&
-    w[1].assetType == fCash
+    w[1].tokenType == fCash
   // Account burns debt and cash
   ) && (
     w[2].transferType == Burn &&
-    w[2].assetType == VaultDebt
+    w[2].tokenType == VaultDebt
   ) && (
     w[3].transferType == Burn &&
-    w[3].assetType == VaultCash
+    w[3].tokenType == VaultCash
   // Vault burns debt balance
   ) && (
     w[4].transferType == Burn &&
     w[4].fromSystemAccount == Vault &&
-    w[4].assetType == fCash
+    w[4].tokenType == fCash
   ) && (
     w[5].transferType == Burn &&
     w[5].fromSystemAccount == Vault &&
-    w[5].assetType == fCash
+    w[5].tokenType == fCash
   )
 }
 
@@ -674,28 +674,28 @@ const vault_secondary_borrow = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == Mint &&
     w[0].toSystemAccount == Vault &&
-    (w[0].assetType == fCash || w[0].assetType == PrimeDebt)
+    (w[0].tokenType == fCash || w[0].tokenType == PrimeDebt)
   ) && (
     w[1].transferType == Mint &&
     w[1].toSystemAccount == Vault &&
-    (w[1].assetType == fCash || w[1].assetType == PrimeCash)
+    (w[1].tokenType == fCash || w[1].tokenType == PrimeCash)
   ) && (
     w[2].transferType == Mint &&
-    w[2].assetType == VaultDebt
+    w[2].tokenType == VaultDebt
   ) && (
     // All values above are in the same underlying
     w[1].underlying == w[2].underlying &&
     w[2].underlying == w[3].underlying
   ) && (
     // Secondary borrows are not followed by minting vault shares
-    w[3].assetType != VaultShare
+    w[3].tokenType != VaultShare
   )
 }
 
 const vault_secondary_deposit = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == Mint &&
-    w[0].assetType == PrimeCash &&
+    w[0].tokenType == PrimeCash &&
     w[0].toSystemAccount == Vault
   )
 
@@ -705,32 +705,32 @@ const vault_secondary_repay = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == Burn &&
     w[0].toSystemAccount == Vault &&
-    (w[0].assetType == fCash || w[0].assetType == PrimeDebt)
+    (w[0].tokenType == fCash || w[0].tokenType == PrimeDebt)
   ) && (
     w[1].transferType == Burn &&
     w[1].toSystemAccount == Vault &&
-    (w[1].assetType == fCash || w[1].assetType == PrimeCash)
+    (w[1].tokenType == fCash || w[1].tokenType == PrimeCash)
   ) && (
     w[2].transferType == Burn &&
-    w[2].assetType == VaultDebt
+    w[2].tokenType == VaultDebt
   ) && (
     // All values above are in the same underlying
     w[1].underlying == w[2].underlying &&
     w[2].underlying == w[3].underlying
   ) && (
     // Secondary repays are not followed by minting vault shares
-    w[3].assetType != VaultShare
+    w[3].tokenType != VaultShare
   )
 }
 
 const vault_secondary_settle = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == Burn &&
-    w[0].assetType == VaultDebt &&
+    w[0].tokenType == VaultDebt &&
     w[0].maturity <= w[0].timestamp
   ) && (
     w[1].transferType == Mint &&
-    w[1].assetType == VaultDebt &&
+    w[1].tokenType == VaultDebt &&
     w[1].maturity == PRIME_CASH_VAULT_MATURITY
   ) && (
     w[0].from == w[1].to &&
@@ -742,55 +742,55 @@ const vault_withdraw_cash = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == _Transfer &&
     w[0].fromSystemAccount == Vault &&
-    w[0].assetType == PrimeCash &&
+    w[0].tokenType == PrimeCash &&
     w[0].toSystemAccount == None
   ) && (
     w[1].transferType == Burn &&
     w[1].fromSystemAccount == None &&
-    w[1].assetType == PrimeCash
+    w[1].tokenType == PrimeCash
   )
 }
 
 const vault_burn_cash = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == _Transfer &&
-    w[0].assetType == VaultCash
+    w[0].tokenType == VaultCash
   )
 }
 
 const vault_liquidate_excess_cash = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == _Transfer &&
-    w[0].assetType == PrimeCash &&
+    w[0].tokenType == PrimeCash &&
     w[0].fromSystemAccount == Vault
   ) && (
     w[1].transferType == Burn &&
-    w[1].assetType == PrimeCash &&
+    w[1].tokenType == PrimeCash &&
     w[1].fromSystemAccount == None
   ) && (
     w[2].transferType == Burn &&
-    w[2].assetType == VaultCash
+    w[2].tokenType == VaultCash
   ) && (
     w[3].transferType == Mint &&
-    w[3].assetType == PrimeCash &&
+    w[3].tokenType == PrimeCash &&
     w[3].fromSystemAccount == None
   ) && (
     w[4].transferType == _Transfer &&
-    w[4].assetType == PrimeCash &&
+    w[4].tokenType == PrimeCash &&
     w[4].toSystemAccount == Vault
   ) && (
     w[5].transferType == Mint &&
-    w[5].assetType == VaultCash
+    w[5].tokenType == VaultCash
   )
 }
 
 const vault_settle_cash = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == Burn &&
-    w[0].assetType == VaultCash
+    w[0].tokenType == VaultCash
   ) && (
     w[1].transferType == Mint &&
-    w[1].assetType == VaultCash &&
+    w[1].tokenType == VaultCash &&
     w[1].maturity == PRIME_CASH_VAULT_MATURITY
   )
 

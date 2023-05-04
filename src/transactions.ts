@@ -4,7 +4,7 @@ import { Transfer as TransferEvent } from "../generated/templates/ERC20Proxy/ERC
 import { updateBalance } from "./balances";
 import { getAsset, createTransfer } from "./common/entities";
 import { getOrCreateERC1155Asset } from "./common/erc1155";
-import { Asset, Transfer } from "../generated/schema";
+import { Token, Transfer } from "../generated/schema";
 import {
   convertValueToUnderlying,
   decodeSystemAccount,
@@ -18,7 +18,7 @@ function _logTransfer(
   value: BigInt,
   event: ethereum.Event,
   transfer: Transfer,
-  asset: Asset
+  token: Token
 ): void {
   // decode transfer type
   transfer.from = from.toHexString();
@@ -28,32 +28,32 @@ function _logTransfer(
 
   transfer.transferType = decodeTransferType(from, to);
   transfer.value = value;
-  transfer.valueInUnderlying = convertValueToUnderlying(value, asset, event.block.timestamp);
+  transfer.valueInUnderlying = convertValueToUnderlying(value, token, event.block.timestamp);
 
-  // inherit asset properties
-  transfer.asset = asset.id;
-  transfer.assetType = asset.assetType;
-  if (asset.get("maturity") != null) transfer.maturity = asset.maturity;
+  // inherit token properties
+  transfer.token = token.id;
+  transfer.tokenType = token.tokenType;
+  if (token.get("maturity") != null) transfer.maturity = token.maturity;
 
-  if (asset.get("underlying") == null) log.critical("Unknown underlying for asset {}", [asset.id]);
-  transfer.underlying = asset.underlying as string;
+  if (token.get("underlying") == null) log.critical("Unknown underlying for token {}", [token.id]);
+  transfer.underlying = token.underlying as string;
 
-  updateBalance(asset, transfer, event);
+  updateBalance(token, transfer, event);
 
   // Calls transfer.save() inside
   processTransfer(transfer, event);
 }
 
 export function handleERC1155Transfer(event: TransferSingle): void {
-  let asset = getOrCreateERC1155Asset(event.params.id, event.block, event.transaction.hash);
+  let token = getOrCreateERC1155Asset(event.params.id, event.block, event.transaction.hash);
   let transfer = createTransfer(event, 0);
   transfer.operator = event.params.operator.toHexString();
-  _logTransfer(event.params.from, event.params.to, event.params.value, event, transfer, asset);
+  _logTransfer(event.params.from, event.params.to, event.params.value, event, transfer, token);
 }
 
 export function handleERC1155BatchTransfer(event: TransferBatch): void {
   for (let i = 0; i < event.params.ids.length; i++) {
-    let asset = getOrCreateERC1155Asset(event.params.ids[i], event.block, event.transaction.hash);
+    let token = getOrCreateERC1155Asset(event.params.ids[i], event.block, event.transaction.hash);
     let transfer = createTransfer(event, i);
 
     transfer.operator = event.params.operator.toHexString();
@@ -63,13 +63,13 @@ export function handleERC1155BatchTransfer(event: TransferBatch): void {
       event.params.values[i],
       event,
       transfer,
-      asset
+      token
     );
   }
 }
 
 export function handleERC20Transfer(event: TransferEvent): void {
-  let asset = getAsset(event.address.toHexString());
+  let token = getAsset(event.address.toHexString());
   let transfer = createTransfer(event, 0);
-  _logTransfer(event.params.from, event.params.to, event.params.value, event, transfer, asset);
+  _logTransfer(event.params.from, event.params.to, event.params.value, event, transfer, token);
 }

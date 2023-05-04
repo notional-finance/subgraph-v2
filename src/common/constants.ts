@@ -26,7 +26,7 @@ export const LEGACY_NTOKEN_ASSET_TYPE_ID = BigInt.fromI32(12);
 
 // Enum Values as Constants
 
-// Asset Type
+// Token Type
 export const Underlying = "Underlying";
 export const nToken = "nToken";
 export const PrimeCash = "PrimeCash";

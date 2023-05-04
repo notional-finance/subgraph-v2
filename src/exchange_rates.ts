@@ -9,7 +9,7 @@ import {
 } from "../generated/ExchangeRates/Notional";
 import { IStrategyVault } from "../generated/ExchangeRates/IStrategyVault";
 import { Aggregator } from "../generated/ExchangeRates/Aggregator";
-import { Asset, ExchangeRate, Oracle } from "../generated/schema";
+import { Token, ExchangeRate, Oracle } from "../generated/schema";
 import {
   Chainlink,
   DOUBLE_SCALAR_PRECISION,
@@ -150,8 +150,8 @@ export function updatefCashOracles(underlyingId: string, block: ethereum.Block):
 }
 
 export function registerChainlinkOracle(
-  baseAsset: Asset,
-  quoteAsset: Asset,
+  baseAsset: Token,
+  quoteAsset: Token,
   oracleAddress: Address,
   mustInvert: boolean,
   event: ethereum.Event
@@ -334,7 +334,7 @@ export function handleRebalance(event: CurrencyRebalanced): void {
 }
 
 export function handleSettlementRate(event: SetPrimeSettlementRate): void {
-  // Asset is positive and negative fCash to prime cash
+  // Token is positive and negative fCash to prime cash
   let notional = getNotional();
 
   // This is the conversion for positive fCash to positive prime cash

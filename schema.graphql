@@ -1,4 +1,4 @@
-enum AssetType {
+enum TokenType {
   Underlying,
   nToken,
   WrappedfCash,
@@ -24,7 +24,7 @@ enum SystemAccount {
   NOTE
 }
 
-enum AssetInterface {
+enum TokenInterface {
   ERC20,
   ERC1155
 }
@@ -35,8 +35,8 @@ enum TransferType {
   Transfer
 }
 
-type Asset @entity {
-  """ID space varies by asset type:
+type Token @entity {
+  """ID space varies by token type:
     - ERC20: token address
     - ERC1155: `emitter address:tokenId`
   """
@@ -50,11 +50,11 @@ type Asset @entity {
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes
 
-  assetType: AssetType!
-  assetInterface: AssetInterface!
-  "A link to the underlying asset if this asset is not underlying itself"
-  underlying: Asset
-  "Set to the notional currency id if this asset is listed on Notional"
+  tokenType: TokenType!
+  tokenInterface: TokenInterface!
+  "A link to the underlying token if this token is not underlying itself"
+  underlying: Token
+  "Set to the notional currency id if this token is listed on Notional"
   currencyId: Int
   
   name: String!
@@ -66,16 +66,16 @@ type Asset @entity {
   hasTransferFee: Boolean!
 
   isfCashDebt: Boolean!
-  "Maturities are only set for some asset types"
+  "Maturities are only set for some token types"
   maturity: Int
-  "Vault address is set for vault asset types"
+  "Vault address is set for vault token types"
   vaultAddress: Bytes
 
   "Set to the ERC20 address or Notional Proxy for ERC1155 addresses"
   tokenAddress: Bytes!
 
-  balanceOf: [Balance!] @derivedFrom(field: "asset")
-  transfers: [Transfer!] @derivedFrom(field: "asset")
+  balanceOf: [Balance!] @derivedFrom(field: "token")
+  transfers: [Transfer!] @derivedFrom(field: "token")
   oracles: [Oracle!] @derivedFrom(field: "quote")
 }
 
@@ -100,10 +100,10 @@ type Transfer @entity {
   "Value of the transfer in underlying terms at the time of transfer"
   valueInUnderlying: BigInt
 
-  "Link to the asset entity for this transfer"
-  asset: Asset!
-  assetType: AssetType!
-  underlying: Asset!
+  "Link to the token entity for this transfer"
+  token: Token!
+  tokenType: TokenType!
+  underlying: Token!
   "Only set for some transfer types"
   maturity: Int
 
@@ -155,7 +155,7 @@ type Account @entity {
 
   "All current balances linked to this account"
   balances: [Balance!] @derivedFrom(field: "account")
-  "All historical asset transfers linked to this account"
+  "All historical token transfers linked to this account"
   transfersFrom: [Transfer!] @derivedFrom(field: "from")
   transfersTo: [Transfer!] @derivedFrom(field: "to")
 }
@@ -183,14 +183,14 @@ type OracleRegistry @entity {
   lastRefreshTimestamp: Int!
 
   chainlinkOracles: [Oracle!]!
-  "Underlying assets that have fCash listed"
-  fCashEnabled: [Asset!]!
+  "Underlying tokens that have fCash listed"
+  fCashEnabled: [Token!]!
   "Vault Addresses"
   listedVaults: [Bytes!]!
 }
 
 type Oracle @entity {
-  "Base Asset Id:Quote Asset Id:Oracle Type"
+  "Base Token Id:Quote Token Id:Oracle Type"
   id: ID!
 
   lastUpdateBlockNumber: Int!
@@ -198,8 +198,8 @@ type Oracle @entity {
   "Some oracles are updated via block handlers and do not have a txn hash for updates"
   lastUpdateTransactionHash: Bytes
 
-  base: Asset!
-  quote: Asset!
+  base: Token!
+  quote: Token!
   ratePrecision: BigInt!
   oracleAddress: Bytes!
   oracleType: OracleType!
@@ -228,10 +228,10 @@ type CurrencyConfiguration @entity {
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
 
-  underlying: Asset
-  pCash: Asset
+  underlying: Token
+  pCash: Token
   "Some currencies will not allow prime debt"
-  pDebt: Asset
+  pDebt: Token
 
   maxUnderlyingSupply: BigInt
 
@@ -334,7 +334,7 @@ type VaultConfiguration @entity {
   "Name of the strategy vault"
   name: String!
   "Primary currency the vault borrows in"
-  primaryBorrowCurrency: Asset!
+  primaryBorrowCurrency: Token!
   "Minimum amount of primary currency that must be borrowed"
   minAccountBorrowSize: BigInt!
   "Minimum collateral ratio before liquidation"
@@ -350,7 +350,7 @@ type VaultConfiguration @entity {
   "Maximum market index for borrowing terms"
   maxBorrowMarketIndex: Int!
   "Secondary borrow currencies (if any)"
-  secondaryBorrowCurrencies: [Asset!]
+  secondaryBorrowCurrencies: [Token!]
   "Max required collateral ratio for vault accounts"
   maxRequiredAccountCollateralRatioBasisPoints: Int
   "Can the vault be entered"
@@ -399,10 +399,10 @@ type WhitelistedContract @entity {
 ### Balances ###
 
 type Balance @entity {
-  "Address of Account:ID of Asset"
+  "Address of Account:ID of Token"
   id: ID!
-  "Link back to the asset"
-  asset: Asset!
+  "Link back to the token"
+  token: Token!
   "Address of the account that holds this balance"
   account: Account!
 
@@ -422,7 +422,7 @@ type Balance @entity {
 type ActiveMarkets @entity {
   "Currency ID"
   id: ID!
-  underlying: Asset!
+  underlying: Token!
   lastUpdateBlockNumber: Int!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
@@ -438,7 +438,7 @@ type Market @entity {
   lastUpdateTransactionHash: Bytes!
 
   "Currency of this market"
-  underlying: Asset!
+  underlying: Token!
   "Date that fCash from this market will mature"
   maturity: Int!
   "Date that this market will settle"
@@ -462,7 +462,7 @@ type MarketSnapshot @entity {
 
   "Total fCash available in the market"
   totalfCash: BigInt!
-  "Total asset cash available in the market"
+  "Total token cash available in the market"
   totalPrimeCash: BigInt!
   "Total liquidity tokens available in the market"
   totalLiquidity: BigInt!
@@ -526,7 +526,7 @@ type TradingModulePermission @entity {
   lastUpdateTransactionHash: Bytes!
 
   sender: Account!
-  token: Asset!
+  token: Token!
 
   allowedDexes: [DEX!]!
   allowSell: Boolean!

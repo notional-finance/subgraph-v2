@@ -1,5 +1,5 @@
 import { Address, ethereum, BigInt, log, dataSource, Bytes } from "@graphprotocol/graph-ts";
-import { Asset, Transfer } from "../../generated/schema";
+import { Token, Transfer } from "../../generated/schema";
 import { IStrategyVault } from "../../generated/Transactions/IStrategyVault";
 import { ERC4626 } from "../../generated/Transactions/ERC4626";
 import {
@@ -34,61 +34,61 @@ export function decodeSystemAccount(addr: Address, event: ethereum.Event): strin
 
 export function convertValueToUnderlying(
   value: BigInt,
-  asset: Asset,
+  token: Token,
   blockTime: BigInt
 ): BigInt | null {
   // There is no corresponding underlying for NOTE so just return null
-  if (asset.assetType == NOTE) return null;
+  if (token.tokenType == NOTE) return null;
 
   let notional = getNotional();
-  let currencyId = asset.currencyId as i32;
+  let currencyId = token.currencyId as i32;
   let underlyingExternal: ethereum.CallResult<BigInt>;
 
-  if (asset.assetType == nToken) {
+  if (token.tokenType == nToken) {
     underlyingExternal = notional.try_convertNTokenToUnderlying(currencyId, value);
   } else if (
-    asset.assetType == PrimeDebt ||
-    (asset.assetType == VaultDebt &&
-      asset.get("maturity") != null &&
-      asset.maturity == PRIME_CASH_VAULT_MATURITY)
+    token.tokenType == PrimeDebt ||
+    (token.tokenType == VaultDebt &&
+      token.get("maturity") != null &&
+      token.maturity == PRIME_CASH_VAULT_MATURITY)
   ) {
     let pDebtAddress = notional.pDebtAddress(currencyId);
     let pDebt = ERC4626.bind(pDebtAddress);
     underlyingExternal = pDebt.try_convertToAssets(value);
-  } else if (asset.assetType == PrimeCash || asset.assetType == VaultCash) {
+  } else if (token.tokenType == PrimeCash || token.tokenType == VaultCash) {
     underlyingExternal = notional.try_convertCashBalanceToExternal(currencyId, value, true);
   } else if (
-    asset.assetType == fCash ||
-    (asset.assetType == VaultDebt &&
-      asset.get("maturity") != null &&
-      asset.maturity != PRIME_CASH_VAULT_MATURITY)
+    token.tokenType == fCash ||
+    (token.tokenType == VaultDebt &&
+      token.get("maturity") != null &&
+      token.maturity != PRIME_CASH_VAULT_MATURITY)
   ) {
-    if (asset.maturity <= blockTime.toI32()) {
+    if (token.maturity <= blockTime.toI32()) {
       // If the fCash has matured then get the settled value
       underlyingExternal = notional.try_convertSettledfCash(
         currencyId,
-        BigInt.fromI32(asset.maturity),
+        BigInt.fromI32(token.maturity),
         value,
         blockTime
       );
     } else {
       underlyingExternal = notional.try_getPresentfCashValue(
         currencyId,
-        BigInt.fromI32(asset.maturity),
+        BigInt.fromI32(token.maturity),
         value,
         blockTime,
         false
       );
     }
-  } else if (asset.assetType == VaultShare) {
-    let vault = IStrategyVault.bind(Address.fromBytes(asset.vaultAddress as Bytes));
+  } else if (token.tokenType == VaultShare) {
+    let vault = IStrategyVault.bind(Address.fromBytes(token.vaultAddress as Bytes));
     underlyingExternal = vault.try_convertStrategyToUnderlying(
-      Address.fromBytes(asset.vaultAddress as Bytes),
+      Address.fromBytes(token.vaultAddress as Bytes),
       value,
-      BigInt.fromI32(asset.maturity)
+      BigInt.fromI32(token.maturity)
     );
   } else {
-    // Unknown asset type
+    // Unknown token type
     return null;
   }
 

@@ -5,7 +5,7 @@ import {
   Notional,
   PrimeProxyDeployed,
 } from "../generated/Assets/Notional";
-import { Asset } from "../generated/schema";
+import { Token } from "../generated/schema";
 import {
   None,
   NOTE,
@@ -20,7 +20,7 @@ import { createERC20ProxyAsset, createERC20TokenAsset } from "./common/erc20";
 
 function _initializeNOTEToken(notional: Notional, event: ethereum.Event): void {
   let noteToken = notional.getNoteToken();
-  if (Asset.load(noteToken.toHexString()) == null) {
+  if (Token.load(noteToken.toHexString()) == null) {
     createERC20ProxyAsset(noteToken, NOTE, event);
   }
 }
@@ -52,7 +52,7 @@ export function handleListCurrency(event: ListCurrency): void {
     notionalAccount.systemAccountType = _Notional;
     notionalAccount.save();
 
-    // Also initialize the NOTE token asset
+    // Also initialize the NOTE token
     _initializeNOTEToken(notional, event);
   }
 }
@@ -60,18 +60,18 @@ export function handleListCurrency(event: ListCurrency): void {
 export function handleDeployNToken(event: DeployNToken): void {
   let currencyId = event.params.currencyId as i32;
   let nTokenAddress = event.params.nTokenAddress;
-  let asset = createERC20ProxyAsset(nTokenAddress, nToken, event);
+  let token = createERC20ProxyAsset(nTokenAddress, nToken, event);
 
-  asset.currencyId = currencyId;
-  asset.underlying = getUnderlying(currencyId).id;
+  token.currencyId = currencyId;
+  token.underlying = getUnderlying(currencyId).id;
 
-  asset.save();
+  token.save();
 }
 
 export function handleDeployPrimeProxy(event: PrimeProxyDeployed): void {
   let currencyId = event.params.currencyId as i32;
   let proxyAddress = event.params.proxy;
-  let asset = createERC20ProxyAsset(
+  let token = createERC20ProxyAsset(
     proxyAddress,
     event.params.isCashProxy ? PrimeCash : PrimeDebt,
     event
@@ -82,7 +82,7 @@ export function handleDeployPrimeProxy(event: PrimeProxyDeployed): void {
   let notional = getNotional();
   let results = notional.getCurrency(event.params.currencyId);
 
-  asset.currencyId = currencyId;
-  asset.underlying = results.getUnderlyingToken().tokenAddress.toHexString();
-  asset.save();
+  token.currencyId = currencyId;
+  token.underlying = results.getUnderlyingToken().tokenAddress.toHexString();
+  token.save();
 }
