@@ -1,4 +1,4 @@
-import { ethereum, BigInt, Bytes, Address, log } from "@graphprotocol/graph-ts";
+import { ethereum, BigInt, Address } from "@graphprotocol/graph-ts";
 import {
   PrimeCashInterestAccrued,
   UpdateETHRate,
@@ -16,10 +16,13 @@ import {
   DOUBLE_SCALAR_PRECISION,
   fCashOracleRate,
   fCashSettlementRate,
+  fCashSpotRate,
+  fCashToUnderlyingExchangeRate,
   FCASH_ASSET_TYPE_ID,
   INTERNAL_TOKEN_PRECISION,
   MoneyMarketToUnderlyingExchangeRate,
   MoneyMarketToUnderlyingOracleInterestRate,
+  nTokenToUnderlyingExchangeRate,
   ORACLE_REFRESH_SECONDS,
   PrimeCashToMoneyMarketExchangeRate,
   PrimeCashToUnderlyingExchangeRate,
@@ -30,6 +33,7 @@ import {
   RATE_PRECISION,
   SCALAR_DECIMALS,
   SCALAR_PRECISION,
+  SECONDS_IN_YEAR,
   VaultShareOracleRate,
   VAULT_SHARE_ASSET_TYPE_ID,
   ZERO_ADDRESS,
@@ -42,26 +46,28 @@ import {
   getUnderlying,
 } from "./common/entities";
 import { getOrCreateERC1155Asset } from "./common/erc1155";
+import { updatefCashMarket } from "./common/market";
 
 function updateExchangeRate(
   oracle: Oracle,
   rate: BigInt,
   block: ethereum.Block,
-  txnHash: Bytes | null
+  txnHash: string | null
 ): void {
-  let hashString = txnHash ? txnHash.toHexString() : "0x";
+  let hashString = txnHash ? txnHash : "0x";
   let id = oracle.id + ":" + block.number.toString() + ":" + hashString;
   let exchangeRate = new ExchangeRate(id);
   exchangeRate.blockNumber = block.number.toI32();
   exchangeRate.timestamp = block.timestamp.toI32();
   exchangeRate.rate = rate;
   exchangeRate.oracle = oracle.id;
+  exchangeRate.transaction = txnHash;
   exchangeRate.save();
 
   oracle.latestRate = rate;
   oracle.lastUpdateBlockNumber = block.number.toI32();
   oracle.lastUpdateTimestamp = block.timestamp.toI32();
-  oracle.lastUpdateTransactionHash = txnHash;
+  oracle.lastUpdateTransaction = txnHash;
   oracle.save();
 }
 
@@ -116,7 +122,11 @@ export function updateVaultOracles(vaultAddress: Address, block: ethereum.Block)
   }
 }
 
-export function updatefCashOracles(underlyingId: string, block: ethereum.Block): void {
+export function updatefCashOraclesAndMarkets(
+  underlyingId: string,
+  block: ethereum.Block,
+  txnHash: string | null
+): void {
   let notional = getNotional();
   let base = getAsset(underlyingId);
   let currencyId = base.currencyId;
@@ -137,7 +147,29 @@ export function updatefCashOracles(underlyingId: string, block: ethereum.Block):
     posOracle.decimals = RATE_DECIMALS;
     posOracle.ratePrecision = RATE_PRECISION;
     posOracle.oracleAddress = notional._address;
-    updateExchangeRate(posOracle, a.oracleRate, block, null);
+    updateExchangeRate(posOracle, a.oracleRate, block, txnHash);
+
+    let posSpot = getOracle(base, posFCash, fCashSpotRate);
+    posSpot.decimals = RATE_DECIMALS;
+    posSpot.ratePrecision = RATE_PRECISION;
+    posSpot.oracleAddress = notional._address;
+    updateExchangeRate(posSpot, a.lastImpliedRate, block, txnHash);
+
+    let posExRate = getOracle(base, posFCash, fCashToUnderlyingExchangeRate);
+    posSpot.decimals = RATE_DECIMALS;
+    posSpot.ratePrecision = RATE_PRECISION;
+    posSpot.oracleAddress = notional._address;
+    let exchangeRate = BigInt.fromI32(
+      Math.floor(
+        Math.exp(
+          a.lastImpliedRate
+            .times(a.maturity.minus(block.timestamp))
+            .div(SECONDS_IN_YEAR)
+            .toI32() / RATE_PRECISION.toI32()
+        ) * RATE_PRECISION.toI32()
+      ) as i32
+    );
+    updateExchangeRate(posExRate, exchangeRate, block, txnHash);
 
     let negativefCashId = notional.encode(
       currencyId,
@@ -151,8 +183,37 @@ export function updatefCashOracles(underlyingId: string, block: ethereum.Block):
     negOracle.decimals = RATE_DECIMALS;
     negOracle.ratePrecision = RATE_PRECISION;
     negOracle.oracleAddress = notional._address;
-    updateExchangeRate(negOracle, a.oracleRate, block, null);
+    updateExchangeRate(negOracle, a.oracleRate, block, txnHash);
+
+    let negSpot = getOracle(base, negFCash, fCashSpotRate);
+    negSpot.decimals = RATE_DECIMALS;
+    negSpot.ratePrecision = RATE_PRECISION;
+    negSpot.oracleAddress = notional._address;
+    updateExchangeRate(negSpot, a.lastImpliedRate, block, txnHash);
+
+    let negExRate = getOracle(base, negFCash, fCashToUnderlyingExchangeRate);
+    negExRate.decimals = RATE_DECIMALS;
+    negExRate.ratePrecision = RATE_PRECISION;
+    negExRate.oracleAddress = notional._address;
+    updateExchangeRate(negExRate, exchangeRate, block, txnHash);
+
+    // Takes a snapshot of the fCash market
+    updatefCashMarket(currencyId, a.maturity.toI32(), block, txnHash);
   }
+
+  let nToken = getAsset(notional.nTokenAddress(currencyId).toHexString());
+  let nTokenExchangeRate = getOracle(base, nToken, nTokenToUnderlyingExchangeRate);
+  nTokenExchangeRate.decimals = RATE_DECIMALS;
+  nTokenExchangeRate.ratePrecision = RATE_PRECISION;
+  nTokenExchangeRate.oracleAddress = notional._address;
+  // 1 underlying buys x amount of nTokens
+  // nTokenPV in underlying * RATE_PRECISION / totalSupply
+  let nTokenUnderlyingPV = notional.nTokenPresentValueUnderlyingDenominated(currencyId);
+  let totalSupply = notional
+    .getNTokenAccount(Address.fromBytes(nToken.tokenAddress))
+    .getTotalSupply();
+  let nTokenRate = nTokenUnderlyingPV.times(RATE_PRECISION).div(totalSupply);
+  updateExchangeRate(nTokenExchangeRate, nTokenRate, block, txnHash);
 }
 
 export function registerChainlinkOracle(
@@ -167,7 +228,7 @@ export function registerChainlinkOracle(
   oracle.mustInvert = mustInvert;
   oracle.lastUpdateBlockNumber = event.block.number.toI32();
   oracle.lastUpdateTimestamp = event.block.timestamp.toI32();
-  oracle.lastUpdateTransactionHash = event.transaction.hash;
+  oracle.lastUpdateTransaction = event.transaction.hash.toHexString();
 
   if (oracleAddress == ZERO_ADDRESS) {
     // Set the ETH rate oracle just once to its own hardcoded rate of 1
@@ -248,7 +309,7 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
     pCashExchangeRate,
     factors.supplyScalar.times(factors.underlyingScalar),
     event.block,
-    event.transaction.hash
+    event.transaction.hash.toHexString()
   );
 
   // Supply Scalar
@@ -264,7 +325,7 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
     pCashMoneyMarketExchangeRate,
     factors.supplyScalar,
     event.block,
-    event.transaction.hash
+    event.transaction.hash.toHexString()
   );
 
   // Underlying Scalar
@@ -276,7 +337,7 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
     moneyMarketExchangeRate,
     factors.underlyingScalar,
     event.block,
-    event.transaction.hash
+    event.transaction.hash.toHexString()
   );
 
   // Oracle Rate
@@ -288,7 +349,7 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
     pCashSupplyRate,
     factors.oracleSupplyRate,
     event.block,
-    event.transaction.hash
+    event.transaction.hash.toHexString()
   );
 
   let pDebtAddress = notional.pDebtAddress(event.params.currencyId);
@@ -304,7 +365,7 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
       pDebtExchangeRate,
       factors.debtScalar.times(factors.underlyingScalar),
       event.block,
-      event.transaction.hash
+      event.transaction.hash.toHexString()
     );
 
     // Debt Scalar
@@ -320,7 +381,7 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
       pDebtMoneyMarketExchangeRate,
       factors.debtScalar,
       event.block,
-      event.transaction.hash
+      event.transaction.hash.toHexString()
     );
   }
 }
@@ -344,7 +405,7 @@ export function handleRebalance(event: CurrencyRebalanced): void {
     moneyMarketSupplyRate,
     event.params.annualizedInterestRate,
     event.block,
-    event.transaction.hash
+    event.transaction.hash.toHexString()
   );
 }
 
@@ -372,7 +433,7 @@ export function handleSettlementRate(event: SetPrimeSettlementRate): void {
   posOracle.latestRate = event.params.supplyFactor;
   posOracle.lastUpdateBlockNumber = event.block.number.toI32();
   posOracle.lastUpdateTimestamp = event.block.timestamp.toI32();
-  posOracle.lastUpdateTransactionHash = event.transaction.hash;
+  posOracle.lastUpdateTransaction = event.transaction.hash.toHexString();
   posOracle.save();
 
   let base = getUnderlying(event.params.currencyId.toI32());
@@ -382,7 +443,7 @@ export function handleSettlementRate(event: SetPrimeSettlementRate): void {
   fCashOracle.latestRate = BigInt.fromI32(0);
   fCashOracle.lastUpdateBlockNumber = event.block.number.toI32();
   fCashOracle.lastUpdateTimestamp = event.block.timestamp.toI32();
-  fCashOracle.lastUpdateTransactionHash = event.transaction.hash;
+  fCashOracle.lastUpdateTransaction = event.transaction.hash.toHexString();
   fCashOracle.save();
 
   // This is the conversion for negative fCash to negative prime debt
@@ -409,7 +470,7 @@ export function handleSettlementRate(event: SetPrimeSettlementRate): void {
     negOracle.latestRate = event.params.debtFactor;
     negOracle.lastUpdateBlockNumber = event.block.number.toI32();
     negOracle.lastUpdateTimestamp = event.block.timestamp.toI32();
-    negOracle.lastUpdateTransactionHash = event.transaction.hash;
+    negOracle.lastUpdateTransaction = event.transaction.hash.toHexString();
     negOracle.save();
   }
 }
@@ -434,6 +495,6 @@ export function handleBlockOracleUpdate(block: ethereum.Block): void {
   }
 
   for (let i = 0; i < registry.fCashEnabled.length; i++) {
-    updatefCashOracles(registry.fCashEnabled[i], block);
+    updatefCashOraclesAndMarkets(registry.fCashEnabled[i], block, null);
   }
 }

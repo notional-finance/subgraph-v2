@@ -166,6 +166,8 @@ enum OracleType {
   Chainlink,
   fCashOracleRate,
   fCashSettlementRate,
+  fCashToUnderlyingExchangeRate,
+  fCashSpotRate,
   PrimeCashToUnderlyingOracleInterestRate,
   MoneyMarketToUnderlyingOracleInterestRate,
   PrimeCashToUnderlyingExchangeRate,
@@ -174,6 +176,7 @@ enum OracleType {
   PrimeDebtToMoneyMarketExchangeRate,
   MoneyMarketToUnderlyingExchangeRate
   VaultShareOracleRate,
+  nTokenToUnderlyingExchangeRate,
 }
 
 type OracleRegistry @entity {
@@ -196,7 +199,7 @@ type Oracle @entity {
   lastUpdateBlockNumber: Int!
   lastUpdateTimestamp: Int!
   "Some oracles are updated via block handlers and do not have a txn hash for updates"
-  lastUpdateTransactionHash: Bytes
+  lastUpdateTransaction: Transaction
 
   base: Token!
   quote: Token!
@@ -211,13 +214,14 @@ type Oracle @entity {
 }
 
 type ExchangeRate @entity(immutable: true) {
-  "External Oracle ID:Block Number:Transaction Index"
+  "External Oracle ID:Block Number:Transaction Hash"
   id: ID!
   blockNumber: Int!
   timestamp: Int!
-  rate: BigInt!
-
+  transaction: Transaction
   oracle: Oracle!
+
+  rate: BigInt!
 }
 
 ### Configuration ###

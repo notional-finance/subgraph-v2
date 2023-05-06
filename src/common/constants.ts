@@ -19,6 +19,8 @@ export const SCALAR_PRECISION = BigInt.fromI32(10).pow(18);
 export const DOUBLE_SCALAR_DECIMALS = 18;
 export const DOUBLE_SCALAR_PRECISION = BigInt.fromI32(10).pow(36);
 
+export const SECONDS_IN_YEAR = BigInt.fromI32(360 * 86400);
+
 // Refresh the oracle every hour
 export const ORACLE_REFRESH_SECONDS = 360;
 
@@ -58,6 +60,8 @@ export const Transfer = "Transfer";
 // Oracle Type
 export const Chainlink = "Chainlink";
 export const fCashOracleRate = "fCashOracleRate";
+export const fCashToUnderlyingExchangeRate = "fCashOracleRate";
+export const fCashSpotRate = "fCashSpotRate";
 export const fCashSettlementRate = "fCashSettlementRate";
 export const PrimeCashToUnderlyingOracleInterestRate = "PrimeCashToUnderlyingOracleInterestRate";
 export const MoneyMarketToUnderlyingOracleInterestRate =
@@ -68,6 +72,7 @@ export const PrimeDebtToUnderlyingExchangeRate = "PrimeDebtToUnderlyingExchangeR
 export const PrimeDebtToMoneyMarketExchangeRate = "PrimeDebtToMoneyMarketExchangeRate";
 export const MoneyMarketToUnderlyingExchangeRate = "MoneyMarketToUnderlyingExchangeRate";
 export const VaultShareOracleRate = "VaultShareOracleRate";
+export const nTokenToUnderlyingExchangeRate = "nTokenToUnderlyingExchangeRate";
 
 // Whitelisted Capability
 export const GlobalTransferOperator = "GlobalTransferOperator";

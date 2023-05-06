@@ -20,7 +20,8 @@ import {
   Transfer as _Transfer,
 } from "./common/constants";
 import { getAccount, getAsset, getIncentives, getNotional } from "./common/entities";
-import { updatefCashMarket, updatePrimeCashMarket } from "./common/market";
+import { updatePrimeCashMarket } from "./common/market";
+import { updatefCashOraclesAndMarkets } from "./exchange_rates";
 
 function getBalance(account: Account, token: Token, event: ethereum.Event): Balance {
   let id = account.id + ":" + token.id;
@@ -191,9 +192,8 @@ function updateNToken(
       nTokenAddress,
       BigInt.fromUnsignedBytes(Bytes.fromHexString(token.id).reverse() as ByteArray)
     );
-    updatefCashMarket(
-      token.currencyId,
-      token.maturity,
+    updatefCashOraclesAndMarkets(
+      token.underlying as string,
       event.block,
       event.transaction.hash.toHexString()
     );

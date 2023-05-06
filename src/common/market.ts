@@ -157,8 +157,6 @@ function updatefCashMarketWithSnapshot(
   );
   snapshot.save();
 
-  // TODO: update the fCash spot rate oracle in here....
-
   market.current = snapshot.id;
   market.save();
 
