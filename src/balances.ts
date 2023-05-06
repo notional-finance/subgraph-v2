@@ -1,4 +1,4 @@
-import { Address, ethereum, log, store, BigInt, Bytes } from "@graphprotocol/graph-ts";
+import { Address, ethereum, log, store, BigInt, Bytes, ByteArray } from "@graphprotocol/graph-ts";
 import { Account, Token, Balance, Transfer } from "../generated/schema";
 import { ERC20 } from "../generated/templates/ERC20Proxy/ERC20";
 import { ERC4626 } from "../generated/Transactions/ERC4626";
@@ -186,7 +186,10 @@ function updateNToken(
   let nTokenAddress = Address.fromBytes(Address.fromHexString(nTokenAccount.id));
 
   if (token.tokenType == fCash) {
-    balance.balance = notional.balanceOf(nTokenAddress, BigInt.fromString(token.id));
+    balance.balance = notional.balanceOf(
+      nTokenAddress,
+      BigInt.fromUnsignedBytes(Bytes.fromHexString(token.id).reverse() as ByteArray)
+    );
     updateMarket(token.currencyId, token.maturity, event);
   } else if (token.tokenType == PrimeCash) {
     let acct = notional.getNTokenAccount(nTokenAddress);
@@ -250,7 +253,10 @@ function updateAccount(token: Token, account: Account, balance: Balance): void {
   if (token.tokenInterface == "ERC1155") {
     // Use the ERC1155 balance of selector which gets the balance directly for fCash
     // and vault assets
-    balance.balance = notional.balanceOf(accountAddress, BigInt.fromString(token.id));
+    balance.balance = notional.balanceOf(
+      accountAddress,
+      BigInt.fromUnsignedBytes(Bytes.fromHexString(token.id).reverse() as ByteArray)
+    );
   } else {
     let erc20 = ERC20.bind(Address.fromBytes(token.tokenAddress as Bytes));
     balance.balance = erc20.balanceOf(accountAddress);

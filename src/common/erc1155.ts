@@ -74,9 +74,17 @@ export function getOrCreateERC1155Asset(
     return getAsset(nTokenAddress.toHexString());
   }
 
-  let token = Token.load(erc1155ID.toHexString());
+  // Pad the ids to 256 bit hex strings
+  let id =
+    "0x" +
+    erc1155ID
+      .toHexString()
+      .slice(2)
+      .padStart(64, "0");
+
+  let token = Token.load(id);
   if (token == null) {
-    token = new Token(erc1155ID.toHexString());
+    token = new Token(id);
     token.tokenInterface = "ERC1155";
     token.underlying = getUnderlying(decodedId.getCurrencyId()).id;
     token.currencyId = decodedId.getCurrencyId();
