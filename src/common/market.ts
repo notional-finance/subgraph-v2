@@ -12,7 +12,7 @@ function getCurrentSettlementDate(blockTime: BigInt): i32 {
 }
 
 function getMarketIndex(maturity: i32, settlementDate: i32): i32 {
-  let timeToMaturity = maturity - settlementDate - QUARTER;
+  let timeToMaturity = maturity - settlementDate + QUARTER;
 
   if (timeToMaturity == QUARTER) return 1;
   if (timeToMaturity == 2 * QUARTER) return 2;
@@ -83,6 +83,8 @@ function updateMarketWithSnapshot(
   snapshot.oracleRate = marketData.oracleRate.toI32();
   snapshot.previousTradeTime = marketData.previousTradeTime.toI32();
   snapshot.save();
+
+  // TODO: update the fCash spot rate oracle in here....
 
   market.current = snapshot.id;
   market.save();
