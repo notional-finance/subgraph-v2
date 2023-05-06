@@ -6,13 +6,17 @@ export const SETTLEMENT_RESERVE = Address.fromHexString(
   "0x00000000000000000000000000000000000005e7"
 );
 export const PRIME_CASH_VAULT_MATURITY = 2 ** 40 - 1;
+export const INTERNAL_TOKEN_DECIMALS = 8;
 export const INTERNAL_TOKEN_PRECISION = BigInt.fromI32(10).pow(8);
 export const USD_ASSET_ID = "0";
 export const ETH_CURRENCY_ID = 1 as i32;
 export const ORACLE_REGISTRY_ID = "0";
+export const RATE_DECIMALS = 9;
 export const RATE_PRECISION = BigInt.fromI32(10).pow(9);
 export const BASIS_POINT = 1e5 as i32;
+export const SCALAR_DECIMALS = 18;
 export const SCALAR_PRECISION = BigInt.fromI32(10).pow(18);
+export const DOUBLE_SCALAR_DECIMALS = 18;
 export const DOUBLE_SCALAR_PRECISION = BigInt.fromI32(10).pow(36);
 
 // Refresh the oracle every hour

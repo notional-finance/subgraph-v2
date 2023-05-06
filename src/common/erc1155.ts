@@ -3,6 +3,7 @@ import { Notional__decodeERC1155IdResult } from "../../generated/Assets/Notional
 import { Token } from "../../generated/schema";
 import {
   fCash,
+  INTERNAL_TOKEN_DECIMALS,
   INTERNAL_TOKEN_PRECISION,
   LEGACY_NTOKEN_ASSET_TYPE_ID,
   PRIME_CASH_VAULT_MATURITY,
@@ -87,6 +88,7 @@ export function getOrCreateERC1155Asset(
 
     // Initialize this at zero
     token.totalSupply = BigInt.zero();
+    token.decimals = INTERNAL_TOKEN_DECIMALS;
     token.precision = INTERNAL_TOKEN_PRECISION;
     token.tokenAddress = notional._address;
     token.hasTransferFee = false;

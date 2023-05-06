@@ -12,6 +12,7 @@ import { Aggregator } from "../generated/ExchangeRates/Aggregator";
 import { Token, ExchangeRate, Oracle } from "../generated/schema";
 import {
   Chainlink,
+  DOUBLE_SCALAR_DECIMALS,
   DOUBLE_SCALAR_PRECISION,
   fCashOracleRate,
   fCashSettlementRate,
@@ -25,7 +26,9 @@ import {
   PrimeCashToUnderlyingOracleInterestRate,
   PrimeDebtToMoneyMarketExchangeRate,
   PrimeDebtToUnderlyingExchangeRate,
+  RATE_DECIMALS,
   RATE_PRECISION,
+  SCALAR_DECIMALS,
   SCALAR_PRECISION,
   VaultShareOracleRate,
   VAULT_SHARE_ASSET_TYPE_ID,
@@ -104,6 +107,7 @@ export function updateVaultOracles(vaultAddress: Address, block: ethereum.Block)
       let vaultShareAsset = getOrCreateERC1155Asset(vaultShareId, block, null);
       let oracle = getOracle(base, vaultShareAsset, VaultShareOracleRate);
       // These will never change but set them here just in case
+      oracle.decimals = base.decimals;
       oracle.ratePrecision = base.precision;
       oracle.oracleAddress = vaultAddress;
 
@@ -130,6 +134,7 @@ export function updatefCashOracles(underlyingId: string, block: ethereum.Block):
     ) as BigInt;
     let posFCash = getOrCreateERC1155Asset(positivefCashId, block, null);
     let posOracle = getOracle(base, posFCash, fCashOracleRate);
+    posOracle.decimals = RATE_DECIMALS;
     posOracle.ratePrecision = RATE_PRECISION;
     posOracle.oracleAddress = notional._address;
     updateExchangeRate(posOracle, a.oracleRate, block, null);
@@ -143,6 +148,7 @@ export function updatefCashOracles(underlyingId: string, block: ethereum.Block):
     ) as BigInt;
     let negFCash = getOrCreateERC1155Asset(negativefCashId, block, null);
     let negOracle = getOracle(base, negFCash, fCashOracleRate);
+    negOracle.decimals = RATE_DECIMALS;
     negOracle.ratePrecision = RATE_PRECISION;
     negOracle.oracleAddress = notional._address;
     updateExchangeRate(negOracle, a.oracleRate, block, null);
@@ -165,12 +171,14 @@ export function registerChainlinkOracle(
 
   if (oracleAddress == ZERO_ADDRESS) {
     // Set the ETH rate oracle just once to its own hardcoded rate of 1
+    oracle.decimals = 18;
     oracle.ratePrecision = BigInt.fromI32(10).pow(18);
     oracle.latestRate = oracle.ratePrecision;
     oracle.save();
   } else {
     let _oracle = Aggregator.bind(oracleAddress);
     let decimals = _oracle.decimals();
+    oracle.decimals = decimals;
     oracle.ratePrecision = BigInt.fromI32(10).pow(decimals as u8);
 
     // Will call oracle.save inside
@@ -233,6 +241,7 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
 
   // Supply Scalar * Underlying Scalar
   let pCashExchangeRate = getOracle(base, pCashAsset, PrimeCashToUnderlyingExchangeRate);
+  pCashExchangeRate.decimals = DOUBLE_SCALAR_DECIMALS;
   pCashExchangeRate.ratePrecision = DOUBLE_SCALAR_PRECISION;
   pCashExchangeRate.oracleAddress = notional._address;
   updateExchangeRate(
@@ -248,6 +257,7 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
     pCashAsset,
     PrimeCashToMoneyMarketExchangeRate
   );
+  pCashMoneyMarketExchangeRate.decimals = SCALAR_DECIMALS;
   pCashMoneyMarketExchangeRate.ratePrecision = SCALAR_PRECISION;
   pCashMoneyMarketExchangeRate.oracleAddress = notional._address;
   updateExchangeRate(
@@ -259,6 +269,7 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
 
   // Underlying Scalar
   let moneyMarketExchangeRate = getOracle(base, pCashAsset, MoneyMarketToUnderlyingExchangeRate);
+  moneyMarketExchangeRate.decimals = SCALAR_DECIMALS;
   moneyMarketExchangeRate.ratePrecision = SCALAR_PRECISION;
   moneyMarketExchangeRate.oracleAddress = notional._address;
   updateExchangeRate(
@@ -270,6 +281,7 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
 
   // Oracle Rate
   let pCashSupplyRate = getOracle(base, pCashAsset, PrimeCashToUnderlyingOracleInterestRate);
+  pCashSupplyRate.decimals = RATE_DECIMALS;
   pCashSupplyRate.ratePrecision = RATE_PRECISION;
   pCashSupplyRate.oracleAddress = notional._address;
   updateExchangeRate(
@@ -285,6 +297,7 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
 
     // Debt Scalar * Underlying Scalar
     let pDebtExchangeRate = getOracle(base, pDebtAsset, PrimeDebtToUnderlyingExchangeRate);
+    pDebtExchangeRate.decimals = DOUBLE_SCALAR_DECIMALS;
     pDebtExchangeRate.ratePrecision = DOUBLE_SCALAR_PRECISION;
     pDebtExchangeRate.oracleAddress = notional._address;
     updateExchangeRate(
@@ -300,6 +313,7 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
       pDebtAsset,
       PrimeDebtToMoneyMarketExchangeRate
     );
+    pDebtMoneyMarketExchangeRate.decimals = SCALAR_DECIMALS;
     pDebtMoneyMarketExchangeRate.ratePrecision = SCALAR_PRECISION;
     pDebtMoneyMarketExchangeRate.oracleAddress = notional._address;
     updateExchangeRate(
@@ -323,6 +337,7 @@ export function handleRebalance(event: CurrencyRebalanced): void {
     pCashAsset,
     MoneyMarketToUnderlyingOracleInterestRate
   );
+  moneyMarketSupplyRate.decimals = RATE_DECIMALS;
   moneyMarketSupplyRate.ratePrecision = RATE_PRECISION;
   moneyMarketSupplyRate.oracleAddress = notional._address;
   updateExchangeRate(
@@ -352,6 +367,7 @@ export function handleSettlementRate(event: SetPrimeSettlementRate): void {
 
   let posOracle = getOracle(pCash, positivefCash, fCashSettlementRate);
   posOracle.oracleAddress == notional._address;
+  posOracle.decimals = DOUBLE_SCALAR_DECIMALS;
   posOracle.ratePrecision = DOUBLE_SCALAR_PRECISION;
   posOracle.latestRate = event.params.supplyFactor;
   posOracle.lastUpdateBlockNumber = event.block.number.toI32();
@@ -388,6 +404,7 @@ export function handleSettlementRate(event: SetPrimeSettlementRate): void {
     );
     let negOracle = getOracle(pDebt, negativefCash, fCashSettlementRate);
     negOracle.oracleAddress = notional._address;
+    negOracle.decimals = DOUBLE_SCALAR_DECIMALS;
     negOracle.ratePrecision = DOUBLE_SCALAR_PRECISION;
     negOracle.latestRate = event.params.debtFactor;
     negOracle.lastUpdateBlockNumber = event.block.number.toI32();

@@ -70,6 +70,7 @@ export function createERC20TokenAsset(
   if (tokenAddress == ZERO_ADDRESS) {
     token.name = "Ether";
     token.symbol = "ETH";
+    token.decimals = 18;
     token.precision = BigInt.fromI32(10).pow(18);
   } else {
     let erc20 = ERC20.bind(tokenAddress);
@@ -77,6 +78,7 @@ export function createERC20TokenAsset(
     let decimals = erc20.decimals();
     token.name = symbolAndName[0];
     token.symbol = symbolAndName[1];
+    token.decimals = decimals;
     token.precision = BigInt.fromI32(10).pow(decimals as u8);
   }
 
