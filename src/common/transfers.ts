@@ -1,4 +1,4 @@
-import { Address, ethereum, BigInt, log, Bytes } from "@graphprotocol/graph-ts";
+import { Address, ethereum, BigInt, log, Bytes, store } from "@graphprotocol/graph-ts";
 import { Token, Transfer } from "../../generated/schema";
 import { IStrategyVault } from "../../generated/Transactions/IStrategyVault";
 import { ERC4626 } from "../../generated/Transactions/ERC4626";
@@ -166,15 +166,19 @@ export function scanTransferBundle(
       bundle.startLogIndex = startLogIndex;
       bundle.endLogIndex = endLogIndex;
 
+      let bundleTransfers = new Array<string>();
       for (let i = windowStartIndex; i <= windowEndIndex; i++) {
         // Update the bundle id on all the transfers
-        let transfer = window[i];
-        transfer.bundle = bundle.id;
-        transfer.save();
+        bundleTransfers.push(window[i].id);
       }
 
-      if (criteria.rewrite) bundleArray.pop();
+      if (criteria.rewrite) {
+        let oldBundle = bundleArray.pop();
+        if (oldBundle) store.remove("TransferBundle", oldBundle);
+      }
+
       bundleArray.push(bundle.id);
+      bundle.transfers = bundleTransfers;
       bundle.save();
 
       // Marks the next start index in the transaction level transfer array

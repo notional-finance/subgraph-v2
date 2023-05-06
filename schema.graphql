@@ -82,7 +82,7 @@ type Token @entity {
   activeMarkets: ActiveMarkets @derivedFrom(field: "underlying")
 }
 
-type Transfer @entity {
+type Transfer @entity(immutable: true) {
   "Transaction Hash:Log Index"
   id: ID!
   blockNumber: Int!
@@ -109,12 +109,9 @@ type Transfer @entity {
   underlying: Token!
   "Only set for some transfer types"
   maturity: Int
-
-  "Link to the transfer bundle this sits in"
-  bundle: TransferBundle
 }
 
-type TransferBundle @entity {
+type TransferBundle @entity(immutable: true) {
   "Transaction Hash:Start Log Index:End Log Index:Bundle Name"
   id: ID!
   blockNumber: Int!
@@ -124,10 +121,10 @@ type TransferBundle @entity {
   bundleName: String!
   startLogIndex: Int!
   endLogIndex: Int!
-  transfers: [Transfer!] @derivedFrom(field: "bundle")
+  transfers: [Transfer!]!
 }
 
-type Transaction @entity {
+type Transaction @entity(immutable: true) {
   "Transaction Hash"
   id: ID!
   blockNumber: Int!
