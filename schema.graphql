@@ -210,7 +210,7 @@ type Oracle @entity {
   historicalRates: [ExchangeRate!] @derivedFrom(field: "oracle")
 }
 
-type ExchangeRate @entity {
+type ExchangeRate @entity(immutable: true) {
   "External Oracle ID:Block Number:Transaction Index"
   id: ID!
   blockNumber: Int!
@@ -423,23 +423,75 @@ type Balance @entity {
 type ActiveMarkets @entity {
   "Currency ID"
   id: ID!
-  underlying: Token!
   lastUpdateBlockNumber: Int!
   lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
+  lastUpdateTransaction: Transaction
   
-  markets: [Market!]!
+  underlying: Token!
+  pCashMarket: PrimeCashMarket!
+  fCashMarkets: [fCashMarket!]!
 }
 
-type Market @entity {
+type PrimeCashMarket @entity {
+  "Currency ID"
+  id: ID!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransaction: Transaction
+
+  "Currency of this market"
+  underlying: Token!
+  "Prime Cash token for this market"
+  primeCash: Token!
+  "Prime Debt token for this market"
+  primeDebt: Token
+
+  current: PrimeCashMarketSnapshot!
+  snapshots: [PrimeCashMarketSnapshot!] @derivedFrom(field: "market")
+}
+
+type PrimeCashMarketSnapshot @entity(immutable: true) {
+  "Currency ID:Block Number:Transaction Hash"
+  id: ID!
+  blockNumber: Int!
+  timestamp: Int!
+  transaction: Transaction
+
+  market: PrimeCashMarket!
+
+  "Total Prime Cash Supply"
+  totalPrimeCash: BigInt!
+  "Total Prime Debt"
+  totalPrimeDebt: BigInt!
+  "Total underlying held by the contract"
+  totalUnderlyingHeld: BigInt!
+  "Total prime cash converted to underlying"
+  totalPrimeCashInUnderlying: BigInt
+  "Total prime debt converted to underlying"
+  totalPrimeDebtInUnderlying: BigInt
+  "Snapshot value of the supply scalar"
+  supplyScalar: BigInt!
+  "Snapshot value of the debt scalar"
+  debtScalar: BigInt!
+  "Snapshot value of the underlying scalar"
+  underlyingScalar: BigInt!
+  "Spot prime cash interest rate"
+  supplyInterestRate: Int
+  "Spot prime debt interest rate"
+  debtInterestRate: Int
+}
+
+type fCashMarket @entity {
   "Currency Id:Settlement Date:Maturity combination"
   id: ID!
   lastUpdateBlockNumber: Int!
   lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
+  lastUpdateTransaction: Transaction
 
   "Currency of this market"
   underlying: Token!
+  "fCash token traded by this market"
+  fCash: Token!
   "Date that fCash from this market will mature"
   maturity: Int!
   "Date that this market will settle"
@@ -449,21 +501,22 @@ type Market @entity {
   "Length of market maturity in seconds"
   marketMaturityLengthSeconds: Int!
 
-  current: MarketSnapshot!
-  snapshots: [MarketSnapshot!] @derivedFrom(field: "market")
+  current: fCashMarketSnapshot!
+  snapshots: [fCashMarketSnapshot!] @derivedFrom(field: "market")
 }
 
-type MarketSnapshot @entity {
-  "Market ID:Transaction Hash"
+type fCashMarketSnapshot @entity(immutable: true) {
+  "Market ID:Block Number"
   id: ID!
-  market: Market!
   blockNumber: Int!
   timestamp: Int!
-  transactionHash: Bytes!
+  transaction: Transaction
+
+  market: fCashMarket!
 
   "Total fCash available in the market"
   totalfCash: BigInt!
-  "Total token cash available in the market"
+  "Total prime cash available in the market"
   totalPrimeCash: BigInt!
   "Total liquidity tokens available in the market"
   totalLiquidity: BigInt!
@@ -473,6 +526,16 @@ type MarketSnapshot @entity {
   oracleRate: Int!
   "Last time when a trade occurred on the market"
   previousTradeTime: Int!
+
+  "Total prime cash converted to underlying in the market"
+  totalPrimeCashInUnderlying: BigInt
+  "Total fCash converted to present value in the market"
+  totalfCashPresentValue: BigInt
+
+  "Total fCash debt outstanding for the given fCash asset"
+  totalfCashDebtOutstanding: BigInt!
+  "Total fCash debt outstanding in present value terms for the given fCash asset"
+  totalfCashDebtOutstandingPresentValue: BigInt
 }
 
 ### Treasury ###

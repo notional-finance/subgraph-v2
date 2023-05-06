@@ -380,7 +380,7 @@ export function handleMarketsInitialized(event: MarketsInitialized): void {
   configuration.save();
 
   // Updates and sets the currently active markets
-  setActiveMarkets(event.params.currencyId, event);
+  setActiveMarkets(event.params.currencyId, event.block, event.transaction.hash.toHexString());
 }
 
 export function handleUpdateIncentiveEmissionRate(event: UpdateIncentiveEmissionRate): void {

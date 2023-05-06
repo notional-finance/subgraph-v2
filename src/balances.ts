@@ -20,7 +20,7 @@ import {
   Transfer as _Transfer,
 } from "./common/constants";
 import { getAccount, getAsset, getIncentives, getNotional } from "./common/entities";
-import { updateMarket } from "./common/market";
+import { updatefCashMarket, updatePrimeCashMarket } from "./common/market";
 
 function getBalance(account: Account, token: Token, event: ethereum.Event): Balance {
   let id = account.id + ":" + token.id;
@@ -152,6 +152,7 @@ export function updateBalance(token: Token, transfer: Transfer, event: ethereum.
   // Update the total supply figures on the assets first.
   if (token.tokenType == PrimeCash || token.tokenType == PrimeDebt || token.tokenType == nToken) {
     updateERC20ProxyTotalSupply(token);
+    updatePrimeCashMarket(token.currencyId, event.block, event.transaction.hash.toHexString());
   } else if (token.tokenType == fCash) {
     updatefCashTotalDebtOutstanding(token);
   } else if (
@@ -190,7 +191,12 @@ function updateNToken(
       nTokenAddress,
       BigInt.fromUnsignedBytes(Bytes.fromHexString(token.id).reverse() as ByteArray)
     );
-    updateMarket(token.currencyId, token.maturity, event);
+    updatefCashMarket(
+      token.currencyId,
+      token.maturity,
+      event.block,
+      event.transaction.hash.toHexString()
+    );
   } else if (token.tokenType == PrimeCash) {
     let acct = notional.getNTokenAccount(nTokenAddress);
     balance.balance = acct.getCashBalance();

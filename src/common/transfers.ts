@@ -4,6 +4,7 @@ import { IStrategyVault } from "../../generated/Transactions/IStrategyVault";
 import { ERC4626 } from "../../generated/Transactions/ERC4626";
 import {
   fCash,
+  INTERNAL_TOKEN_PRECISION,
   NOTE,
   nToken,
   PrimeCash,
@@ -14,7 +15,13 @@ import {
   VaultShare,
   ZERO_ADDRESS,
 } from "./constants";
-import { createTransferBundle, getAccount, getNotional, getTransaction } from "./entities";
+import {
+  createTransferBundle,
+  getAccount,
+  getNotional,
+  getTransaction,
+  getUnderlying,
+} from "./entities";
 import { BundleCriteria } from "./bundles";
 
 export function decodeTransferType(from: Address, to: Address): string {
@@ -80,6 +87,12 @@ export function convertValueToUnderlying(
         false
       );
     }
+
+    if (!underlyingExternal.reverted) {
+      // Scale to external decimals
+      let underlying = getUnderlying(currencyId);
+      return underlyingExternal.value.times(underlying.precision).div(INTERNAL_TOKEN_PRECISION);
+    }
   } else if (token.tokenType == VaultShare) {
     let vault = IStrategyVault.bind(Address.fromBytes(token.vaultAddress as Bytes));
     underlyingExternal = vault.try_convertStrategyToUnderlying(
@@ -87,6 +100,12 @@ export function convertValueToUnderlying(
       value,
       BigInt.fromI32(token.maturity)
     );
+
+    if (!underlyingExternal.reverted) {
+      // Scale to external decimals
+      let underlying = getUnderlying(currencyId);
+      return underlyingExternal.value.times(underlying.precision).div(INTERNAL_TOKEN_PRECISION);
+    }
   } else {
     // Unknown token type
     return null;

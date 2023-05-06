@@ -1,7 +1,16 @@
-import { BigInt, ethereum } from "@graphprotocol/graph-ts";
+import { BigInt, ByteArray, Bytes, ethereum } from "@graphprotocol/graph-ts";
 import { Notional__getActiveMarketsResultValue0Struct } from "../../generated/Assets/Notional";
-import { ActiveMarkets, Market, MarketSnapshot } from "../../generated/schema";
-import { getNotional, getUnderlying } from "./entities";
+import {
+  ActiveMarkets,
+  fCashMarket,
+  fCashMarketSnapshot,
+  PrimeCashMarket,
+  PrimeCashMarketSnapshot,
+} from "../../generated/schema";
+import { FCASH_ASSET_TYPE_ID } from "./constants";
+import { getAsset, getNotional, getUnderlying } from "./entities";
+import { getOrCreateERC1155Asset } from "./erc1155";
+import { convertValueToUnderlying } from "./transfers";
 
 const DAY = 86400;
 const QUARTER = DAY * 90;
@@ -41,47 +50,111 @@ function getMarketMaturityLengthSeconds(maxMarketIndex: i32): i32 {
   return 0;
 }
 
-function getMarket(
+function getfCashMarket(
   currencyId: i32,
   settlementDate: i32,
   maturity: i32,
-  event: ethereum.Event
-): Market {
+  block: ethereum.Block,
+  txnHash: string | null
+): fCashMarket {
   let id = currencyId.toString() + ":" + settlementDate.toString() + ":" + maturity.toString();
-  let market = Market.load(id);
+  let market = fCashMarket.load(id);
   if (market == null) {
-    market = new Market(id);
+    market = new fCashMarket(id);
     market.underlying = getUnderlying(currencyId).id;
     market.maturity = maturity;
     market.settlementDate = settlementDate;
     market.marketIndex = getMarketIndex(maturity, settlementDate);
     market.marketMaturityLengthSeconds = getMarketMaturityLengthSeconds(market.marketIndex);
+
+    let notional = getNotional();
+    let fCashID = notional.encodeToId(
+      currencyId,
+      BigInt.fromI32(maturity),
+      FCASH_ASSET_TYPE_ID.toI32()
+    );
+    let _txnHash: Bytes | null = null;
+    if (txnHash !== null) _txnHash = ByteArray.fromHexString(txnHash) as Bytes;
+    market.fCash = getOrCreateERC1155Asset(fCashID, block, _txnHash).id;
   }
 
-  market.lastUpdateBlockNumber = event.block.number.toI32();
-  market.lastUpdateTimestamp = event.block.timestamp.toI32();
-  market.lastUpdateTransactionHash = event.transaction.hash;
+  market.lastUpdateBlockNumber = block.number.toI32();
+  market.lastUpdateTimestamp = block.timestamp.toI32();
+  market.lastUpdateTransaction = txnHash;
   return market;
 }
 
-function updateMarketWithSnapshot(
+function getPrimeCashMarket(
   currencyId: i32,
-  event: ethereum.Event,
+  block: ethereum.Block,
+  txnHash: string | null
+): PrimeCashMarket {
+  let id = currencyId.toString();
+  let market = PrimeCashMarket.load(id);
+  if (market == null) {
+    market = new PrimeCashMarket(id);
+    let notional = getNotional();
+    market.underlying = getUnderlying(currencyId).id;
+    market.primeCash = notional.pCashAddress(currencyId).toHexString();
+    market.primeDebt = notional.pDebtAddress(currencyId).toHexString();
+  }
+
+  market.lastUpdateBlockNumber = block.number.toI32();
+  market.lastUpdateTimestamp = block.timestamp.toI32();
+  market.lastUpdateTransaction = txnHash;
+  return market;
+}
+
+function updatefCashMarketWithSnapshot(
+  currencyId: i32,
+  block: ethereum.Block,
+  txnHash: string | null,
   marketData: Notional__getActiveMarketsResultValue0Struct
 ): string {
-  let settlementDate = getCurrentSettlementDate(event.block.timestamp);
-  let market = getMarket(currencyId, settlementDate, marketData.maturity.toI32(), event);
-  let snapshot = new MarketSnapshot(market.id + ":" + event.transaction.hash.toHexString());
+  let settlementDate = getCurrentSettlementDate(block.timestamp);
+  let market = getfCashMarket(
+    currencyId,
+    settlementDate,
+    marketData.maturity.toI32(),
+    block,
+    txnHash
+  );
+
+  let snapshot = new fCashMarketSnapshot(market.id + ":" + block.number.toString());
   snapshot.market = market.id;
-  snapshot.blockNumber = event.block.number.toI32();
-  snapshot.timestamp = event.block.timestamp.toI32();
-  snapshot.transactionHash = event.transaction.hash;
+  snapshot.blockNumber = block.number.toI32();
+  snapshot.timestamp = block.timestamp.toI32();
+  snapshot.transaction = txnHash;
+
   snapshot.totalfCash = marketData.totalfCash;
   snapshot.totalPrimeCash = marketData.totalPrimeCash;
   snapshot.totalLiquidity = marketData.totalLiquidity;
   snapshot.lastImpliedRate = marketData.lastImpliedRate.toI32();
   snapshot.oracleRate = marketData.oracleRate.toI32();
   snapshot.previousTradeTime = marketData.previousTradeTime.toI32();
+
+  let notional = getNotional();
+  let pCashToken = getAsset(notional.pCashAddress(currencyId).toHexString());
+  let fCashToken = getAsset(market.fCash);
+  snapshot.totalPrimeCashInUnderlying = convertValueToUnderlying(
+    snapshot.totalPrimeCash,
+    pCashToken,
+    block.timestamp
+  );
+  snapshot.totalfCashPresentValue = convertValueToUnderlying(
+    snapshot.totalfCash,
+    fCashToken,
+    block.timestamp
+  );
+  snapshot.totalfCashDebtOutstanding = notional.getTotalfCashDebtOutstanding(
+    currencyId,
+    BigInt.fromI32(market.maturity)
+  );
+  snapshot.totalfCashDebtOutstandingPresentValue = convertValueToUnderlying(
+    snapshot.totalfCashDebtOutstanding,
+    fCashToken,
+    block.timestamp
+  );
   snapshot.save();
 
   // TODO: update the fCash spot rate oracle in here....
@@ -92,36 +165,97 @@ function updateMarketWithSnapshot(
   return market.id;
 }
 
-export function updateMarket(currencyId: i32, maturity: i32, event: ethereum.Event): void {
+export function updatefCashMarket(
+  currencyId: i32,
+  maturity: i32,
+  block: ethereum.Block,
+  txnHash: string | null
+): void {
   let notional = getNotional();
   let activeMarkets = notional.getActiveMarkets(currencyId);
 
   for (let i = 0; i < activeMarkets.length; i++) {
     if (activeMarkets[i].maturity.toI32() == maturity) {
-      updateMarketWithSnapshot(currencyId, event, activeMarkets[i]);
+      updatefCashMarketWithSnapshot(currencyId, block, txnHash, activeMarkets[i]);
     }
   }
 }
 
-export function setActiveMarkets(currencyId: i32, event: ethereum.Event): void {
+export function updatePrimeCashMarket(
+  currencyId: i32,
+  block: ethereum.Block,
+  txnHash: string | null
+): PrimeCashMarket {
+  let pCashMarket = getPrimeCashMarket(currencyId, block, txnHash);
+  let pCashSnapshot = new PrimeCashMarketSnapshot(pCashMarket.id + ":" + block.number.toString());
+  pCashSnapshot.blockNumber = block.number.toI32();
+  pCashSnapshot.timestamp = block.timestamp.toI32();
+  pCashSnapshot.transaction = txnHash;
+  pCashSnapshot.market = pCashMarket.id;
+
+  let notional = getNotional();
+  let factors = notional.getPrimeFactorsStored(currencyId);
+
+  pCashSnapshot.totalPrimeCash = factors.totalPrimeSupply;
+  pCashSnapshot.totalPrimeDebt = factors.totalPrimeDebt;
+  pCashSnapshot.totalUnderlyingHeld = factors.lastTotalUnderlyingValue;
+  pCashSnapshot.supplyScalar = factors.supplyScalar;
+  pCashSnapshot.debtScalar = factors.debtScalar;
+  pCashSnapshot.underlyingScalar = factors.underlyingScalar;
+
+  let pCashToken = getAsset(notional.pCashAddress(currencyId).toHexString());
+  pCashSnapshot.totalPrimeCashInUnderlying = convertValueToUnderlying(
+    factors.totalPrimeSupply,
+    pCashToken,
+    block.timestamp
+  );
+  if (factors.totalPrimeDebt.gt(BigInt.zero())) {
+    let pDebtToken = getAsset(notional.pDebtAddress(currencyId).toHexString());
+    pCashSnapshot.totalPrimeDebtInUnderlying = convertValueToUnderlying(
+      factors.totalPrimeDebt,
+      pDebtToken,
+      block.timestamp
+    );
+  }
+
+  // TODO: this is based on the interest rate curve
+  // pCashSnapshot.supplyInterestRate =
+  // pCashSnapshot.debtInterestRate =
+
+  pCashSnapshot.save();
+
+  pCashMarket.current = pCashSnapshot.id;
+  pCashMarket.save();
+
+  return pCashMarket;
+}
+
+export function setActiveMarkets(
+  currencyId: i32,
+  block: ethereum.Block,
+  txnHash: string | null
+): void {
   let activeMarkets = ActiveMarkets.load(currencyId.toString());
   if (activeMarkets == null) {
     activeMarkets = new ActiveMarkets(currencyId.toString());
     activeMarkets.underlying = currencyId.toString();
   }
 
-  activeMarkets.lastUpdateBlockNumber = event.block.number.toI32();
-  activeMarkets.lastUpdateTimestamp = event.block.timestamp.toI32();
-  activeMarkets.lastUpdateTransactionHash = event.transaction.hash;
+  activeMarkets.lastUpdateBlockNumber = block.number.toI32();
+  activeMarkets.lastUpdateTimestamp = block.timestamp.toI32();
+  activeMarkets.lastUpdateTransaction = txnHash;
 
   let notional = getNotional();
   let _activeMarkets = notional.getActiveMarkets(currencyId);
   let activeMarketIds = new Array<string>();
   for (let i = 0; i < _activeMarkets.length; i++) {
-    let id = updateMarketWithSnapshot(currencyId, event, _activeMarkets[i]);
+    let id = updatefCashMarketWithSnapshot(currencyId, block, txnHash, _activeMarkets[i]);
     activeMarketIds.push(id);
   }
+  activeMarkets.fCashMarkets = activeMarketIds;
 
-  activeMarkets.markets = activeMarketIds;
+  let pCashMarket = updatePrimeCashMarket(currencyId, block, txnHash);
+  activeMarkets.pCashMarket = pCashMarket.id;
+
   activeMarkets.save();
 }
