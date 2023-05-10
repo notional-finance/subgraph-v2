@@ -16,7 +16,7 @@ export const RATE_PRECISION = BigInt.fromI32(10).pow(9);
 export const BASIS_POINT = 1e5 as i32;
 export const SCALAR_DECIMALS = 18;
 export const SCALAR_PRECISION = BigInt.fromI32(10).pow(18);
-export const DOUBLE_SCALAR_DECIMALS = 18;
+export const DOUBLE_SCALAR_DECIMALS = 36;
 export const DOUBLE_SCALAR_PRECISION = BigInt.fromI32(10).pow(36);
 
 export const SECONDS_IN_YEAR = BigInt.fromI32(360 * 86400);

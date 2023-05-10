@@ -1,7 +1,7 @@
-import { BigInt, ByteArray, Bytes, ethereum } from "@graphprotocol/graph-ts";
+import { BigInt, ByteArray, Bytes, ethereum, log } from "@graphprotocol/graph-ts";
 import { Notional__getActiveMarketsResultValue0Struct } from "../../generated/Assets/Notional";
 import {
-  ActiveMarkets,
+  ActiveMarket,
   fCashMarket,
   fCashMarketSnapshot,
   PrimeCashMarket,
@@ -233,9 +233,9 @@ export function setActiveMarkets(
   block: ethereum.Block,
   txnHash: string | null
 ): void {
-  let activeMarkets = ActiveMarkets.load(currencyId.toString());
+  let activeMarkets = ActiveMarket.load(currencyId.toString());
   if (activeMarkets == null) {
-    activeMarkets = new ActiveMarkets(currencyId.toString());
+    activeMarkets = new ActiveMarket(currencyId.toString());
     activeMarkets.underlying = currencyId.toString();
   }
 

@@ -1,4 +1,4 @@
-import { Address, BigInt, ByteArray, Bytes } from "@graphprotocol/graph-ts";
+import { Address, BigInt, ByteArray, Bytes, log } from "@graphprotocol/graph-ts";
 import {
   IncentivesMigrated,
   ListCurrency,
@@ -329,7 +329,7 @@ export function handleUpdateInterestRateCurve(event: UpdateInterestRateCurve): v
 
   let next = fCashCurves.getNextInterestRateCurve();
   let fCashNextCurves = new Array<string>();
-  for (let i = 0; i < fCashNextCurves.length; i++) {
+  for (let i = 0; i < next.length; i++) {
     let curve = getInterestRateCurve(event.params.currencyId, i + 1, false);
     curve.kinkUtilization1 = next[i].kinkUtilization1.toI32();
     curve.kinkUtilization2 = next[i].kinkUtilization2.toI32();
@@ -339,6 +339,7 @@ export function handleUpdateInterestRateCurve(event: UpdateInterestRateCurve): v
     curve.minFeeRate = next[i].minFeeRate.toI32();
     curve.maxFeeRate = next[i].maxFeeRate.toI32();
     curve.feeRatePercent = next[i].feeRatePercent.toI32();
+
     curve.lastUpdateBlockNumber = event.block.number.toI32();
     curve.lastUpdateTimestamp = event.block.timestamp.toI32();
     curve.lastUpdateTransactionHash = event.transaction.hash;
@@ -361,7 +362,7 @@ export function handleMarketsInitialized(event: MarketsInitialized): void {
 
   let active = fCashCurves.getActiveInterestRateCurve();
   let fCashActiveCurves = new Array<string>();
-  for (let i = 0; i < fCashActiveCurves.length; i++) {
+  for (let i = 0; i < active.length; i++) {
     let curve = getInterestRateCurve(event.params.currencyId, i + 1, true);
     curve.kinkUtilization1 = active[i].kinkUtilization1.toI32();
     curve.kinkUtilization2 = active[i].kinkUtilization2.toI32();
@@ -371,6 +372,10 @@ export function handleMarketsInitialized(event: MarketsInitialized): void {
     curve.minFeeRate = active[i].minFeeRate.toI32();
     curve.maxFeeRate = active[i].maxFeeRate.toI32();
     curve.feeRatePercent = active[i].feeRatePercent.toI32();
+
+    curve.lastUpdateBlockNumber = event.block.number.toI32();
+    curve.lastUpdateTimestamp = event.block.timestamp.toI32();
+    curve.lastUpdateTransactionHash = event.transaction.hash;
     curve.save();
 
     fCashActiveCurves.push(curve.id);

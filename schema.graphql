@@ -27,7 +27,9 @@ enum SystemAccount {
 
 enum TokenInterface {
   ERC20,
-  ERC1155
+  ERC1155,
+  "Used to designate off chain fiat currencies like USD, JPY, etc"
+  FIAT
 }
 
 enum TransferType {
@@ -79,7 +81,7 @@ type Token @entity {
   balanceOf: [Balance!] @derivedFrom(field: "token")
   transfers: [Transfer!] @derivedFrom(field: "token")
   oracles: [Oracle!] @derivedFrom(field: "quote")
-  activeMarkets: ActiveMarkets @derivedFrom(field: "underlying")
+  activeMarkets: ActiveMarket @derivedFrom(field: "underlying")
 }
 
 type Transfer @entity(immutable: true) {
@@ -424,7 +426,7 @@ type Balance @entity {
 
 ### Markets ###
 
-type ActiveMarkets @entity {
+type ActiveMarket @entity {
   "Currency ID"
   id: ID!
   lastUpdateBlockNumber: Int!
