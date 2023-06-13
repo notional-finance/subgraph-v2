@@ -53,7 +53,7 @@ const deposit = (w: Transfer[]): boolean => {
     return (
       w[0].transferType == Mint &&
       w[0].tokenType == PrimeCash &&
-      w[0].to != FeeReserve
+      w[0].toSystemAccount != FeeReserve
     )
   } else {
     return !( // not
@@ -80,7 +80,7 @@ const withdraw = (w: Transfer[]): boolean => {
     return (
       w[0].transferType == Burn &&
       w[0].tokenType == PrimeCash &&
-      w[0].to == None
+      w[0].toSystemAccount == None
     )
   } else {
     return !( // not

@@ -545,6 +545,7 @@ export function handleVaultUpdated(event: VaultUpdated): void {
   vault.onlyVaultSettle = checkFlag(flags, 6);
   vault.allowsReentrancy = checkFlag(flags, 7);
   vault.deleverageDisabled = checkFlag(flags, 8);
+  vault.discountfCash = checkFlag(flags, 9);
 
   vault.maxPrimaryBorrowCapacity = event.params.maxPrimaryBorrowCapacity;
   if (vault.get("totalUsedPrimaryBorrowCapacity") == null) {

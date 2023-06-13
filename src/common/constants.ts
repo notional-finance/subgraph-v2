@@ -60,7 +60,7 @@ export const Transfer = "Transfer";
 // Oracle Type
 export const Chainlink = "Chainlink";
 export const fCashOracleRate = "fCashOracleRate";
-export const fCashToUnderlyingExchangeRate = "fCashOracleRate";
+export const fCashToUnderlyingExchangeRate = "fCashToUnderlyingExchangeRate";
 export const fCashSpotRate = "fCashSpotRate";
 export const fCashSettlementRate = "fCashSettlementRate";
 export const PrimeCashToUnderlyingOracleInterestRate = "PrimeCashToUnderlyingOracleInterestRate";

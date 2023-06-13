@@ -199,7 +199,13 @@ function updateNToken(
     );
   } else if (token.tokenType == PrimeCash) {
     let acct = notional.getNTokenAccount(nTokenAddress);
-    balance.balance = acct.getCashBalance();
+    let markets = notional.getActiveMarkets(token.currencyId);
+
+    // Total Cash is all cash in markets plus the cash balance held
+    let totalCash = markets.reduce((t, m) => {
+      return t.plus(m.totalPrimeCash);
+    }, acct.getCashBalance());
+    balance.balance = totalCash;
   }
   _saveBalance(balance);
 }
