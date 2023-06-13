@@ -146,10 +146,9 @@ function updatefCashMarketWithSnapshot(
     fCashToken,
     block.timestamp
   );
-  snapshot.totalfCashDebtOutstanding = notional.getTotalfCashDebtOutstanding(
-    currencyId,
-    BigInt.fromI32(market.maturity)
-  );
+  snapshot.totalfCashDebtOutstanding = notional
+    .getTotalfCashDebtOutstanding(currencyId, BigInt.fromI32(market.maturity))
+    .getTotalfCashDebt();
   snapshot.totalfCashDebtOutstandingPresentValue = convertValueToUnderlying(
     snapshot.totalfCashDebtOutstanding,
     fCashToken,

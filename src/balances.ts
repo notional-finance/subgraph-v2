@@ -122,10 +122,9 @@ function updateVaultAssetTotalSupply(
 
 function updatefCashTotalDebtOutstanding(token: Token): void {
   let notional = getNotional();
-  let totalDebt = notional.getTotalfCashDebtOutstanding(
-    token.currencyId,
-    BigInt.fromI32(token.maturity)
-  );
+  let totalDebt = notional
+    .getTotalfCashDebtOutstanding(token.currencyId, BigInt.fromI32(token.maturity))
+    .getTotalfCashDebt();
   // Total debt is returned as a negative number.
   token.totalSupply = totalDebt.neg();
   token.save();

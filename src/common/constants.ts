@@ -64,8 +64,8 @@ export const fCashToUnderlyingExchangeRate = "fCashToUnderlyingExchangeRate";
 export const fCashSpotRate = "fCashSpotRate";
 export const fCashSettlementRate = "fCashSettlementRate";
 export const PrimeCashToUnderlyingOracleInterestRate = "PrimeCashToUnderlyingOracleInterestRate";
-export const MoneyMarketToUnderlyingOracleInterestRate =
-  "MoneyMarketToUnderlyingOracleInterestRate";
+export const PrimeCashSpotInterestRate = "PrimeCashSpotInterestRate";
+export const PrimeDebtSpotInterestRate = "PrimeDebtSpotInterestRate";
 export const PrimeCashToUnderlyingExchangeRate = "PrimeCashToUnderlyingExchangeRate";
 export const PrimeCashToMoneyMarketExchangeRate = "PrimeCashToMoneyMarketExchangeRate";
 export const PrimeDebtToUnderlyingExchangeRate = "PrimeDebtToUnderlyingExchangeRate";
