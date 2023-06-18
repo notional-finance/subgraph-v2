@@ -124,6 +124,8 @@ dataSources:
           file: ./abi/Notional.json
         - name: PrimeCashHoldingsOracle
           file: ./abi/PrimeCashHoldingsOracle.json
+        - name: IStrategyVault
+          file: ./abi/IStrategyVault.json
       eventHandlers:
         - event: ListCurrency(uint16)
           handler: handleListCurrency

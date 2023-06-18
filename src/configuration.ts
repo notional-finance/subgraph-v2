@@ -27,6 +27,7 @@ import {
   VaultUpdateSecondaryBorrowCapacity,
 } from "../generated/Configuration/Notional";
 import { PrimeCashHoldingsOracle } from "../generated/Configuration/PrimeCashHoldingsOracle";
+import { IStrategyVault } from "../generated/Configuration/IStrategyVault";
 import {
   CurrencyConfiguration,
   InterestRateCurve,
@@ -509,6 +510,10 @@ export function handleVaultUpdated(event: VaultUpdated): void {
   let vault = getVaultConfiguration(event.params.vault);
   let notional = getNotional();
   let vaultConfig = notional.getVaultConfig(event.params.vault);
+
+  let vaultContract = IStrategyVault.bind(event.params.vault);
+  vault.strategy = vaultContract.strategy();
+  vault.name = vaultContract.name();
 
   vault.vaultAddress = event.params.vault;
   vault.primaryBorrowCurrency = vaultConfig.borrowCurrencyId.toString();
