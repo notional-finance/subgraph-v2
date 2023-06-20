@@ -16,7 +16,7 @@ import { getAsset, getNotional, getUnderlying } from "./entities";
 const FCASH_ASSET_TYPE = 1;
 const VAULT_SHARE_ASSET_TYPE = 9;
 const VAULT_DEBT_ASSET_TYPE = 10;
-const VAULT_CASH_ASSET_TYPE = 111;
+const VAULT_CASH_ASSET_TYPE = 11;
 
 function _setAssetType(decodedId: Notional__decodeERC1155IdResult, token: Token): void {
   let tokenType = decodedId.getAssetType().toI32();
@@ -45,16 +45,16 @@ function _setAssetType(decodedId: Notional__decodeERC1155IdResult, token: Token)
   let vaultAddress = decodedId.getVaultAddress().toHexString();
 
   if (tokenType == VAULT_SHARE_ASSET_TYPE) {
-    token.tokenType == VaultShare;
+    token.tokenType = VaultShare;
     token.name =
       "Vault Shares in " + underlyingSymbol + " for " + vaultAddress + vaultMaturityString;
     token.symbol = "vs" + underlyingSymbol + ":" + vaultAddress + vaultMaturitySymbol;
   } else if (tokenType == VAULT_DEBT_ASSET_TYPE) {
-    token.tokenType == VaultDebt;
+    token.tokenType = VaultDebt;
     token.name = "Vault " + underlyingSymbol + " Debt for " + vaultAddress + vaultMaturityString;
     token.symbol = "vd" + underlyingSymbol + ":" + vaultAddress + vaultMaturitySymbol;
   } else if (tokenType == VAULT_CASH_ASSET_TYPE) {
-    token.tokenType == VaultCash;
+    token.tokenType = VaultCash;
     token.name = "Vault " + underlyingSymbol + " Cash for " + vaultAddress + vaultMaturityString;
     token.symbol = "vc" + underlyingSymbol + ":" + vaultAddress + vaultMaturitySymbol;
   }

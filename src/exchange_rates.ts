@@ -156,9 +156,9 @@ export function updatefCashOraclesAndMarkets(
     updateExchangeRate(posSpot, a.lastImpliedRate, block, txnHash);
 
     let posExRate = getOracle(base, posFCash, fCashToUnderlyingExchangeRate);
-    posSpot.decimals = RATE_DECIMALS;
-    posSpot.ratePrecision = RATE_PRECISION;
-    posSpot.oracleAddress = notional._address;
+    posExRate.decimals = RATE_DECIMALS;
+    posExRate.ratePrecision = RATE_PRECISION;
+    posExRate.oracleAddress = notional._address;
     let exchangeRate = BigInt.fromI32(
       Math.floor(
         Math.exp(
