@@ -7,6 +7,7 @@ import {
   INTERNAL_TOKEN_PRECISION,
   LEGACY_NTOKEN_ASSET_TYPE_ID,
   PRIME_CASH_VAULT_MATURITY,
+  PRIME_CASH_VAULT_MATURITY_BIGINT,
   VaultCash,
   VaultDebt,
   VaultShare,
@@ -88,7 +89,9 @@ export function getOrCreateERC1155Asset(
     token.tokenInterface = "ERC1155";
     token.underlying = getUnderlying(decodedId.getCurrencyId()).id;
     token.currencyId = decodedId.getCurrencyId();
-    token.maturity = decodedId.getMaturity().toI32();
+    token.maturity = decodedId.getMaturity().equals(PRIME_CASH_VAULT_MATURITY_BIGINT)
+      ? -1
+      : decodedId.getMaturity().toI32();
     token.vaultAddress = decodedId.getVaultAddress();
     token.isfCashDebt = decodedId.getIsfCashDebt();
     token.totalSupply = BigInt.zero();

@@ -375,7 +375,7 @@ type VaultConfiguration @entity {
   "Only the vault can settle"
   onlyVaultSettle: Boolean!
   "fCash discounting is enabled on the vault"
-  discountfCash: Boolean!
+  discountfCash: Boolean
   "Vault is allowed to re-enter Notional"
   allowsReentrancy: Boolean!
   "Deleveraging is disabled on this vault"

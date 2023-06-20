@@ -5,7 +5,12 @@ export const FEE_RESERVE = Address.fromHexString("0x0000000000000000000000000000
 export const SETTLEMENT_RESERVE = Address.fromHexString(
   "0x00000000000000000000000000000000000005e7"
 );
-export const PRIME_CASH_VAULT_MATURITY = 2 ** 40 - 1;
+// TODO: temporary fix until we can run a full resync
+// export const PRIME_CASH_VAULT_MATURITY = 2 ** 40 - 1;
+export const PRIME_CASH_VAULT_MATURITY_BIGINT = BigInt.fromI32(2)
+  .pow(40)
+  .minus(BigInt.fromI32(1));
+export const PRIME_CASH_VAULT_MATURITY = -1;
 export const INTERNAL_TOKEN_DECIMALS = 8;
 export const INTERNAL_TOKEN_PRECISION = BigInt.fromI32(10).pow(8);
 export const USD_ASSET_ID = "0";
@@ -21,8 +26,8 @@ export const DOUBLE_SCALAR_PRECISION = BigInt.fromI32(10).pow(36);
 
 export const SECONDS_IN_YEAR = BigInt.fromI32(360 * 86400);
 
-// Refresh the oracle every hour
-export const ORACLE_REFRESH_SECONDS = 360;
+// Refresh the oracle six hours
+export const ORACLE_REFRESH_SECONDS = 21600;
 
 export const FCASH_ASSET_TYPE_ID = BigInt.fromI32(1);
 export const VAULT_SHARE_ASSET_TYPE_ID = BigInt.fromI32(9);
