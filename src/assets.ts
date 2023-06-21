@@ -1,4 +1,4 @@
-import { ethereum, log } from "@graphprotocol/graph-ts";
+import { Address, DataSourceContext, ethereum, log } from "@graphprotocol/graph-ts";
 import {
   ListCurrency,
   DeployNToken,
@@ -14,9 +14,11 @@ import {
   PrimeCash,
   PrimeDebt,
   Underlying,
+  ZERO_ADDRESS,
 } from "./common/constants";
 import { getAccount, getNotional, getUnderlying } from "./common/entities";
 import { createERC20ProxyAsset, createERC20TokenAsset } from "./common/erc20";
+import { BlockUpdates } from "../generated/templates";
 
 function _initializeNOTEToken(notional: Notional, event: ethereum.Event): void {
   let noteToken = notional.getNoteToken();
@@ -54,6 +56,9 @@ export function handleListCurrency(event: ListCurrency): void {
 
     // Also initialize the NOTE token
     _initializeNOTEToken(notional, event);
+
+    // Initialize Block Update Handler, this is used to increase performance
+    BlockUpdates.create(ZERO_ADDRESS);
   }
 }
 

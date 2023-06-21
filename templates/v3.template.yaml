@@ -99,8 +99,6 @@ dataSources:
           handler: handleSettlementRate
         - event: CurrencyRebalanced(uint16,uint256,uint256)
           handler: handleRebalance
-      blockHandlers:
-        - handler: handleBlockOracleUpdate
   - name: Configuration
     kind: ethereum/contract
     network: {{ networkName }}
@@ -234,3 +232,27 @@ templates:
       eventHandlers:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleERC20Transfer
+  - name: BlockUpdates
+    kind: ethereum/contract
+    network: {{ networkName }}
+    source:
+      abi: Notional
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/exchange_rates.ts
+      entities:
+        - Asset
+        - Oracle
+        - OracleRegistry
+        - ExchangeRate
+      abis:
+        - name: Notional
+          file: ./abi/Notional.json
+        - name: Aggregator
+          file: ./abi/Aggregator.json
+        - name: IStrategyVault
+          file: ./abi/IStrategyVault.json
+      blockHandlers:
+        - handler: handleBlockOracleUpdate

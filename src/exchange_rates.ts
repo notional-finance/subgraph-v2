@@ -1,4 +1,4 @@
-import { ethereum, BigInt, Address } from "@graphprotocol/graph-ts";
+import { ethereum, BigInt, Address, dataSource } from "@graphprotocol/graph-ts";
 import {
   PrimeCashInterestAccrued,
   UpdateETHRate,
@@ -212,8 +212,10 @@ export function updatefCashOraclesAndMarkets(
   let totalSupply = notional
     .getNTokenAccount(Address.fromBytes(nToken.tokenAddress))
     .getTotalSupply();
-  let nTokenRate = nTokenUnderlyingPV.times(RATE_PRECISION).div(totalSupply);
-  updateExchangeRate(nTokenExchangeRate, nTokenRate, block, txnHash);
+  if (totalSupply.gt(BigInt.zero())) {
+    let nTokenRate = nTokenUnderlyingPV.times(RATE_PRECISION).div(totalSupply);
+    updateExchangeRate(nTokenExchangeRate, nTokenRate, block, txnHash);
+  }
 }
 
 export function registerChainlinkOracle(
@@ -478,8 +480,9 @@ export function handleSettlementRate(event: SetPrimeSettlementRate): void {
 /***** BLOCK HANDLER *********/
 
 export function handleBlockOracleUpdate(block: ethereum.Block): void {
+  if (block.number.mod(BigInt.fromI32(60_000)) == BigInt.zero()) return;
+
   let registry = getOracleRegistry();
-  if (block.timestamp.toI32() - registry.lastRefreshTimestamp < ORACLE_REFRESH_SECONDS) return;
   registry.lastRefreshBlockNumber = block.number.toI32();
   registry.lastRefreshTimestamp = block.timestamp.toI32();
   registry.save();
