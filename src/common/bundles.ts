@@ -214,7 +214,7 @@ const settle_fcash = (w: Transfer[]): boolean => {
     w[0].tokenType == fCash &&
     w[0].fromSystemAccount != nToken &&
     w[0].fromSystemAccount != Vault &&
-    (w[0].get("maturity") != null && w[0].maturity <= w[0].timestamp)
+    (w[0].get("maturity") != null && (w[0].maturity as BigInt) <= BigInt.fromI32(w[0].timestamp))
   )
 }
 
@@ -223,7 +223,7 @@ const settle_fcash_ntoken = (w: Transfer[]): boolean => {
     w[0].transferType == Burn &&
     w[0].tokenType == fCash &&
     w[0].fromSystemAccount == nToken &&
-    (w[0].get("maturity") != null && w[0].maturity <= w[0].timestamp)
+    (w[0].get("maturity") != null && (w[0].maturity as BigInt) <= BigInt.fromI32(w[0].timestamp))
   )
 }
 
@@ -232,7 +232,7 @@ const settle_fcash_vault = (w: Transfer[]): boolean => {
     w[0].transferType == Burn &&
     w[0].tokenType == fCash &&
     w[0].fromSystemAccount == Vault &&
-    (w[0].get("maturity") != null && w[0].maturity <= w[0].timestamp)
+    (w[0].get("maturity") != null && (w[0].maturity as BigInt) <= BigInt.fromI32(w[0].timestamp))
   )
 }
 
@@ -557,19 +557,19 @@ const vault_settle = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == Burn &&
     w[0].tokenType == VaultDebt &&
-    w[0].maturity <= w[0].timestamp
+    (w[0].maturity as BigInt) <= BigInt.fromI32(w[0].timestamp)
   ) && (
     w[1].transferType == Burn &&
     w[1].tokenType == VaultShare &&
-    w[1].maturity <= w[1].timestamp
+    (w[1].maturity as BigInt) <= BigInt.fromI32(w[1].timestamp)
   ) && (
     w[2].transferType == Mint &&
     w[2].tokenType == VaultDebt &&
-    w[2].maturity == PRIME_CASH_VAULT_MATURITY
+    (w[2].maturity as BigInt) == PRIME_CASH_VAULT_MATURITY
   ) && (
     w[3].transferType == Burn &&
     w[3].tokenType == VaultShare &&
-    w[3].maturity == PRIME_CASH_VAULT_MATURITY
+    (w[3].maturity as BigInt) == PRIME_CASH_VAULT_MATURITY
   )
 }
 
@@ -633,11 +633,11 @@ const vault_deleverage_prime_debt = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == Burn &&
     w[0].tokenType == VaultDebt &&
-    w[0].maturity == PRIME_CASH_VAULT_MATURITY
+    (w[0].maturity as BigInt) == PRIME_CASH_VAULT_MATURITY
   ) && (
     w[1].transferType == _Transfer &&
     w[1].tokenType == VaultShare &&
-    w[1].maturity == PRIME_CASH_VAULT_MATURITY
+    (w[1].maturity as BigInt) == PRIME_CASH_VAULT_MATURITY
   )
 }
 
@@ -727,11 +727,11 @@ const vault_secondary_settle = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == Burn &&
     w[0].tokenType == VaultDebt &&
-    w[0].maturity <= w[0].timestamp
+    (w[0].maturity as BigInt) <= BigInt.fromI32(w[0].timestamp)
   ) && (
     w[1].transferType == Mint &&
     w[1].tokenType == VaultDebt &&
-    w[1].maturity == PRIME_CASH_VAULT_MATURITY
+    (w[1].maturity as BigInt) == PRIME_CASH_VAULT_MATURITY
   ) && (
     w[0].from == w[1].to &&
     w[0].underlying == w[1].underlying
@@ -791,7 +791,7 @@ const vault_settle_cash = (w: Transfer[]): boolean => {
   ) && (
     w[1].transferType == Mint &&
     w[1].tokenType == VaultCash &&
-    w[1].maturity == PRIME_CASH_VAULT_MATURITY
+    (w[1].maturity as BigInt) == PRIME_CASH_VAULT_MATURITY
   )
 
 }
@@ -809,6 +809,7 @@ BundleCriteria.push(
 BundleCriteria.push(new Criteria("Transfer Asset", 1, transfer_asset));
 BundleCriteria.push(new Criteria("Transfer Incentive", 1, transfer_incentive));
 BundleCriteria.push(new Criteria("Vault Entry Transfer", 1, vault_entry_transfer, 1));
+BundleCriteria.push(new Criteria("Vault Secondary Deposit", 2, vault_secondary_deposit, 0, false, false, 1));
 // This is a secondary vault entry transfer
 BundleCriteria.push(new Criteria("Vault Entry Transfer", 2, vault_entry_transfer, 1, false, false, 1));
 BundleCriteria.push(

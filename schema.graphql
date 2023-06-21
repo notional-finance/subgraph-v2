@@ -71,7 +71,7 @@ type Token @entity {
 
   isfCashDebt: Boolean!
   "Maturities are only set for some token types"
-  maturity: Int
+  maturity: BigInt
   "Vault address is set for vault token types"
   vaultAddress: Bytes
 
@@ -110,7 +110,7 @@ type Transfer @entity(immutable: true) {
   tokenType: TokenType!
   underlying: Token!
   "Only set for some transfer types"
-  maturity: Int
+  maturity: BigInt
 }
 
 type TransferBundle @entity(immutable: true) {

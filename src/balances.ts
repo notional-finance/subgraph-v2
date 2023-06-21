@@ -104,13 +104,13 @@ function updateVaultAssetTotalSupply(
   let notional = getNotional();
   let vaultState = notional.getVaultState(
     Address.fromBytes(token.vaultAddress as Bytes),
-    BigInt.fromI32(token.maturity)
+    token.maturity as BigInt
   );
 
   if (token.tokenType == VaultShare) {
     token.totalSupply = vaultState.totalVaultShares;
   } else if (token.tokenType == VaultDebt) {
-    if (token.maturity == PRIME_CASH_VAULT_MATURITY) {
+    if ((token.maturity as BigInt) == PRIME_CASH_VAULT_MATURITY) {
       let pDebtAddress = notional.pDebtAddress(token.currencyId);
       let pDebt = ERC4626.bind(pDebtAddress);
       token.totalSupply = pDebt.convertToShares(vaultState.totalDebtUnderlying);
@@ -122,10 +122,7 @@ function updateVaultAssetTotalSupply(
 
 function updatefCashTotalDebtOutstanding(token: Token): void {
   let notional = getNotional();
-  let totalDebt = notional.getTotalfCashDebtOutstanding(
-    token.currencyId,
-    BigInt.fromI32(token.maturity)
-  );
+  let totalDebt = notional.getTotalfCashDebtOutstanding(token.currencyId, token.maturity as BigInt);
   // Total debt is returned as a negative number.
   token.totalSupply = totalDebt.neg();
   token.save();
@@ -217,13 +214,13 @@ function updateVaultState(token: Token, vault: Account, balance: Balance): void 
   let totalDebtUnderlying: BigInt;
 
   if (token.currencyId == vaultConfig.borrowCurrencyId) {
-    totalDebtUnderlying = notional.getVaultState(vaultAddress, BigInt.fromI32(token.maturity))
+    totalDebtUnderlying = notional.getVaultState(vaultAddress, token.maturity as BigInt)
       .totalDebtUnderlying;
   } else {
     totalDebtUnderlying = notional.getSecondaryBorrow(
       vaultAddress,
       token.currencyId,
-      BigInt.fromI32(token.maturity)
+      token.maturity as BigInt
     );
   }
 

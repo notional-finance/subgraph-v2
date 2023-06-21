@@ -57,7 +57,7 @@ export function convertValueToUnderlying(
     token.tokenType == PrimeDebt ||
     (token.tokenType == VaultDebt &&
       token.get("maturity") != null &&
-      token.maturity == PRIME_CASH_VAULT_MATURITY)
+      (token.maturity as BigInt) == PRIME_CASH_VAULT_MATURITY)
   ) {
     let pDebtAddress = notional.pDebtAddress(currencyId);
     let pDebt = ERC4626.bind(pDebtAddress);
@@ -68,20 +68,20 @@ export function convertValueToUnderlying(
     token.tokenType == fCash ||
     (token.tokenType == VaultDebt &&
       token.get("maturity") != null &&
-      token.maturity != PRIME_CASH_VAULT_MATURITY)
+      (token.maturity as BigInt).notEqual(PRIME_CASH_VAULT_MATURITY))
   ) {
-    if (token.maturity <= blockTime.toI32()) {
+    if ((token.maturity as BigInt) <= blockTime) {
       // If the fCash has matured then get the settled value
       underlyingExternal = notional.try_convertSettledfCash(
         currencyId,
-        BigInt.fromI32(token.maturity),
+        token.maturity as BigInt,
         value,
         blockTime
       );
     } else {
       underlyingExternal = notional.try_getPresentfCashValue(
         currencyId,
-        BigInt.fromI32(token.maturity),
+        token.maturity as BigInt,
         value,
         blockTime,
         false
@@ -98,7 +98,7 @@ export function convertValueToUnderlying(
     underlyingExternal = vault.try_convertStrategyToUnderlying(
       Address.fromBytes(token.vaultAddress as Bytes),
       value,
-      BigInt.fromI32(token.maturity)
+      token.maturity as BigInt
     );
 
     if (!underlyingExternal.reverted) {

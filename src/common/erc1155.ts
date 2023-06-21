@@ -7,7 +7,6 @@ import {
   INTERNAL_TOKEN_PRECISION,
   LEGACY_NTOKEN_ASSET_TYPE_ID,
   PRIME_CASH_VAULT_MATURITY,
-  PRIME_CASH_VAULT_MATURITY_BIGINT,
   VaultCash,
   VaultDebt,
   VaultShare,
@@ -38,11 +37,11 @@ function _setAssetType(decodedId: Notional__decodeERC1155IdResult, token: Token)
   }
 
   let vaultMaturityString =
-    decodedId.getMaturity().toI32() == PRIME_CASH_VAULT_MATURITY
+    decodedId.getMaturity() == PRIME_CASH_VAULT_MATURITY
       ? " Open Term"
       : " Fixed Term @ " + maturity;
   let vaultMaturitySymbol =
-    decodedId.getMaturity().toI32() == PRIME_CASH_VAULT_MATURITY ? ":open" : ":fixed@" + maturity;
+    decodedId.getMaturity() == PRIME_CASH_VAULT_MATURITY ? ":open" : ":fixed@" + maturity;
   let vaultAddress = decodedId.getVaultAddress().toHexString();
 
   if (tokenType == VAULT_SHARE_ASSET_TYPE) {
@@ -89,12 +88,9 @@ export function getOrCreateERC1155Asset(
     token.tokenInterface = "ERC1155";
     token.underlying = getUnderlying(decodedId.getCurrencyId()).id;
     token.currencyId = decodedId.getCurrencyId();
-    token.maturity = decodedId.getMaturity().equals(PRIME_CASH_VAULT_MATURITY_BIGINT)
-      ? -1
-      : decodedId.getMaturity().toI32();
+    token.maturity = decodedId.getMaturity();
     token.vaultAddress = decodedId.getVaultAddress();
     token.isfCashDebt = decodedId.getIsfCashDebt();
-    token.totalSupply = BigInt.zero();
     _setAssetType(decodedId, token);
 
     // Initialize this at zero
