@@ -480,7 +480,7 @@ export function handleSettlementRate(event: SetPrimeSettlementRate): void {
 /***** BLOCK HANDLER *********/
 
 export function handleBlockOracleUpdate(block: ethereum.Block): void {
-  if (block.number.mod(BigInt.fromI32(60_000)) == BigInt.zero()) return;
+  if (block.number.mod(BigInt.fromI32(60000)) != BigInt.zero()) return;
 
   let registry = getOracleRegistry();
   registry.lastRefreshBlockNumber = block.number.toI32();
