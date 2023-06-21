@@ -41,7 +41,7 @@ import {
   RATE_PRECISION,
   ZERO_ADDRESS,
 } from "./common/constants";
-import { getIncentives, getNotional } from "./common/entities";
+import { getAsset, getIncentives, getNotional, getUnderlying } from "./common/entities";
 import { setActiveMarkets } from "./common/market";
 
 function getCurrencyConfiguration(currencyId: i32): CurrencyConfiguration {
@@ -488,22 +488,24 @@ function getZeroArray(): Array<BigInt> {
   return arr;
 }
 
-function getSecondaryBorrowCurrencyIndex(vault: VaultConfiguration, currencyId: string): usize {
+function getSecondaryBorrowCurrencyIndex(vault: VaultConfiguration, currencyId: i32): usize {
   if (vault.secondaryBorrowCurrencies == null) {
     return -1;
-  } else if (
-    vault.secondaryBorrowCurrencies!.length <= 2 &&
-    vault.secondaryBorrowCurrencies![0] == currencyId
-  ) {
-    return 0;
-  } else if (
-    vault.secondaryBorrowCurrencies!.length <= 2 &&
-    vault.secondaryBorrowCurrencies![1] == currencyId
-  ) {
-    return 1;
-  } else {
-    return -1;
   }
+
+  if (vault.secondaryBorrowCurrencies!.length >= 1) {
+    let id = vault.secondaryBorrowCurrencies![0];
+    let token = getAsset(id);
+    if (token.currencyId == currencyId) return 0;
+  }
+
+  if (vault.secondaryBorrowCurrencies!.length == 2) {
+    let id = vault.secondaryBorrowCurrencies![1];
+    let token = getAsset(id);
+    if (token.currencyId == currencyId) return 1;
+  }
+
+  return -1;
 }
 
 export function handleVaultUpdated(event: VaultUpdated): void {
@@ -516,7 +518,7 @@ export function handleVaultUpdated(event: VaultUpdated): void {
   vault.name = vaultContract.name();
 
   vault.vaultAddress = event.params.vault;
-  vault.primaryBorrowCurrency = vaultConfig.borrowCurrencyId.toString();
+  vault.primaryBorrowCurrency = getUnderlying(vaultConfig.borrowCurrencyId).id;
   vault.minAccountBorrowSize = vaultConfig.minAccountBorrowSize;
   vault.minCollateralRatioBasisPoints = vaultConfig.minCollateralRatio.toI32();
   vault.maxDeleverageCollateralRatioBasisPoints = vaultConfig.maxDeleverageCollateralRatio.toI32();
@@ -527,17 +529,22 @@ export function handleVaultUpdated(event: VaultUpdated): void {
   vault.maxRequiredAccountCollateralRatioBasisPoints = vaultConfig.maxRequiredAccountCollateralRatio.toI32();
 
   if (
-    vaultConfig.secondaryBorrowCurrencies[0] != 0 ||
-    vaultConfig.secondaryBorrowCurrencies[1] != 0
+    vaultConfig.secondaryBorrowCurrencies[0] == 0 &&
+    vaultConfig.secondaryBorrowCurrencies[1] == 0
   ) {
-    let secondaryBorrowCurrencies = new Array<string>(2);
-    secondaryBorrowCurrencies[0] = vaultConfig.secondaryBorrowCurrencies[0].toString();
-    secondaryBorrowCurrencies[1] = vaultConfig.secondaryBorrowCurrencies[1].toString();
-    vault.secondaryBorrowCurrencies = secondaryBorrowCurrencies;
-
-    vault.minAccountSecondaryBorrow = vaultConfig.minAccountSecondaryBorrow;
-  } else {
     vault.secondaryBorrowCurrencies = null;
+  } else {
+    let secondaryBorrowCurrencies = new Array<string>();
+    if (vaultConfig.secondaryBorrowCurrencies[0] != 0) {
+      secondaryBorrowCurrencies.push(getUnderlying(vaultConfig.secondaryBorrowCurrencies[0]).id);
+    }
+
+    if (vaultConfig.secondaryBorrowCurrencies[1] != 0) {
+      secondaryBorrowCurrencies.push(getUnderlying(vaultConfig.secondaryBorrowCurrencies[1]).id);
+    }
+
+    vault.secondaryBorrowCurrencies = secondaryBorrowCurrencies;
+    vault.minAccountSecondaryBorrow = vaultConfig.minAccountSecondaryBorrow;
   }
 
   let flags = ByteArray.fromI32(vaultConfig.flags);
@@ -588,7 +595,7 @@ export function handleVaultUpdateSecondaryBorrowCapacity(
   event: VaultUpdateSecondaryBorrowCapacity
 ): void {
   let vault = getVaultConfiguration(event.params.vault);
-  let index = getSecondaryBorrowCurrencyIndex(vault, event.params.currencyId.toString());
+  let index = getSecondaryBorrowCurrencyIndex(vault, event.params.currencyId);
 
   let maxSecondaryBorrowCapacity: Array<BigInt>;
   if (vault.maxSecondaryBorrowCapacity == null) {
@@ -616,10 +623,11 @@ export function handleVaultUpdateSecondaryBorrowCapacity(
 }
 
 export function handleVaultBorrowCapacityChange(event: VaultBorrowCapacityChange): void {
-  let currencyId = event.params.currencyId.toString();
+  let currencyId = event.params.currencyId;
   let vault = getVaultConfiguration(event.params.vault);
+  let primaryToken = getAsset(vault.primaryBorrowCurrency);
 
-  if (currencyId == vault.primaryBorrowCurrency) {
+  if (currencyId == primaryToken.currencyId) {
     vault.totalUsedPrimaryBorrowCapacity = event.params.totalUsedBorrowCapacity;
   } else {
     let index = getSecondaryBorrowCurrencyIndex(vault, currencyId);
