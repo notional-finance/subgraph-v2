@@ -99,8 +99,6 @@ dataSources:
           handler: handleSettlementRate
         - event: CurrencyRebalanced(uint16,uint256,uint256)
           handler: handleRebalance
-      blockHandlers:
-        - handler: handleBlockOracleUpdate
   - name: Configuration
     kind: ethereum/contract
     network: {{ networkName }}
