@@ -113,7 +113,7 @@ function updateVaultAssetTotalSupply(
     if ((token.maturity as BigInt) == PRIME_CASH_VAULT_MATURITY) {
       let pDebtAddress = notional.pDebtAddress(token.currencyId);
       let pDebt = ERC4626.bind(pDebtAddress);
-      token.totalSupply = pDebt.convertToShares(vaultState.totalDebtUnderlying);
+      token.totalSupply = pDebt.convertToShares(vaultState.totalDebtUnderlying.abs());
     } else {
       token.totalSupply = vaultState.totalDebtUnderlying;
     }
@@ -227,7 +227,7 @@ function updateVaultState(token: Token, vault: Account, balance: Balance): void 
   if (token.tokenType == PrimeDebt) {
     let pDebtAddress = notional.pDebtAddress(token.currencyId);
     let pDebt = ERC4626.bind(pDebtAddress);
-    balance.balance = pDebt.convertToShares(totalDebtUnderlying);
+    balance.balance = pDebt.convertToShares(totalDebtUnderlying.abs());
   } else if (token.tokenType == fCash) {
     balance.balance = totalDebtUnderlying;
   }

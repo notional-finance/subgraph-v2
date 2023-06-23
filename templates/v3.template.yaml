@@ -86,6 +86,8 @@ dataSources:
           file: ./abi/Aggregator.json
         - name: IStrategyVault
           file: ./abi/IStrategyVault.json
+        - name: ERC4626
+          file: ./abi/ERC4626.json
       eventHandlers:
         - event: UpdateETHRate(uint16)
           handler: handleUpdateETHRate
@@ -124,6 +126,8 @@ dataSources:
           file: ./abi/PrimeCashHoldingsOracle.json
         - name: IStrategyVault
           file: ./abi/IStrategyVault.json
+        - name: ERC4626
+          file: ./abi/ERC4626.json
       eventHandlers:
         - event: ListCurrency(uint16)
           handler: handleListCurrency

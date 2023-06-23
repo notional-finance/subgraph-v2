@@ -61,7 +61,7 @@ export function convertValueToUnderlying(
   ) {
     let pDebtAddress = notional.pDebtAddress(currencyId);
     let pDebt = ERC4626.bind(pDebtAddress);
-    underlyingExternal = pDebt.try_convertToAssets(value);
+    underlyingExternal = pDebt.try_convertToAssets(value.abs());
   } else if (token.tokenType == PrimeCash || token.tokenType == VaultCash) {
     underlyingExternal = notional.try_convertCashBalanceToExternal(currencyId, value, true);
   } else if (
