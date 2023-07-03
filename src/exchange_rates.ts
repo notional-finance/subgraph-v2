@@ -100,7 +100,12 @@ export function updateVaultOracles(vaultAddress: Address, block: ethereum.Block)
         INTERNAL_TOKEN_PRECISION,
         a.maturity
       );
-      if (shareValue.reverted) return;
+      let value: BigInt;
+      if (shareValue.reverted) {
+        value = BigInt.fromI32(0);
+      } else {
+        value = shareValue.value;
+      }
 
       let vaultShareId = notional.encode(
         vaultConfig.borrowCurrencyId,
@@ -116,7 +121,7 @@ export function updateVaultOracles(vaultAddress: Address, block: ethereum.Block)
       oracle.ratePrecision = base.precision;
       oracle.oracleAddress = vaultAddress;
 
-      updateExchangeRate(oracle, shareValue.value, block, null);
+      updateExchangeRate(oracle, value, block, null);
     }
   }
 }
@@ -278,6 +283,8 @@ export function handleVaultListing(event: VaultUpdated): void {
     listedVaults.push(vaultAddress);
     registry.listedVaults = listedVaults;
     registry.save();
+
+    updateVaultOracles(vaultAddress, event.block);
   }
 }
 
