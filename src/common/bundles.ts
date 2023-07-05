@@ -80,7 +80,7 @@ const withdraw = (w: Transfer[]): boolean => {
     return (
       w[0].transferType == Burn &&
       w[0].tokenType == PrimeCash &&
-      w[0].toSystemAccount == None
+      w[0].fromSystemAccount == None
     )
   } else {
     return !( // not
@@ -89,7 +89,7 @@ const withdraw = (w: Transfer[]): boolean => {
     ) && (
       w[1].transferType == Burn &&
       w[1].tokenType == PrimeCash &&
-      w[1].toSystemAccount == None
+      w[1].fromSystemAccount == None
     )
   }
 }
@@ -278,13 +278,13 @@ const repay_prime_cash = (w: Transfer[]): boolean => {
   return (
     w[0].tokenType == PrimeDebt &&
     w[0].transferType == Burn &&
-    w[0].toSystemAccount != SettlementReserve &&
-    w[0].toSystemAccount != Vault
+    w[0].fromSystemAccount != SettlementReserve &&
+    w[0].fromSystemAccount != Vault
   ) && (
     w[1].tokenType == PrimeCash &&
     w[1].transferType == Burn &&
-    w[1].toSystemAccount != SettlementReserve &&
-    w[1].toSystemAccount != Vault
+    w[1].fromSystemAccount != SettlementReserve &&
+    w[1].fromSystemAccount != Vault
   )
 }
 
@@ -292,11 +292,11 @@ const repay_prime_cash_vault = (w: Transfer[]): boolean => {
   return (
     w[0].tokenType == PrimeDebt &&
     w[0].transferType == Burn &&
-    w[0].toSystemAccount == Vault
+    w[0].fromSystemAccount == Vault
   ) && (
     w[1].tokenType == PrimeCash &&
     w[1].transferType == Burn &&
-    w[1].toSystemAccount == Vault
+    w[1].fromSystemAccount == Vault
   )
 }
 
@@ -348,7 +348,7 @@ const repay_fcash = (w: Transfer[]): boolean => {
     w[1].transferType == Burn
   ) && (
     w[0].logIndex == w[1].logIndex &&
-    w[0].toSystemAccount == None
+    w[0].fromSystemAccount == None
   )
 }
 
@@ -361,7 +361,7 @@ const repay_fcash_vault = (w: Transfer[]): boolean => {
     w[1].transferType == Burn
   ) && (
     w[0].logIndex == w[1].logIndex &&
-    w[0].toSystemAccount == Vault
+    w[0].fromSystemAccount == Vault
   )
 }
 
@@ -374,7 +374,7 @@ const ntoken_remove_liquidity = (w: Transfer[]): boolean => {
     w[1].transferType == Burn
   ) && (
     w[0].logIndex == w[1].logIndex &&
-    w[0].toSystemAccount == nToken
+    w[0].fromSystemAccount == nToken
   )
 }
 
@@ -704,11 +704,11 @@ const vault_secondary_deposit = (w: Transfer[]): boolean => {
 const vault_secondary_repay = (w: Transfer[]): boolean => {
   return (
     w[0].transferType == Burn &&
-    w[0].toSystemAccount == Vault &&
+    w[0].fromSystemAccount == Vault &&
     (w[0].tokenType == fCash || w[0].tokenType == PrimeDebt)
   ) && (
     w[1].transferType == Burn &&
-    w[1].toSystemAccount == Vault &&
+    w[1].fromSystemAccount == Vault &&
     (w[1].tokenType == fCash || w[1].tokenType == PrimeCash)
   ) && (
     w[2].transferType == Burn &&
@@ -793,7 +793,6 @@ const vault_settle_cash = (w: Transfer[]): boolean => {
     w[1].tokenType == VaultCash &&
     (w[1].maturity as BigInt) == PRIME_CASH_VAULT_MATURITY
   )
-
 }
 
 export let BundleCriteria = new Array<Criteria>();
