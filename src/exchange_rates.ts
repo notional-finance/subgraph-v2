@@ -378,10 +378,22 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
       event.block,
       event.transaction.hash.toHexString()
     );
+
+    // let interestRates = notional.getPrimeInterestRate(event.params.currencyId);
+    let pDebtSpotInterestRate = getOracle(base, pDebtAsset, PrimeDebtSpotInterestRate);
+    pDebtSpotInterestRate.decimals = SCALAR_DECIMALS;
+    pDebtSpotInterestRate.ratePrecision = SCALAR_PRECISION;
+    pDebtSpotInterestRate.oracleAddress = notional._address;
+    updateExchangeRate(
+      pDebtSpotInterestRate,
+      BigInt.fromI32(0),
+      // interestRates.getAnnualDebtRatePostFee(),
+      event.block,
+      event.transaction.hash.toHexString()
+    );
   }
 
   // let interestRates = notional.getPrimeInterestRate(event.params.currencyId);
-
   let pCashSpotInterestRate = getOracle(base, pCashAsset, PrimeCashSpotInterestRate);
   pCashSpotInterestRate.decimals = SCALAR_DECIMALS;
   pCashSpotInterestRate.ratePrecision = SCALAR_PRECISION;
@@ -390,18 +402,6 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
     pCashSpotInterestRate,
     BigInt.fromI32(0),
     // interestRates.getAnnualSupplyRate(),
-    event.block,
-    event.transaction.hash.toHexString()
-  );
-
-  let pDebtSpotInterestRate = getOracle(base, pCashAsset, PrimeDebtSpotInterestRate);
-  pDebtSpotInterestRate.decimals = SCALAR_DECIMALS;
-  pDebtSpotInterestRate.ratePrecision = SCALAR_PRECISION;
-  pDebtSpotInterestRate.oracleAddress = notional._address;
-  updateExchangeRate(
-    pDebtSpotInterestRate,
-    BigInt.fromI32(0),
-    // interestRates.getAnnualDebtRatePostFee(),
     event.block,
     event.transaction.hash.toHexString()
   );
