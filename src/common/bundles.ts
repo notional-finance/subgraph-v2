@@ -589,7 +589,7 @@ const vault_roll = (w: Transfer[]): boolean => {
     w[2].tokenType == VaultDebt &&
     !w[2].value.isZero()
   ) && (
-    w[3].transferType == Burn &&
+    w[3].transferType == Mint &&
     w[3].tokenType == VaultShare &&
     !w[3].value.isZero()
   )
@@ -614,7 +614,7 @@ const vault_exit = (w: Transfer[]): boolean => {
     w[0].transferType == Burn &&
     w[0].tokenType == VaultDebt
   ) && (
-    w[1].transferType == Burn &&
+    w[1].transferType == Mint &&
     w[1].tokenType == VaultShare
   )
 }
