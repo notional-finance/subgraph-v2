@@ -124,6 +124,26 @@ type TransferBundle @entity(immutable: true) {
   startLogIndex: Int!
   endLogIndex: Int!
   transfers: [Transfer!]!
+
+  profitLossLineItems: [ProfitLossLineItem!] @derivedFrom(field: "bundle")
+}
+
+type ProfitLossLineItem @entity(immutable: true) {
+  "Bundle ID:Index"
+  id: ID!  
+  bundle: TransferBundle!
+  balanceSnapshot: BalanceSnapshot!
+
+  account: Account!
+  tokenAmount: BigInt!
+  token: Token!
+
+  underlyingAmountRealized: BigInt!
+  underlyingAmountSpot: BigInt!
+  underlyingToken: Token!
+
+  realizedPrice: BigInt!
+  spotPrice: BigInt!
 }
 
 type Transaction @entity(immutable: true) {
@@ -409,7 +429,7 @@ type WhitelistedContract @entity {
 ### Balances ###
 
 type Balance @entity {
-  "Address of Account:ID of Token"
+  "Account:Token ID"
   id: ID!
   "Link back to the token"
   token: Token!
@@ -424,7 +444,38 @@ type Balance @entity {
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
   
-  balance: BigInt!
+  current: BalanceSnapshot!
+  snapshots: [BalanceSnapshot!] @derivedFrom(field: "balance")
+}
+
+type BalanceSnapshot @entity(immutable: true) {
+  "Address of Account:ID of Token:Block Number"
+  id: ID!
+  blockNumber: Int!
+  timestamp: Int!
+  transaction: Transaction!
+
+  "Link to the balance entity for this token"
+  balance: Balance!
+
+  "Current balance of the token at this block"
+  currentBalance: BigInt!
+
+  "Adjusted cost basis at this snapshot for the token"
+  adjustedCostBasis: BigInt!
+  "Total profit or loss at the snapshot"
+  totalProfitAndLossAtSnapshot: BigInt!
+  "Portion of the PnL due to market movements in price"
+  totalILAndFeesAtSnapshot: BigInt!
+  "Portion of the PnL due to interest accrual"
+  totalInterestAccrualAtSnapshot: BigInt!
+  
+  "Cumulative balance used for internal PnL calculations"
+  _accumulatedBalance: BigInt!
+  _accumulatedCostRealized: BigInt!
+  _accumulatedCostSpot: BigInt!
+
+  profitLossLineItems: [ProfitLossLineItem!] @derivedFrom(field: "balanceSnapshot")
 }
 
 ### Markets ###
