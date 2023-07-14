@@ -86,8 +86,10 @@ function updateVaultAssetTotalSupply(
   if (token.tokenType == VaultCash) {
     if (transfer.transferType == Mint) {
       token.totalSupply = (token.totalSupply as BigInt).plus(transfer.value);
+      token.save();
     } else if (transfer.transferType == Burn) {
       token.totalSupply = (token.totalSupply as BigInt).minus(transfer.value);
+      token.save();
     }
 
     // Updates the vault prime cash balance which equals the vault cash total supply.
@@ -109,6 +111,7 @@ function updateVaultAssetTotalSupply(
 
   if (token.tokenType == VaultShare) {
     token.totalSupply = vaultState.totalVaultShares;
+    token.save();
   } else if (token.tokenType == VaultDebt) {
     if ((token.maturity as BigInt) == PRIME_CASH_VAULT_MATURITY) {
       let pDebtAddress = notional.pDebtAddress(token.currencyId);
@@ -117,6 +120,7 @@ function updateVaultAssetTotalSupply(
     } else {
       token.totalSupply = vaultState.totalDebtUnderlying;
     }
+    token.save();
   }
 }
 
