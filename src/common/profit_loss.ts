@@ -4,11 +4,13 @@ import { getAccount, getAsset, getNotional } from "./entities";
 import { getBalance, getBalanceSnapshot } from "../balances";
 import {
   Burn,
+  INTERNAL_TOKEN_PRECISION,
   Mint,
   PRIME_CASH_VAULT_MATURITY,
   RATE_PRECISION,
   Transfer as _Transfer,
 } from "./constants";
+import { convertValueToUnderlying } from "./transfers";
 
 export function processProfitAndLoss(
   bundle: TransferBundle,
@@ -21,13 +23,64 @@ export function processProfitAndLoss(
   for (let i = 0; i < lineItems.length; i++) {
     let item = lineItems[i];
 
+    // TODO: if the fCash debt is a positive number and a different token
+    // then we should be okay here...
     let token = getAsset(item.token);
+    let underlying = getAsset(token.underlying as string);
     let account = getAccount(item.account, event);
     let balance = getBalance(account, token, event);
     let snapshot = getBalanceSnapshot(balance, event);
     item.balanceSnapshot = snapshot.id;
 
-    // TODO: process updates to the balance snapshot to calculate PnL
+    // TODO: need to deal with fcash "wrapping" down to zero and flipping signs
+    snapshot._accumulatedBalance = snapshot._accumulatedBalance.plus(item.tokenAmount);
+
+    if (item.tokenAmount.ge(BigInt.zero())) {
+      snapshot._accumulatedCostRealized = snapshot._accumulatedCostRealized.plus(
+        item.underlyingAmountRealized
+      );
+    } else {
+      // TODO: would need to handle negative fCash more properly here...
+      snapshot._accumulatedCostRealized = snapshot._accumulatedCostRealized.plus(
+        item.tokenAmount.times(snapshot.adjustedCostBasis).div(INTERNAL_TOKEN_PRECISION)
+      );
+    }
+
+    // Adjusted cost basis is in underlying precision
+    snapshot.adjustedCostBasis = snapshot._accumulatedBalance
+      .times(underlying.precision)
+      .div(snapshot._accumulatedCostRealized);
+
+    let accumulatedBalanceValueAtSpot = convertValueToUnderlying(
+      snapshot._accumulatedBalance,
+      token,
+      event.block.timestamp
+    );
+
+    if (accumulatedBalanceValueAtSpot !== null) {
+      snapshot.totalProfitAndLossAtSnapshot = accumulatedBalanceValueAtSpot.minus(
+        snapshot._accumulatedBalance.times(snapshot.adjustedCostBasis).div(underlying.precision)
+      );
+
+      let ILandFees = item.underlyingAmountSpot.minus(item.underlyingAmountRealized);
+      if (ILandFees.ge(BigInt.zero())) {
+        snapshot.totalILAndFeesAtSnapshot = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
+      } else {
+        let total = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
+        let ratio = total
+          .times(underlying.precision)
+          .times(item.tokenAmount)
+          .div(snapshot._accumulatedBalance.minus(item.tokenAmount));
+
+        snapshot.totalILAndFeesAtSnapshot = total.plus(
+          total.times(ratio).div(underlying.precision)
+        );
+      }
+
+      snapshot.totalInterestAccrualAtSnapshot = snapshot.totalProfitAndLossAtSnapshot.minus(
+        snapshot.totalILAndFeesAtSnapshot
+      );
+    }
 
     item.save();
     snapshot.save();

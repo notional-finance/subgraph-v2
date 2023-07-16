@@ -51,18 +51,15 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
         snapshot.totalILAndFeesAtSnapshot = BigInt.zero();
         snapshot._accumulatedBalance = BigInt.zero();
         snapshot._accumulatedCostRealized = BigInt.zero();
-        snapshot._accumulatedCostSpot = BigInt.zero();
       } else {
         snapshot.totalILAndFeesAtSnapshot = prevSnapshot.totalILAndFeesAtSnapshot;
         snapshot._accumulatedBalance = prevSnapshot._accumulatedBalance;
         snapshot._accumulatedCostRealized = prevSnapshot._accumulatedCostRealized;
-        snapshot._accumulatedCostSpot = prevSnapshot._accumulatedCostSpot;
       }
     } else {
       snapshot.totalILAndFeesAtSnapshot = BigInt.zero();
       snapshot._accumulatedBalance = BigInt.zero();
       snapshot._accumulatedCostRealized = BigInt.zero();
-      snapshot._accumulatedCostSpot = BigInt.zero();
     }
 
     // When a new snapshot is created, it is set to the current.

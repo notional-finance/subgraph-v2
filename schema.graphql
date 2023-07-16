@@ -138,8 +138,8 @@ type ProfitLossLineItem @entity(immutable: true) {
   tokenAmount: BigInt!
   token: Token!
 
-  underlyingAmountRealized: BigInt
-  underlyingAmountSpot: BigInt
+  underlyingAmountRealized: BigInt!
+  underlyingAmountSpot: BigInt!
   underlyingToken: Token!
 
   realizedPrice: BigInt!
@@ -473,7 +473,6 @@ type BalanceSnapshot @entity(immutable: true) {
   "Cumulative balance used for internal PnL calculations"
   _accumulatedBalance: BigInt!
   _accumulatedCostRealized: BigInt!
-  _accumulatedCostSpot: BigInt!
 
   profitLossLineItems: [ProfitLossLineItem!] @derivedFrom(field: "balanceSnapshot")
 }
