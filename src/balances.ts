@@ -23,7 +23,7 @@ import { getAccount, getAsset, getIncentives, getNotional } from "./common/entit
 import { updatePrimeCashMarket } from "./common/market";
 import { updatefCashOraclesAndMarkets } from "./exchange_rates";
 
-function getBalanceSnapshot(balance: Balance, event: ethereum.Event): BalanceSnapshot {
+export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): BalanceSnapshot {
   let id = balance.id + ":" + event.block.number.toString();
   let snapshot = BalanceSnapshot.load(id);
 
@@ -73,7 +73,7 @@ function getBalanceSnapshot(balance: Balance, event: ethereum.Event): BalanceSna
   return snapshot;
 }
 
-function getBalance(account: Account, token: Token, event: ethereum.Event): Balance {
+export function getBalance(account: Account, token: Token, event: ethereum.Event): Balance {
   let id = account.id + ":" + token.id;
   let entity = Balance.load(id);
 

@@ -23,6 +23,7 @@ import {
   getUnderlying,
 } from "./entities";
 import { BundleCriteria } from "./bundles";
+import { processProfitAndLoss } from "./profit_loss";
 
 export function decodeTransferType(from: Address, to: Address): string {
   if (from == ZERO_ADDRESS) {
@@ -79,6 +80,7 @@ export function convertValueToUnderlying(
         blockTime
       );
     } else {
+      // TODO: switch this to get the PV at the last implied rate if possible.
       underlyingExternal = notional.try_getPresentfCashValue(
         currencyId,
         token.maturity as BigInt,
@@ -125,26 +127,17 @@ export function processTransfer(transfer: Transfer, event: ethereum.Event): void
   transfer.save();
 
   // Scan unbundled transfers
-  txn._nextStartIndex = scanTransferBundle(
-    txn._nextStartIndex,
-    transferArray,
-    bundleArray,
-    event.transaction.hash.toHexString(),
-    event.block.number.toI32(),
-    event.block.timestamp.toI32()
-  );
+  txn._nextStartIndex = scanTransferBundle(txn._nextStartIndex, transferArray, bundleArray, event);
   txn._transferBundles = bundleArray;
   txn._transfers = transferArray;
   txn.save();
 }
 
-export function scanTransferBundle(
+function scanTransferBundle(
   startIndex: i32,
   transferArray: string[],
   bundleArray: string[],
-  txnHash: string,
-  blockNumber: i32,
-  timestamp: i32
+  event: ethereum.Event
 ): i32 {
   for (let i = 0; i < BundleCriteria.length; i++) {
     let criteria = BundleCriteria[i];
@@ -177,18 +170,21 @@ export function scanTransferBundle(
       let windowEndIndex = lookBehind + criteria.bundleSize - 1;
       let startLogIndex = window[windowStartIndex].logIndex;
       let endLogIndex = window[windowEndIndex].logIndex;
+      let txnHash = event.transaction.hash.toHexString();
       let bundle = createTransferBundle(txnHash, criteria.bundleName, startLogIndex, endLogIndex);
-      bundle.blockNumber = blockNumber;
-      bundle.timestamp = timestamp;
+      bundle.blockNumber = event.block.number.toI32();
+      bundle.timestamp = event.block.timestamp.toI32();
       bundle.transactionHash = txnHash;
       bundle.bundleName = criteria.bundleName;
       bundle.startLogIndex = startLogIndex;
       bundle.endLogIndex = endLogIndex;
 
       let bundleTransfers = new Array<string>();
+      let transfers = new Array<Transfer>();
       for (let i = windowStartIndex; i <= windowEndIndex; i++) {
         // Update the bundle id on all the transfers
         bundleTransfers.push(window[i].id);
+        transfers.push(window[i]);
       }
 
       if (criteria.rewrite) {
@@ -199,6 +195,8 @@ export function scanTransferBundle(
       bundleArray.push(bundle.id);
       bundle.transfers = bundleTransfers;
       bundle.save();
+
+      processProfitAndLoss(bundle, transfers, bundleArray, event);
 
       // Marks the next start index in the transaction level transfer array
       return startIndex + criteria.bundleSize;

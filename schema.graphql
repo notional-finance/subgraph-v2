@@ -138,8 +138,8 @@ type ProfitLossLineItem @entity(immutable: true) {
   tokenAmount: BigInt!
   token: Token!
 
-  underlyingAmountRealized: BigInt!
-  underlyingAmountSpot: BigInt!
+  underlyingAmountRealized: BigInt
+  underlyingAmountSpot: BigInt
   underlyingToken: Token!
 
   realizedPrice: BigInt!
