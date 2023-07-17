@@ -9,6 +9,7 @@ import {
   PRIME_CASH_VAULT_MATURITY,
   RATE_PRECISION,
   Transfer as _Transfer,
+  nToken,
 } from "./constants";
 import { convertValueToUnderlying } from "./transfers";
 
@@ -23,8 +24,6 @@ export function processProfitAndLoss(
   for (let i = 0; i < lineItems.length; i++) {
     let item = lineItems[i];
 
-    // TODO: if the fCash debt is a positive number and a different token
-    // then we should be okay here...
     let token = getAsset(item.token);
     let underlying = getAsset(token.underlying as string);
     let account = getAccount(item.account, event);
@@ -32,7 +31,7 @@ export function processProfitAndLoss(
     let snapshot = getBalanceSnapshot(balance, event);
     item.balanceSnapshot = snapshot.id;
 
-    // TODO: need to deal with fcash "wrapping" down to zero and flipping signs
+    // TODO: what do we do if accumulated balance goes below zero?
     snapshot._accumulatedBalance = snapshot._accumulatedBalance.plus(item.tokenAmount);
 
     if (item.tokenAmount.ge(BigInt.zero())) {
@@ -40,7 +39,6 @@ export function processProfitAndLoss(
         item.underlyingAmountRealized
       );
     } else {
-      // TODO: would need to handle negative fCash more properly here...
       snapshot._accumulatedCostRealized = snapshot._accumulatedCostRealized.plus(
         item.tokenAmount.times(snapshot.adjustedCostBasis).div(INTERNAL_TOKEN_PRECISION)
       );
@@ -93,7 +91,8 @@ function createLineItem(
   transferType: string,
   lineItems: ProfitLossLineItem[],
   underlyingAmountRealized: BigInt,
-  underlyingAmountSpot: BigInt
+  underlyingAmountSpot: BigInt,
+  ratio: BigInt | null = null
 ): ProfitLossLineItem {
   let underlying = getAsset(tokenTransfer.underlying);
 
@@ -125,6 +124,13 @@ function createLineItem(
     .times(RATE_PRECISION)
     .div(item.tokenAmount.times(underlying.precision))
     .abs();
+
+  if (ratio) {
+    item.tokenAmount = item.tokenAmount.times(ratio).div(RATE_PRECISION);
+    item.underlyingAmountRealized = item.underlyingAmountRealized.times(ratio).div(RATE_PRECISION);
+    item.underlyingAmountSpot = item.underlyingAmountSpot.times(ratio).div(RATE_PRECISION);
+  }
+
   lineItems.push(item);
 
   return item;
@@ -322,58 +328,43 @@ function extractProfitLossLineItem(
       );
     }
     /** fCash */
-  } else if (
-    bundle.bundleName == "Buy fCash" ||
-    bundle.bundleName == "Sell fCash" ||
-    bundle.bundleName == "Buy fCash Vault" ||
-    bundle.bundleName == "Sell fCash Vault"
-  ) {
-    let transferType: string;
-    if (bundle.bundleName.startsWith("Sell")) {
-      transferType = Burn;
+  } else if (bundle.bundleName == "Buy fCash") {
+    let repay = findPrecedingBundle("Repay fCash", bundleArray);
+    if (repay) {
+      let modified = Transfer.load(transfers[2].id) as Transfer;
+      modified.value = transfers[2].value.minus(repay[0].value);
+      modified.valueInUnderlying = (transfers[2].valueInUnderlying as BigInt).minus(
+        repay[0].valueInUnderlying as BigInt
+      );
+      createfCashLineItems(bundle, transfers, modified, lineItems);
     } else {
-      transferType = Mint;
+      createfCashLineItems(bundle, transfers, transfers[2], lineItems);
     }
-    // This is the pCash transferred spot price
-    let underlyingAmountRealized: BigInt | null = null;
-    if (transfers[0].valueInUnderlying !== null && transfers[1].valueInUnderlying !== null) {
-      if (transferType == Burn) {
-        // Fee value is subtracted when borrowing
-        underlyingAmountRealized = (transfers[0].valueInUnderlying as BigInt).minus(
-          transfers[1].valueInUnderlying as BigInt
-        );
-      } else {
-        underlyingAmountRealized = (transfers[0].valueInUnderlying as BigInt).plus(
-          transfers[1].valueInUnderlying as BigInt
-        );
-      }
-    }
-    let underlyingAmountSpot = transfers[2].valueInUnderlying;
-    if (underlyingAmountRealized !== null && underlyingAmountSpot !== null) {
-      // prime cash transfer
-      createLineItem(
-        bundle,
-        transfers[0], // TODO: add fee inside here since value is incorrect...
-        transferType == Mint ? Burn : Mint,
-        lineItems,
-        underlyingAmountRealized,
-        underlyingAmountRealized
+  } else if (bundle.bundleName == "Sell fCash") {
+    // NOTE: this section only applies to positive fCash. fCash debt PnL is tracked
+    // in a separate if condition below. The tokens transferred here are always
+    // positive fCash.
+    let borrow = findPrecedingBundle("Borrow fCash", bundleArray);
+    if (borrow) {
+      let modified = Transfer.load(transfers[2].id) as Transfer;
+      modified.value = transfers[2].value.minus(borrow[0].value);
+      modified.valueInUnderlying = (transfers[2].valueInUnderlying as BigInt).minus(
+        borrow[0].valueInUnderlying as BigInt
       );
-      createLineItem(
-        bundle,
-        // fCash transfer
-        transfers[2],
-        transferType,
-        lineItems,
-        underlyingAmountRealized,
-        underlyingAmountSpot
-      );
+      createfCashLineItems(bundle, transfers, modified, lineItems);
+    } else {
+      createfCashLineItems(bundle, transfers, transfers[2], lineItems);
     }
-    // These events do not contribute to PnL
-    // } else if (bundle.bundleName == "Borrow fCash") {
-    // } else if (bundle.bundleName == "Repay fCash") {
-    // } else if (bundle.bundleName == "Borrow fCash Vault") {
-    // } else if (bundle.bundleName == "Repay fCash Vault") {
+  } else if (bundle.bundleName == "Borrow fCash") {
+    let borrow = findPrecedingBundle("Sell fCash", bundleArray);
+    if (borrow) {
+      createfCashLineItems(bundle, borrow, transfers[1], lineItems);
+    }
+  } else if (bundle.bundleName == "Repay fCash") {
+    let lend = findPrecedingBundle("Buy fCash", bundleArray);
+    if (lend) {
+      createfCashLineItems(bundle, lend, transfers[1], lineItems);
+    }
     /** Vaults */
   } else if (bundle.bundleName == "Vault Entry") {
     // vault debt minted
@@ -538,5 +529,64 @@ function createVaultShareLineItem(
     lineItems,
     underlyingShareAmountRealized,
     vaultShares.valueInUnderlying as BigInt
+  );
+}
+
+function createfCashLineItems(
+  bundle: TransferBundle,
+  fCashTrade: Transfer[],
+  fCashTransfer: Transfer,
+  lineItems: ProfitLossLineItem[]
+): void {
+  let isBuy = fCashTrade[0].toSystemAccount == nToken;
+  let ratio: BigInt | null =
+    fCashTrade[2].value === fCashTransfer.value.abs()
+      ? null
+      : fCashTransfer.value
+          .times(RATE_PRECISION)
+          .div(fCashTrade[2].value)
+          .abs();
+
+  createLineItem(
+    bundle,
+    fCashTrade[0],
+    isBuy ? Burn : Mint,
+    lineItems,
+    fCashTrade[0].valueInUnderlying as BigInt,
+    fCashTrade[0].valueInUnderlying as BigInt,
+    ratio
+  );
+
+  // prime cash fee transfer
+  createLineItem(
+    bundle,
+    fCashTrade[1],
+    Burn,
+    lineItems,
+    fCashTrade[1].valueInUnderlying as BigInt,
+    fCashTrade[1].valueInUnderlying as BigInt,
+    ratio
+  );
+
+  let underlyingAmountRealized: BigInt;
+  if (isBuy) {
+    underlyingAmountRealized = (fCashTrade[0].valueInUnderlying as BigInt).plus(
+      fCashTrade[1].valueInUnderlying as BigInt
+    );
+  } else {
+    underlyingAmountRealized = (fCashTrade[0].valueInUnderlying as BigInt).minus(
+      fCashTrade[1].valueInUnderlying as BigInt
+    );
+  }
+
+  createLineItem(
+    bundle,
+    fCashTransfer,
+    // This will properly negate negative fCash debt transfers
+    isBuy ? Mint : Burn,
+    lineItems,
+    underlyingAmountRealized,
+    fCashTransfer.valueInUnderlying as BigInt,
+    ratio
   );
 }
