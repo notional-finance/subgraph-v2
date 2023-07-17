@@ -14,6 +14,9 @@ import {
   VaultDebt,
   VaultShare,
   ZERO_ADDRESS,
+  RATE_DECIMALS,
+  RATE_PRECISION,
+  SECONDS_IN_YEAR,
 } from "./constants";
 import {
   createTransferBundle,
@@ -80,7 +83,26 @@ export function convertValueToUnderlying(
         blockTime
       );
     } else {
-      // TODO: switch this to get the PV at the last implied rate if possible.
+      let activeMarkets = notional.getActiveMarkets(currencyId);
+      for (let i = 0; i < activeMarkets.length; i++) {
+        if (activeMarkets[i].maturity == (token.maturity as BigInt)) {
+          let lastImpliedRate = activeMarkets[i].lastImpliedRate;
+          let timeToMaturity = (token.maturity as BigInt).minus(blockTime);
+          let x: f64 = (lastImpliedRate
+            .times(timeToMaturity)
+            .div(RATE_PRECISION)
+            .toI64() / SECONDS_IN_YEAR.toI64()) as f64;
+
+          let discountFactor = BigInt.fromI64(
+            Math.floor(Math.exp(-x) * (RATE_PRECISION.toI64() as f64)) as i64
+          );
+
+          return value.times(discountFactor).div(RATE_PRECISION);
+        }
+      }
+
+      // NOTE: if the search falls through to this point, use the oracle value b/c
+      // the fCash is idiosyncratic
       underlyingExternal = notional.try_getPresentfCashValue(
         currencyId,
         token.maturity as BigInt,
