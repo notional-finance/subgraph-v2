@@ -14,7 +14,6 @@ import {
   VaultDebt,
   VaultShare,
   ZERO_ADDRESS,
-  RATE_DECIMALS,
   RATE_PRECISION,
   SECONDS_IN_YEAR,
 } from "./constants";
@@ -96,8 +95,13 @@ export function convertValueToUnderlying(
           let discountFactor = BigInt.fromI64(
             Math.floor(Math.exp(-x) * (RATE_PRECISION.toI64() as f64)) as i64
           );
+          let underlying = getUnderlying(currencyId);
 
-          return value.times(discountFactor).div(RATE_PRECISION);
+          return value
+            .times(discountFactor)
+            .times(underlying.precision)
+            .div(RATE_PRECISION)
+            .div(INTERNAL_TOKEN_PRECISION);
         }
       }
 

@@ -40,7 +40,7 @@ export function processProfitAndLoss(
       item.underlyingAmountRealized
     );
 
-    if (snapshot._accumulatedBalance.le(DUST)) {
+    if (snapshot._accumulatedBalance.abs().le(DUST)) {
       // Clear all snapshot amounts back to zero if the accumulated balance goes below zero
       snapshot._accumulatedBalance = BigInt.zero();
       snapshot._accumulatedCostAdjustedBasis = BigInt.zero();
@@ -76,9 +76,15 @@ export function processProfitAndLoss(
       );
 
       // Adjusted cost basis is in underlying precision and a positive number.
-      snapshot.adjustedCostBasis = snapshot._accumulatedBalance
-        .times(underlying.precision)
-        .div(snapshot._accumulatedCostRealized);
+      if (snapshot._accumulatedCostRealized.abs().le(DUST)) {
+        snapshot.adjustedCostBasis = BigInt.fromI32(0);
+      } else {
+        snapshot.adjustedCostBasis = snapshot._accumulatedBalance
+          .times(underlying.precision)
+          .times(underlying.precision)
+          .div(snapshot._accumulatedCostRealized)
+          .div(INTERNAL_TOKEN_PRECISION);
+      }
 
       let accumulatedBalanceValueAtSpot = convertValueToUnderlying(
         snapshot._accumulatedBalance,
@@ -102,7 +108,6 @@ export function processProfitAndLoss(
         } else if (snapshot._accumulatedBalance.minus(item.tokenAmount) != BigInt.zero()) {
           let total = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
           let ratio = total
-            .times(underlying.precision)
             .times(item.tokenAmount)
             .div(snapshot._accumulatedBalance.minus(item.tokenAmount));
 
@@ -131,8 +136,6 @@ function createLineItem(
   underlyingAmountSpot: BigInt,
   ratio: BigInt | null = null
 ): void {
-  let underlying = getAsset(tokenTransfer.underlying);
-
   let item = new ProfitLossLineItem(bundle.id + ":" + lineItems.length.toString());
   item.bundle = bundle.id;
   item.token = tokenTransfer.token;
@@ -152,17 +155,14 @@ function createLineItem(
     log.critical("Unknown transfer type {}", [transferType]);
   }
 
-  // Don't create an inconsequential PnL item
-  if (item.tokenAmount == BigInt.zero()) return;
-
-  // Prices are in RATE_PRECISION
+  // Prices are in underlying.precision
   item.realizedPrice = underlyingAmountRealized
-    .times(RATE_PRECISION)
-    .div(item.tokenAmount.times(underlying.precision))
+    .times(INTERNAL_TOKEN_PRECISION)
+    .div(item.tokenAmount)
     .abs();
   item.spotPrice = underlyingAmountSpot
-    .times(RATE_PRECISION)
-    .div(item.tokenAmount.times(underlying.precision))
+    .times(INTERNAL_TOKEN_PRECISION)
+    .div(item.tokenAmount)
     .abs();
 
   if (ratio) {
@@ -170,6 +170,9 @@ function createLineItem(
     item.underlyingAmountRealized = item.underlyingAmountRealized.times(ratio).div(RATE_PRECISION);
     item.underlyingAmountSpot = item.underlyingAmountSpot.times(ratio).div(RATE_PRECISION);
   }
+
+  // Don't create an inconsequential PnL item
+  if (item.tokenAmount == BigInt.zero()) return;
 
   lineItems.push(item);
 }
@@ -321,11 +324,7 @@ function extractProfitLossLineItem(
         underlyingAmountSpot
       );
     }
-  } else if (
-    bundle.bundleName == "Settle Cash" ||
-    bundle.bundleName == "Settle Cash Vault" ||
-    bundle.bundleName == "Settle Cash nToken"
-  ) {
+  } else if (bundle.bundleName == "Settle Cash" || bundle.bundleName == "Settle Cash nToken") {
     if (transfers[0].valueInUnderlying !== null) {
       // Settlement Reserve always transfers to the settled account
       createLineItem(
@@ -369,7 +368,7 @@ function extractProfitLossLineItem(
   } else if (bundle.bundleName == "Buy fCash") {
     let repay = findPrecedingBundle("Repay fCash", bundleArray);
     if (repay) {
-      let modified = Transfer.load(transfers[2].id) as Transfer;
+      let modified = Transfer.load(repay[0].id) as Transfer;
       modified.value = transfers[2].value.minus(repay[0].value);
       modified.valueInUnderlying = (transfers[2].valueInUnderlying as BigInt).minus(
         repay[0].valueInUnderlying as BigInt
@@ -384,7 +383,7 @@ function extractProfitLossLineItem(
     // positive fCash.
     let borrow = findPrecedingBundle("Borrow fCash", bundleArray);
     if (borrow) {
-      let modified = Transfer.load(transfers[2].id) as Transfer;
+      let modified = Transfer.load(borrow[0].id) as Transfer;
       modified.value = transfers[2].value.minus(borrow[0].value);
       modified.valueInUnderlying = (transfers[2].valueInUnderlying as BigInt).minus(
         borrow[0].valueInUnderlying as BigInt
@@ -620,7 +619,7 @@ function createfCashLineItems(
   createLineItem(
     bundle,
     fCashTransfer,
-    // This will properly negate negative fCash debt transfers
+    // TODO: This will properly negate negative fCash debt transfers [not true, exactly....]
     isBuy ? Mint : Burn,
     lineItems,
     underlyingAmountRealized,
