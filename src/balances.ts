@@ -1,4 +1,4 @@
-import { Address, ethereum, log, store, BigInt, Bytes, ByteArray } from "@graphprotocol/graph-ts";
+import { Address, ethereum, log, BigInt, Bytes, ByteArray } from "@graphprotocol/graph-ts";
 import { Account, Token, Balance, Transfer, BalanceSnapshot } from "../generated/schema";
 import { ERC20 } from "../generated/templates/ERC20Proxy/ERC20";
 import { ERC4626 } from "../generated/Transactions/ERC4626";
@@ -37,12 +37,17 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
     // These features are calculated at each update to the snapshot
     snapshot.currentBalance = BigInt.zero();
     snapshot.adjustedCostBasis = BigInt.zero();
+    snapshot.currentProfitAndLossAtSnapshot = BigInt.zero();
     snapshot.totalProfitAndLossAtSnapshot = BigInt.zero();
+    snapshot.totalILAndFeesAtSnapshot = BigInt.zero();
     snapshot.totalInterestAccrualAtSnapshot = BigInt.zero();
+    snapshot._accumulatedBalance = BigInt.zero();
+    snapshot._accumulatedCostRealized = BigInt.zero();
+    snapshot._accumulatedCostAdjustedBasis = BigInt.zero();
 
     // These features are accumulated over the lifetime of the balance, as long
     // as it is not zero.
-    if (balance.current !== null) {
+    if (balance.get("current") !== null) {
       let prevSnapshot = BalanceSnapshot.load(balance.current);
       if (!prevSnapshot) {
         log.error("Previous snapshot not found", []);
@@ -50,16 +55,18 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
         // Reset these to zero if the previous balance is zero
         snapshot.totalILAndFeesAtSnapshot = BigInt.zero();
         snapshot._accumulatedBalance = BigInt.zero();
-        snapshot._accumulatedCostRealized = BigInt.zero();
+        snapshot._accumulatedCostAdjustedBasis = BigInt.zero();
       } else {
         snapshot.totalILAndFeesAtSnapshot = prevSnapshot.totalILAndFeesAtSnapshot;
         snapshot._accumulatedBalance = prevSnapshot._accumulatedBalance;
+        snapshot._accumulatedCostAdjustedBasis = prevSnapshot._accumulatedCostAdjustedBasis;
+      }
+
+      if (prevSnapshot) {
+        // These values are always copied from the previous snapshot
+        snapshot.totalProfitAndLossAtSnapshot = prevSnapshot.totalProfitAndLossAtSnapshot;
         snapshot._accumulatedCostRealized = prevSnapshot._accumulatedCostRealized;
       }
-    } else {
-      snapshot.totalILAndFeesAtSnapshot = BigInt.zero();
-      snapshot._accumulatedBalance = BigInt.zero();
-      snapshot._accumulatedCostRealized = BigInt.zero();
     }
 
     // When a new snapshot is created, it is set to the current.
@@ -298,7 +305,7 @@ function updateReserves(
   event: ethereum.Event
 ): void {
   let prevSnapshot: BalanceSnapshot | null = null;
-  if (balance.current !== null) {
+  if (balance.get("current") !== null) {
     prevSnapshot = BalanceSnapshot.load(balance.current);
   }
 

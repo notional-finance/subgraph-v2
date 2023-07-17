@@ -463,7 +463,9 @@ type BalanceSnapshot @entity(immutable: true) {
 
   "Adjusted cost basis at this snapshot for the token"
   adjustedCostBasis: BigInt!
-  "Total profit or loss at the snapshot"
+  "Current profit and loss at the snapshot"
+  currentProfitAndLossAtSnapshot: BigInt!
+  "Total profit or loss at the snapshot since balance inception"
   totalProfitAndLossAtSnapshot: BigInt!
   "Portion of the PnL due to market movements in price"
   totalILAndFeesAtSnapshot: BigInt!
@@ -472,7 +474,10 @@ type BalanceSnapshot @entity(immutable: true) {
   
   "Cumulative balance used for internal PnL calculations"
   _accumulatedBalance: BigInt!
+  "Cumulative realized cost for internal PnL calculations"
   _accumulatedCostRealized: BigInt!
+  "Cumulative realized cost using adjusted cost basis for internal PnL calculations"
+  _accumulatedCostAdjustedBasis: BigInt!
 
   profitLossLineItems: [ProfitLossLineItem!] @derivedFrom(field: "balanceSnapshot")
 }

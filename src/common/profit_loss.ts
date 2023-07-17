@@ -31,53 +31,83 @@ export function processProfitAndLoss(
     let snapshot = getBalanceSnapshot(balance, event);
     item.balanceSnapshot = snapshot.id;
 
-    // TODO: what do we do if accumulated balance goes below zero?
     snapshot._accumulatedBalance = snapshot._accumulatedBalance.plus(item.tokenAmount);
-
-    if (item.tokenAmount.ge(BigInt.zero())) {
-      snapshot._accumulatedCostRealized = snapshot._accumulatedCostRealized.plus(
-        item.underlyingAmountRealized
-      );
-    } else {
-      snapshot._accumulatedCostRealized = snapshot._accumulatedCostRealized.plus(
-        item.tokenAmount.times(snapshot.adjustedCostBasis).div(INTERNAL_TOKEN_PRECISION)
-      );
-    }
-
-    // Adjusted cost basis is in underlying precision
-    snapshot.adjustedCostBasis = snapshot._accumulatedBalance
-      .times(underlying.precision)
-      .div(snapshot._accumulatedCostRealized);
-
-    let accumulatedBalanceValueAtSpot = convertValueToUnderlying(
-      snapshot._accumulatedBalance,
-      token,
-      event.block.timestamp
+    // This never gets reset to zero
+    snapshot._accumulatedCostRealized = snapshot._accumulatedCostRealized.plus(
+      item.underlyingAmountRealized
     );
 
-    if (accumulatedBalanceValueAtSpot !== null) {
-      snapshot.totalProfitAndLossAtSnapshot = accumulatedBalanceValueAtSpot.minus(
-        snapshot._accumulatedBalance.times(snapshot.adjustedCostBasis).div(underlying.precision)
-      );
-
-      let ILandFees = item.underlyingAmountSpot.minus(item.underlyingAmountRealized);
-      if (ILandFees.ge(BigInt.zero())) {
-        snapshot.totalILAndFeesAtSnapshot = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
+    if (snapshot._accumulatedBalance.le(BigInt.zero())) {
+      // Clear all snapshot amounts back to zero if the accumulated balance goes below zero
+      snapshot._accumulatedCostAdjustedBasis = BigInt.zero();
+      snapshot.adjustedCostBasis = BigInt.zero();
+      snapshot.currentProfitAndLossAtSnapshot = BigInt.zero();
+      snapshot.totalInterestAccrualAtSnapshot = BigInt.zero();
+      snapshot.totalILAndFeesAtSnapshot = BigInt.zero();
+    } else {
+      if (item.tokenAmount.ge(BigInt.zero())) {
+        snapshot._accumulatedCostAdjustedBasis = snapshot._accumulatedCostAdjustedBasis.plus(
+          item.underlyingAmountRealized
+        );
       } else {
-        let total = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
-        let ratio = total
-          .times(underlying.precision)
-          .times(item.tokenAmount)
-          .div(snapshot._accumulatedBalance.minus(item.tokenAmount));
-
-        snapshot.totalILAndFeesAtSnapshot = total.plus(
-          total.times(ratio).div(underlying.precision)
+        snapshot._accumulatedCostAdjustedBasis = snapshot._accumulatedCostAdjustedBasis.plus(
+          item.tokenAmount.times(snapshot.adjustedCostBasis).div(INTERNAL_TOKEN_PRECISION)
         );
       }
 
-      snapshot.totalInterestAccrualAtSnapshot = snapshot.totalProfitAndLossAtSnapshot.minus(
-        snapshot.totalILAndFeesAtSnapshot
+      log.debug(
+        "PROCESSING LINE ITEM [bundle {}] [token {}] [tokenAmount {}] [underlying realized {}] [accumulated balance {}] [accumulated cost adj basis {}] [accumulated cost {}] [adj cost basis {}] [underlying spot {}]",
+        [
+          bundle.bundleName,
+          token.symbol,
+          item.tokenAmount.toString(),
+          item.underlyingAmountRealized.toString(),
+          snapshot._accumulatedBalance.toString(),
+          snapshot._accumulatedCostAdjustedBasis.toString(),
+          snapshot._accumulatedCostRealized.toString(),
+          snapshot.adjustedCostBasis.toString(),
+          item.underlyingAmountSpot.toString(),
+        ]
       );
+
+      // Adjusted cost basis is in underlying precision
+      snapshot.adjustedCostBasis = snapshot._accumulatedBalance
+        .times(underlying.precision)
+        .div(snapshot._accumulatedCostRealized);
+
+      let accumulatedBalanceValueAtSpot = convertValueToUnderlying(
+        snapshot._accumulatedBalance,
+        token,
+        event.block.timestamp
+      );
+
+      if (accumulatedBalanceValueAtSpot !== null) {
+        snapshot.currentProfitAndLossAtSnapshot = accumulatedBalanceValueAtSpot.minus(
+          snapshot._accumulatedBalance.times(snapshot.adjustedCostBasis).div(underlying.precision)
+        );
+        snapshot.totalProfitAndLossAtSnapshot = accumulatedBalanceValueAtSpot.minus(
+          snapshot._accumulatedCostRealized
+        );
+
+        let ILandFees = item.underlyingAmountSpot.minus(item.underlyingAmountRealized);
+        if (ILandFees.ge(BigInt.zero())) {
+          snapshot.totalILAndFeesAtSnapshot = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
+        } else if (snapshot._accumulatedBalance.minus(item.tokenAmount) != BigInt.zero()) {
+          let total = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
+          let ratio = total
+            .times(underlying.precision)
+            .times(item.tokenAmount)
+            .div(snapshot._accumulatedBalance.minus(item.tokenAmount));
+
+          snapshot.totalILAndFeesAtSnapshot = total.plus(
+            total.times(ratio).div(underlying.precision)
+          );
+        }
+
+        snapshot.totalInterestAccrualAtSnapshot = snapshot.currentProfitAndLossAtSnapshot.minus(
+          snapshot.totalILAndFeesAtSnapshot
+        );
+      }
     }
 
     item.save();
@@ -93,7 +123,7 @@ function createLineItem(
   underlyingAmountRealized: BigInt,
   underlyingAmountSpot: BigInt,
   ratio: BigInt | null = null
-): ProfitLossLineItem {
+): void {
   let underlying = getAsset(tokenTransfer.underlying);
 
   let item = new ProfitLossLineItem(bundle.id + ":" + lineItems.length.toString());
@@ -115,6 +145,9 @@ function createLineItem(
     log.critical("Unknown transfer type {}", [transferType]);
   }
 
+  // Don't create an inconsequential PnL item
+  if (item.tokenAmount == BigInt.zero()) return;
+
   // Prices are in RATE_PRECISION
   item.realizedPrice = underlyingAmountRealized
     .times(RATE_PRECISION)
@@ -132,8 +165,6 @@ function createLineItem(
   }
 
   lineItems.push(item);
-
-  return item;
 }
 
 /**
