@@ -13,6 +13,8 @@ import {
 } from "./constants";
 import { convertValueToUnderlying } from "./transfers";
 
+const DUST = BigInt.fromI32(100);
+
 export function processProfitAndLoss(
   bundle: TransferBundle,
   transfers: Transfer[],
@@ -32,13 +34,15 @@ export function processProfitAndLoss(
     item.balanceSnapshot = snapshot.id;
 
     snapshot._accumulatedBalance = snapshot._accumulatedBalance.plus(item.tokenAmount);
-    // This never gets reset to zero
-    snapshot._accumulatedCostRealized = snapshot._accumulatedCostRealized.plus(
+    // This never gets reset to zero. Accumulated cost is a positive number. underlyingAmountRealized
+    // is negative when purchasing tokens, positive when selling so we invert it here.
+    snapshot._accumulatedCostRealized = snapshot._accumulatedCostRealized.minus(
       item.underlyingAmountRealized
     );
 
-    if (snapshot._accumulatedBalance.le(BigInt.zero())) {
+    if (snapshot._accumulatedBalance.le(DUST)) {
       // Clear all snapshot amounts back to zero if the accumulated balance goes below zero
+      snapshot._accumulatedBalance = BigInt.zero();
       snapshot._accumulatedCostAdjustedBasis = BigInt.zero();
       snapshot.adjustedCostBasis = BigInt.zero();
       snapshot.currentProfitAndLossAtSnapshot = BigInt.zero();
@@ -46,7 +50,8 @@ export function processProfitAndLoss(
       snapshot.totalILAndFeesAtSnapshot = BigInt.zero();
     } else {
       if (item.tokenAmount.ge(BigInt.zero())) {
-        snapshot._accumulatedCostAdjustedBasis = snapshot._accumulatedCostAdjustedBasis.plus(
+        // Accumulated cost adjusted basis is a positive number, similar to _accumulatedCostRealized
+        snapshot._accumulatedCostAdjustedBasis = snapshot._accumulatedCostAdjustedBasis.minus(
           item.underlyingAmountRealized
         );
       } else {
@@ -70,7 +75,7 @@ export function processProfitAndLoss(
         ]
       );
 
-      // Adjusted cost basis is in underlying precision
+      // Adjusted cost basis is in underlying precision and a positive number.
       snapshot.adjustedCostBasis = snapshot._accumulatedBalance
         .times(underlying.precision)
         .div(snapshot._accumulatedCostRealized);
@@ -89,7 +94,9 @@ export function processProfitAndLoss(
           snapshot._accumulatedCostRealized
         );
 
-        let ILandFees = item.underlyingAmountSpot.minus(item.underlyingAmountRealized);
+        // Both underlyingAmountSpot and underlyingAmountRealized are negative numbers. Spot prices
+        // are higher than realized prices so ILandFees is positive here.
+        let ILandFees = item.underlyingAmountRealized.minus(item.underlyingAmountSpot);
         if (ILandFees.ge(BigInt.zero())) {
           snapshot.totalILAndFeesAtSnapshot = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
         } else if (snapshot._accumulatedBalance.minus(item.tokenAmount) != BigInt.zero()) {
