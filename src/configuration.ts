@@ -39,9 +39,10 @@ import {
   BASIS_POINT,
   GlobalTransferOperator,
   RATE_PRECISION,
+  Vault,
   ZERO_ADDRESS,
 } from "./common/constants";
-import { getAsset, getIncentives, getNotional, getUnderlying } from "./common/entities";
+import { getAccount, getAsset, getIncentives, getNotional, getUnderlying } from "./common/entities";
 import { setActiveMarkets } from "./common/market";
 
 function getCurrencyConfiguration(currencyId: i32): CurrencyConfiguration {
@@ -569,6 +570,10 @@ export function handleVaultUpdated(event: VaultUpdated): void {
   vault.lastUpdateBlockHash = event.block.hash;
   vault.lastUpdateTransactionHash = event.transaction.hash;
   vault.save();
+
+  let account = getAccount(event.params.vault.toHexString(), event);
+  account.systemAccountType = Vault;
+  account.save();
 }
 
 export function handleVaultPauseStatus(event: VaultPauseStatus): void {

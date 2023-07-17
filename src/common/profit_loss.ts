@@ -155,6 +155,15 @@ function createLineItem(
     log.critical("Unknown transfer type {}", [transferType]);
   }
 
+  if (ratio) {
+    item.tokenAmount = item.tokenAmount.times(ratio).div(RATE_PRECISION);
+    item.underlyingAmountRealized = item.underlyingAmountRealized.times(ratio).div(RATE_PRECISION);
+    item.underlyingAmountSpot = item.underlyingAmountSpot.times(ratio).div(RATE_PRECISION);
+  }
+
+  // Don't create an inconsequential PnL item
+  if (item.tokenAmount == BigInt.zero()) return;
+
   // Prices are in underlying.precision
   item.realizedPrice = underlyingAmountRealized
     .times(INTERNAL_TOKEN_PRECISION)
@@ -164,15 +173,6 @@ function createLineItem(
     .times(INTERNAL_TOKEN_PRECISION)
     .div(item.tokenAmount)
     .abs();
-
-  if (ratio) {
-    item.tokenAmount = item.tokenAmount.times(ratio).div(RATE_PRECISION);
-    item.underlyingAmountRealized = item.underlyingAmountRealized.times(ratio).div(RATE_PRECISION);
-    item.underlyingAmountSpot = item.underlyingAmountSpot.times(ratio).div(RATE_PRECISION);
-  }
-
-  // Don't create an inconsequential PnL item
-  if (item.tokenAmount == BigInt.zero()) return;
 
   lineItems.push(item);
 }
