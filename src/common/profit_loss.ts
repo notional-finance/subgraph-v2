@@ -40,6 +40,7 @@ export function processProfitAndLoss(
       item.underlyingAmountRealized
     );
 
+    // If sell fcash flips negative clear this to zero...
     if (snapshot._accumulatedBalance.abs().le(DUST)) {
       // Clear all snapshot amounts back to zero if the accumulated balance goes below zero
       snapshot._accumulatedBalance = BigInt.zero();
@@ -365,42 +366,45 @@ function extractProfitLossLineItem(
       );
     }
     /** fCash */
-  } else if (bundle.bundleName == "Buy fCash") {
-    let repay = findPrecedingBundle("Repay fCash", bundleArray);
-    if (repay) {
-      let modified = Transfer.load(repay[0].id) as Transfer;
-      modified.value = transfers[2].value.minus(repay[0].value);
-      modified.valueInUnderlying = (transfers[2].valueInUnderlying as BigInt).minus(
-        repay[0].valueInUnderlying as BigInt
-      );
-      createfCashLineItems(bundle, transfers, modified, lineItems);
-    } else {
-      createfCashLineItems(bundle, transfers, transfers[2], lineItems);
-    }
-  } else if (bundle.bundleName == "Sell fCash") {
+  } else if (bundle.bundleName == "Buy fCash" || bundle.bundleName == "Sell fCash") {
     // NOTE: this section only applies to positive fCash. fCash debt PnL is tracked
     // in a separate if condition below. The tokens transferred here are always
-    // positive fCash.
-    let borrow = findPrecedingBundle("Borrow fCash", bundleArray);
-    if (borrow) {
-      let modified = Transfer.load(borrow[0].id) as Transfer;
-      modified.value = transfers[2].value.minus(borrow[0].value);
-      modified.valueInUnderlying = (transfers[2].valueInUnderlying as BigInt).minus(
-        borrow[0].valueInUnderlying as BigInt
+    // positive fCash. These fCash line items may be deleted by the "Borrow fCash" or "Repay fCash"
+    // bundles.
+    createfCashLineItems(bundle, transfers, transfers[2], lineItems);
+  } else if (bundle.bundleName == "Borrow fCash" || bundle.bundleName == "Repay fCash") {
+    let trade = findPrecedingBundle(
+      bundle.bundleName == "Borrow fCash" ? "Sell fCash" : "Repay fCash",
+      bundleArray
+    );
+
+    if (trade) {
+      let underlyingAmountRealized = (trade[2].valueInUnderlying as BigInt)
+        .plus(
+          bundle.bundleName == "Borrow fCash"
+            ? (trade[0].valueInUnderlying as BigInt).neg()
+            : (trade[0].valueInUnderlying as BigInt)
+        )
+        .times(transfers[0].value)
+        .div(trade[2].value);
+
+      createLineItem(
+        bundle,
+        transfers[0],
+        transfers[0].transferType,
+        lineItems,
+        underlyingAmountRealized,
+        transfers[0].valueInUnderlying as BigInt
       );
-      createfCashLineItems(bundle, transfers, modified, lineItems);
-    } else {
-      createfCashLineItems(bundle, transfers, transfers[2], lineItems);
-    }
-  } else if (bundle.bundleName == "Borrow fCash") {
-    let borrow = findPrecedingBundle("Sell fCash", bundleArray);
-    if (borrow) {
-      createfCashLineItems(bundle, borrow, transfers[1], lineItems);
-    }
-  } else if (bundle.bundleName == "Repay fCash") {
-    let lend = findPrecedingBundle("Buy fCash", bundleArray);
-    if (lend) {
-      createfCashLineItems(bundle, lend, transfers[1], lineItems);
+
+      createLineItem(
+        bundle,
+        transfers[1],
+        transfers[1].transferType,
+        lineItems,
+        underlyingAmountRealized,
+        transfers[1].valueInUnderlying as BigInt
+      );
     }
     /** Vaults */
   } else if (bundle.bundleName == "Vault Entry") {

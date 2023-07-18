@@ -128,12 +128,6 @@ export function convertValueToUnderlying(
       value,
       token.maturity as BigInt
     );
-
-    if (!underlyingExternal.reverted) {
-      // Scale to external decimals
-      let underlying = getUnderlying(currencyId);
-      return underlyingExternal.value.times(underlying.precision).div(INTERNAL_TOKEN_PRECISION);
-    }
   } else {
     // Unknown token type
     return null;
