@@ -223,7 +223,24 @@ function extractProfitLossLineItem(
     // Only do a "Mint" here because we don't register an PnL item on the Notional side.
     createLineItem(bundle, transfers[0], Mint, lineItems, BigInt.fromI32(0), BigInt.fromI32(0));
   } else if (bundle.bundleName == "Transfer Asset") {
-    // TODO: not clear how to mark direct asset transfers
+    // Creates one line item on the sender and receiver at the current spot price.
+    createLineItem(
+      bundle,
+      transfers[0],
+      Mint,
+      lineItems,
+      transfers[0].valueInUnderlying as BigInt,
+      transfers[0].valueInUnderlying as BigInt
+    );
+
+    createLineItem(
+      bundle,
+      transfers[0],
+      Burn,
+      lineItems,
+      transfers[0].valueInUnderlying as BigInt,
+      transfers[0].valueInUnderlying as BigInt
+    );
     /** Residual Purchase */
   } else if (
     bundle.bundleName == "nToken Purchase Positive Residual" ||
