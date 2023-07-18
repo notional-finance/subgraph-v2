@@ -201,22 +201,28 @@ function extractProfitLossLineItem(
   } else if (bundle.bundleName == "Deposit and Transfer") {
     // Deposit / Transfer rewrites and deletes the preceding bundle, so we have
     // to change it the pointer here.
-    let depositIndex = findPrecedingBundleIndex("Deposit", bundleArray);
-    if (depositIndex != -1) {
-      let depositLineItem = ProfitLossLineItem.load(bundleArray[depositIndex] + ":0");
-      if (depositLineItem) {
-        depositLineItem.bundle = bundle.id;
-        depositLineItem.save();
+    let depositLineItemId =
+      bundle.transactionHash +
+      ":" +
+      bundle.startLogIndex.toString().padStart(6, "0") +
+      ":" +
+      bundle.startLogIndex.toString().padStart(6, "0") +
+      ":Deposit:0";
+    let depositLineItem = ProfitLossLineItem.load(depositLineItemId);
 
-        createLineItem(
-          bundle,
-          transfers[0],
-          Burn,
-          lineItems,
-          transfers[0].valueInUnderlying as BigInt,
-          transfers[0].valueInUnderlying as BigInt
-        );
-      }
+    if (depositLineItem) {
+      // NOTE: the deposit line item id itself will not change
+      depositLineItem.bundle = bundle.id;
+      depositLineItem.save();
+
+      createLineItem(
+        bundle,
+        transfers[0],
+        Burn,
+        lineItems,
+        transfers[0].valueInUnderlying as BigInt,
+        transfers[0].valueInUnderlying as BigInt
+      );
     }
   } else if (bundle.bundleName == "Transfer Incentive") {
     // Spot price for NOTE does not exist on all chains.
