@@ -198,7 +198,26 @@ function extractProfitLossLineItem(
       );
     }
     /** Transfers */
-    //  TODO: bundle.bundleName == "Deposit and Transfer" ||
+  } else if (bundle.bundleName == "Deposit and Transfer") {
+    // Deposit / Transfer rewrites and deletes the preceding bundle, so we have
+    // to change it the pointer here.
+    let depositIndex = findPrecedingBundleIndex("Deposit", bundleArray);
+    if (depositIndex != -1) {
+      let depositLineItem = ProfitLossLineItem.load(bundleArray[depositIndex] + ":0");
+      if (depositLineItem) {
+        depositLineItem.bundle = bundle.id;
+        depositLineItem.save();
+
+        createLineItem(
+          bundle,
+          transfers[0],
+          Burn,
+          lineItems,
+          transfers[0].valueInUnderlying as BigInt,
+          transfers[0].valueInUnderlying as BigInt
+        );
+      }
+    }
   } else if (bundle.bundleName == "Transfer Incentive") {
     // Spot price for NOTE does not exist on all chains.
     // Only do a "Mint" here because we don't register an PnL item on the Notional side.
@@ -456,6 +475,8 @@ function extractProfitLossLineItem(
       }
     }
   } else if (bundle.bundleName == "Vault Roll" || bundle.bundleName == "Vault Settle") {
+    // TODO: there are rewrites and cash settlement to worry about inside here.
+
     // Find the entry transfer bundle immediately preceding
     let vaultEntry = findPrecedingBundle("Vault Entry Transfer", bundleArray);
     // vault share burned at oracle price
@@ -551,26 +572,34 @@ function extractProfitLossLineItem(
   return lineItems;
 }
 
-function findPrecedingBundle(name: string, bundleArray: string[]): Transfer[] | null {
+function findPrecedingBundleIndex(name: string, bundleArray: string[]): i32 {
   for (let i = bundleArray.length - 1; i > -1; i--) {
     // Search the bundle array in reverse order
     let id = bundleArray[i];
     if (!id.endsWith(name)) continue;
 
-    let bundle = TransferBundle.load(id);
-    if (bundle === null) return null;
-
-    let transfers = new Array<Transfer>();
-    for (let i = 0; i < bundle.transfers.length; i++) {
-      let t = Transfer.load(bundle.transfers[i]);
-      if (t === null) log.error("Could not load transfer {}", [bundle.transfers[i]]);
-      else transfers.push(t);
-    }
-
-    return transfers;
+    return i;
   }
 
-  return null;
+  return -1;
+}
+
+function findPrecedingBundle(name: string, bundleArray: string[]): Transfer[] | null {
+  let index = findPrecedingBundleIndex(name, bundleArray);
+  if (index == -1) return null;
+
+  let id = bundleArray[index];
+  let bundle = TransferBundle.load(id);
+  if (bundle === null) return null;
+
+  let transfers = new Array<Transfer>();
+  for (let i = 0; i < bundle.transfers.length; i++) {
+    let t = Transfer.load(bundle.transfers[i]);
+    if (t === null) log.error("Could not load transfer {}", [bundle.transfers[i]]);
+    else transfers.push(t);
+  }
+
+  return transfers;
 }
 
 function createVaultDebtLineItem(
@@ -701,7 +730,6 @@ function createfCashLineItems(
   createLineItem(
     bundle,
     fCashTransfer,
-    // TODO: This will properly negate negative fCash debt transfers [not true, exactly....]
     isBuy ? Mint : Burn,
     lineItems,
     underlyingAmountRealized,

@@ -110,7 +110,7 @@ function _updateBalance(
   } else if (systemAccount == nToken) {
     updateNToken(token, account, balance, event);
   } else if (systemAccount == Vault) {
-    updateVaultState(token, account, balance, event);
+    updateVaultState(token, account, balance, transfer, event);
   } else if (systemAccount == FeeReserve || systemAccount == SettlementReserve) {
     updateReserves(account, balance, transfer, event);
   } else {
@@ -267,8 +267,14 @@ function updateVaultState(
   token: Token,
   vault: Account,
   balance: Balance,
+  transfer: Transfer,
   event: ethereum.Event
 ): void {
+  let prevSnapshot: BalanceSnapshot | null = null;
+  if (balance.get("current") !== null) {
+    prevSnapshot = BalanceSnapshot.load(balance.current);
+  }
+
   let notional = getNotional();
   let vaultAddress = Address.fromBytes(Address.fromHexString(vault.id));
   let vaultConfig = notional.getVaultConfig(vaultAddress);
@@ -305,8 +311,13 @@ function updateVaultState(
 
     snapshot.currentBalance = totalDebtUnderlying;
   } else if (token.tokenType == PrimeCash) {
-    // TODO: we don't track total vault cash except here...
-    snapshot.currentBalance = BigInt.zero();
+    if (prevSnapshot == null) {
+      snapshot.currentBalance = transfer.value;
+    } else if (transfer.toSystemAccount == Vault) {
+      snapshot.currentBalance = prevSnapshot.currentBalance.plus(transfer.value);
+    } else if (transfer.fromSystemAccount == Vault) {
+      snapshot.currentBalance = prevSnapshot.currentBalance.minus(transfer.value);
+    }
   }
 
   _saveBalance(balance, snapshot);
