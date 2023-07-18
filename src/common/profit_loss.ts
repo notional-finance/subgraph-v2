@@ -49,6 +49,7 @@ export function processProfitAndLoss(
       snapshot.currentProfitAndLossAtSnapshot = BigInt.zero();
       snapshot.totalInterestAccrualAtSnapshot = BigInt.zero();
       snapshot.totalILAndFeesAtSnapshot = BigInt.zero();
+      snapshot.totalProfitAndLossAtSnapshot = snapshot._accumulatedCostRealized.neg();
     } else {
       if (item.tokenAmount.ge(BigInt.zero())) {
         // Accumulated cost adjusted basis is a positive number, similar to _accumulatedCostRealized
@@ -60,21 +61,6 @@ export function processProfitAndLoss(
           item.tokenAmount.times(snapshot.adjustedCostBasis).div(INTERNAL_TOKEN_PRECISION)
         );
       }
-
-      log.debug(
-        "PROCESSING LINE ITEM [bundle {}] [token {}] [tokenAmount {}] [underlying realized {}] [accumulated balance {}] [accumulated cost adj basis {}] [accumulated cost {}] [adj cost basis {}] [underlying spot {}]",
-        [
-          bundle.bundleName,
-          token.symbol,
-          item.tokenAmount.toString(),
-          item.underlyingAmountRealized.toString(),
-          snapshot._accumulatedBalance.toString(),
-          snapshot._accumulatedCostAdjustedBasis.toString(),
-          snapshot._accumulatedCostRealized.toString(),
-          snapshot.adjustedCostBasis.toString(),
-          item.underlyingAmountSpot.toString(),
-        ]
-      );
 
       // Adjusted cost basis is in underlying precision and a positive number.
       if (snapshot._accumulatedCostRealized.abs().le(DUST)) {
@@ -379,11 +365,11 @@ function extractProfitLossLineItem(
     );
 
     if (trade) {
-      let underlyingAmountRealized = (trade[2].valueInUnderlying as BigInt)
+      let underlyingAmountRealized = (trade[0].valueInUnderlying as BigInt)
         .plus(
           bundle.bundleName == "Borrow fCash"
-            ? (trade[0].valueInUnderlying as BigInt).neg()
-            : (trade[0].valueInUnderlying as BigInt)
+            ? (trade[1].valueInUnderlying as BigInt).neg()
+            : (trade[1].valueInUnderlying as BigInt)
         )
         .times(transfers[0].value)
         .div(trade[2].value);
@@ -432,6 +418,42 @@ function extractProfitLossLineItem(
         // Value of underlying transferred to the vault to burn vault shares
         vaultRedeem[0].valueInUnderlying as BigInt
       );
+    } else if ((transfers[1].maturity as BigInt) == PRIME_CASH_VAULT_MATURITY) {
+      // If the vault redeem is not found, then the account was deleveraged.
+      let vaultDeleverage = findPrecedingBundle("Vault Deleverage Prime Debt", bundleArray);
+
+      if (vaultDeleverage !== null) {
+        createVaultShareLineItem(
+          bundle,
+          transfers[1],
+          lineItems,
+          // The first transfer in the deleverage transaction is the underlying amount
+          // paid to purchase the vault shares
+          vaultDeleverage[0].valueInUnderlying as BigInt
+        );
+      }
+    } else {
+      let vaultDeleverage = findPrecedingBundle("Vault Deleverage fCash", bundleArray);
+      if (vaultDeleverage !== null) {
+        // Creates the vault cash line item on the liquidated account
+        createLineItem(
+          bundle,
+          vaultDeleverage[0],
+          vaultDeleverage[0].transferType,
+          lineItems,
+          vaultDeleverage[0].valueInUnderlying as BigInt,
+          vaultDeleverage[0].valueInUnderlying as BigInt
+        );
+
+        createVaultShareLineItem(
+          bundle,
+          transfers[1],
+          lineItems,
+          // The first transfer in the deleverage transaction is the underlying amount
+          // paid to purchase the vault shares
+          vaultDeleverage[0].valueInUnderlying as BigInt
+        );
+      }
     }
   } else if (bundle.bundleName == "Vault Roll" || bundle.bundleName == "Vault Settle") {
     // Find the entry transfer bundle immediately preceding
@@ -464,9 +486,65 @@ function extractProfitLossLineItem(
     // new vault debt
     createVaultDebtLineItem(bundle, transfers[2], lineItems, bundleArray);
     /* Vault Liquidation */
-    // } else if (bundle.bundleName == "Vault Deleverage fCash") {
-    // } else if (bundle.bundleName == "Vault Deleverage Prime Debt") {
-    // } else if (bundle.bundleName == "Vault Liquidate Cash") {
+  } else if (
+    bundle.bundleName == "Vault Deleverage fCash" ||
+    bundle.bundleName == "Vault Deleverage Prime Debt"
+  ) {
+    // These are the vault shares transferred to the liquidator, the value is the
+    // amount of cash paid for the vault shares.
+    createLineItem(
+      bundle,
+      transfers[1],
+      Mint,
+      lineItems,
+      // This is the value of cash paid for shares
+      transfers[0].valueInUnderlying as BigInt,
+      transfers[1].valueInUnderlying as BigInt
+    );
+  } else if (bundle.bundleName == "Vault Liquidate Cash") {
+    // Liquidator Receives Cash
+    createLineItem(
+      bundle,
+      transfers[0],
+      Mint,
+      lineItems,
+      transfers[0].valueInUnderlying as BigInt,
+      transfers[0].valueInUnderlying as BigInt
+    );
+
+    // Liquidator Burns fCash
+    createLineItem(
+      bundle,
+      transfers[1],
+      Burn,
+      lineItems,
+      // Realized value is the amount of cash received
+      transfers[0].valueInUnderlying as BigInt,
+      // Spot Value is the value of fCash
+      transfers[1].valueInUnderlying as BigInt
+    );
+
+    // Liquidated Burns Vault Debt
+    createLineItem(
+      bundle,
+      transfers[2],
+      transfers[2].transferType,
+      lineItems,
+      // Realized value is the amount of cash burned
+      transfers[3].valueInUnderlying as BigInt,
+      // Spot Value is the value of fCash
+      transfers[2].valueInUnderlying as BigInt
+    );
+
+    // Liquidated Burns Vault Cash at Par
+    createLineItem(
+      bundle,
+      transfers[3],
+      transfers[3].transferType,
+      lineItems,
+      transfers[3].valueInUnderlying as BigInt,
+      transfers[3].valueInUnderlying as BigInt
+    );
     // } else if (bundle.bundleName == "Vault Liquidate Excess Cash") {
   }
 
