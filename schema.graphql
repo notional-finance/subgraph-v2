@@ -180,6 +180,7 @@ type Account @entity {
   "All historical token transfers linked to this account"
   transfersFrom: [Transfer!] @derivedFrom(field: "from")
   transfersTo: [Transfer!] @derivedFrom(field: "to")
+  profitLossLineItems: [ProfitLossLineItem!] @derivedFrom(field: "account")
 }
 
 ### Exchange Rates ###
