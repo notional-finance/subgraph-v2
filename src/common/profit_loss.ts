@@ -125,6 +125,9 @@ function createLineItem(
 ): void {
   let item = new ProfitLossLineItem(bundle.id + ":" + lineItems.length.toString());
   item.bundle = bundle.id;
+  item.blockNumber = bundle.blockNumber;
+  item.timestamp = bundle.timestamp;
+  item.transactionHash = bundle.transactionHash;
   item.token = tokenTransfer.token;
   item.underlyingToken = tokenTransfer.underlying;
 

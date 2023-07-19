@@ -130,7 +130,11 @@ type TransferBundle @entity(immutable: true) {
 
 type ProfitLossLineItem @entity(immutable: true) {
   "Bundle ID:Index"
-  id: ID!  
+  id: ID!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Transaction!
+
   bundle: TransferBundle!
   balanceSnapshot: BalanceSnapshot!
 
