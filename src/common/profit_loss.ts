@@ -81,7 +81,9 @@ export function processProfitAndLoss(
 
       if (accumulatedBalanceValueAtSpot !== null) {
         snapshot.currentProfitAndLossAtSnapshot = accumulatedBalanceValueAtSpot.minus(
-          snapshot._accumulatedBalance.times(snapshot.adjustedCostBasis).div(underlying.precision)
+          snapshot.adjustedCostBasis
+            .times(snapshot._accumulatedBalance)
+            .div(INTERNAL_TOKEN_PRECISION)
         );
         snapshot.totalProfitAndLossAtSnapshot = accumulatedBalanceValueAtSpot.minus(
           snapshot._accumulatedCostRealized
