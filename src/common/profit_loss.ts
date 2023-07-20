@@ -1,6 +1,6 @@
 import { ethereum, BigInt, log } from "@graphprotocol/graph-ts";
 import { ProfitLossLineItem, Transfer, TransferBundle } from "../../generated/schema";
-import { getAccount, getAsset, getNotional } from "./entities";
+import { getAccount, getAsset, getNotional, getUnderlying } from "./entities";
 import { getBalance, getBalanceSnapshot } from "../balances";
 import {
   Burn,
@@ -8,6 +8,7 @@ import {
   Mint,
   PRIME_CASH_VAULT_MATURITY,
   RATE_PRECISION,
+  SECONDS_IN_YEAR,
   Transfer as _Transfer,
   nToken,
 } from "./constants";
@@ -50,12 +51,26 @@ export function processProfitAndLoss(
       snapshot.totalInterestAccrualAtSnapshot = BigInt.zero();
       snapshot.totalILAndFeesAtSnapshot = BigInt.zero();
       snapshot.totalProfitAndLossAtSnapshot = snapshot._accumulatedCostRealized.neg();
+      snapshot.impliedFixedRate = null;
     } else {
       if (item.tokenAmount.ge(BigInt.zero())) {
         // Accumulated cost adjusted basis is a positive number, similar to _accumulatedCostRealized
         snapshot._accumulatedCostAdjustedBasis = snapshot._accumulatedCostAdjustedBasis.minus(
           item.underlyingAmountRealized
         );
+
+        if (item.impliedFixedRate !== null) {
+          let prevImpliedFixedRate =
+            snapshot.impliedFixedRate !== null
+              ? (snapshot.impliedFixedRate as BigInt)
+              : BigInt.zero();
+          snapshot.impliedFixedRate = snapshot._accumulatedBalance
+            .times(prevImpliedFixedRate)
+            .plus(
+              item.tokenAmount.times((item.impliedFixedRate as BigInt).minus(prevImpliedFixedRate))
+            )
+            .div(snapshot._accumulatedBalance);
+        }
       } else {
         snapshot._accumulatedCostAdjustedBasis = snapshot._accumulatedCostAdjustedBasis.plus(
           item.tokenAmount.times(snapshot.adjustedCostBasis).div(INTERNAL_TOKEN_PRECISION)
@@ -165,6 +180,24 @@ function createLineItem(
     .times(INTERNAL_TOKEN_PRECISION)
     .div(item.tokenAmount)
     .abs();
+
+  let token = getAsset(item.token);
+  let underlying = getUnderlying(token.currencyId);
+  if (token.maturity !== null && token.maturity !== PRIME_CASH_VAULT_MATURITY) {
+    // Convert the realized price to an implied fixed rate for fixed vault debt
+    // and fCash tokens
+    let realizedPriceInRatePrecision: f64 = item.realizedPrice
+      .times(RATE_PRECISION)
+      .div(underlying.precision)
+      .toI64() as f64;
+    let ratePrecision = RATE_PRECISION.toI64() as f64;
+    let timeToMaturity: f64 = ((token.maturity as BigInt).toI64() - bundle.timestamp) as f64;
+    let x: f64 = Math.log(ratePrecision / realizedPriceInRatePrecision);
+    let fixedRate = Math.floor(
+      (ratePrecision * (x * (SECONDS_IN_YEAR.toI64() as f64))) / timeToMaturity
+    ) as i64;
+    item.impliedFixedRate = BigInt.fromI64(fixedRate);
+  }
 
   lineItems.push(item);
 }

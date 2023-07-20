@@ -148,6 +148,7 @@ type ProfitLossLineItem @entity(immutable: true) {
 
   realizedPrice: BigInt!
   spotPrice: BigInt!
+  impliedFixedRate: BigInt
 }
 
 type Transaction @entity(immutable: true) {
@@ -476,6 +477,8 @@ type BalanceSnapshot @entity(immutable: true) {
   totalILAndFeesAtSnapshot: BigInt!
   "Portion of the PnL due to interest accrual"
   totalInterestAccrualAtSnapshot: BigInt!
+  "Implied Fixed Rate for fCash balances"
+  impliedFixedRate: BigInt
   
   "Cumulative balance used for internal PnL calculations"
   _accumulatedBalance: BigInt!
