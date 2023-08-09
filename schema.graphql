@@ -197,8 +197,9 @@ enum OracleType {
   fCashToUnderlyingExchangeRate,
   fCashSpotRate,
   PrimeCashToUnderlyingOracleInterestRate,
-  PrimeCashSpotInterestRate,
-  PrimeDebtSpotInterestRate,
+  PrimeCashPremiumInterestRate,
+  PrimeDebtPremiumInterestRate,
+  PrimeCashExternalLendingInterestRate,
   PrimeCashToUnderlyingExchangeRate,
   PrimeCashToMoneyMarketExchangeRate,
   PrimeDebtToUnderlyingExchangeRate,
@@ -547,10 +548,12 @@ type PrimeCashMarketSnapshot @entity(immutable: true) {
   debtScalar: BigInt!
   "Snapshot value of the underlying scalar"
   underlyingScalar: BigInt!
-  "Spot prime cash interest rate"
-  supplyInterestRate: Int
-  "Spot prime debt interest rate"
-  debtInterestRate: Int
+  "Prime cash premium interest rate"
+  supplyInterestRate: BigInt
+  "Prime debt premium interest rate"
+  debtInterestRate: BigInt
+  "External lending interest rate"
+  externalLendingRate: BigInt
 }
 
 type fCashMarket @entity {

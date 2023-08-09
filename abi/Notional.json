@@ -87,7 +87,7 @@
             {
                 "indexed": false,
                 "internalType": "uint256",
-                "name": "underlyingScalar",
+                "name": "supplyFactor",
                 "type": "uint256"
             },
             {
@@ -4338,6 +4338,35 @@
                 "type": "uint16"
             }
         ],
+        "name": "getPrimeInterestRate",
+        "outputs": [
+            {
+                "internalType": "uint256",
+                "name": "annualDebtRatePreFee",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "annualDebtRatePostFee",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "annualSupplyRate",
+                "type": "uint256"
+            }
+        ],
+        "stateMutability": "view",
+        "type": "function"
+    },
+    {
+        "inputs": [
+            {
+                "internalType": "uint16",
+                "name": "currencyId",
+                "type": "uint16"
+            }
+        ],
         "name": "getPrimeInterestRateCurve",
         "outputs": [
             {
@@ -4719,7 +4748,17 @@
         "outputs": [
             {
                 "internalType": "int256",
-                "name": "",
+                "name": "totalfCashDebt",
+                "type": "int256"
+            },
+            {
+                "internalType": "int256",
+                "name": "fCashDebtHeldInSettlementReserve",
+                "type": "int256"
+            },
+            {
+                "internalType": "int256",
+                "name": "primeCashHeldInSettlementReserve",
                 "type": "int256"
             }
         ],
@@ -7291,9 +7330,9 @@
                         "type": "uint16"
                     },
                     {
-                        "internalType": "uint32",
+                        "internalType": "uint256",
                         "name": "minAccountBorrowSize",
-                        "type": "uint32"
+                        "type": "uint256"
                     },
                     {
                         "internalType": "uint16",
@@ -7336,9 +7375,9 @@
                         "type": "uint16"
                     },
                     {
-                        "internalType": "uint32[2]",
+                        "internalType": "uint256[2]",
                         "name": "minAccountSecondaryBorrow",
-                        "type": "uint32[2]"
+                        "type": "uint256[2]"
                     },
                     {
                         "internalType": "uint8",
@@ -7346,7 +7385,7 @@
                         "type": "uint8"
                     }
                 ],
-                "internalType": "struct VaultConfigStorage",
+                "internalType": "struct VaultConfigParams",
                 "name": "vaultConfig",
                 "type": "tuple"
             },

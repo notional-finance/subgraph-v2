@@ -35,8 +35,9 @@ import {
   VaultShareOracleRate,
   VAULT_SHARE_ASSET_TYPE_ID,
   ZERO_ADDRESS,
-  PrimeCashSpotInterestRate,
-  PrimeDebtSpotInterestRate,
+  PrimeDebtPremiumInterestRate,
+  PrimeCashPremiumInterestRate,
+  PrimeCashExternalLendingInterestRate,
 } from "./common/constants";
 import {
   getAsset,
@@ -348,6 +349,7 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
   );
 
   let pDebtAddress = notional.pDebtAddress(event.params.currencyId);
+  let interestRates = notional.try_getPrimeInterestRate(event.params.currencyId);
   if (pDebtAddress != ZERO_ADDRESS) {
     let pDebtAsset = getAsset(pDebtAddress.toHexString());
 
@@ -379,29 +381,31 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
       event.transaction.hash.toHexString()
     );
 
-    // let interestRates = notional.getPrimeInterestRate(event.params.currencyId);
-    let pDebtSpotInterestRate = getOracle(base, pDebtAsset, PrimeDebtSpotInterestRate);
+    let pDebtSpotInterestRate = getOracle(base, pDebtAsset, PrimeDebtPremiumInterestRate);
     pDebtSpotInterestRate.decimals = SCALAR_DECIMALS;
     pDebtSpotInterestRate.ratePrecision = SCALAR_PRECISION;
     pDebtSpotInterestRate.oracleAddress = notional._address;
+    let debtRate = interestRates.reverted
+      ? BigInt.zero()
+      : interestRates.value.getAnnualDebtRatePostFee();
     updateExchangeRate(
       pDebtSpotInterestRate,
-      BigInt.fromI32(0),
-      // interestRates.getAnnualDebtRatePostFee(),
+      debtRate,
       event.block,
       event.transaction.hash.toHexString()
     );
   }
 
-  // let interestRates = notional.getPrimeInterestRate(event.params.currencyId);
-  let pCashSpotInterestRate = getOracle(base, pCashAsset, PrimeCashSpotInterestRate);
+  let pCashSpotInterestRate = getOracle(base, pCashAsset, PrimeCashPremiumInterestRate);
   pCashSpotInterestRate.decimals = SCALAR_DECIMALS;
   pCashSpotInterestRate.ratePrecision = SCALAR_PRECISION;
   pCashSpotInterestRate.oracleAddress = notional._address;
+  let supplyRate = interestRates.reverted
+    ? BigInt.zero()
+    : interestRates.value.getAnnualSupplyRate();
   updateExchangeRate(
     pCashSpotInterestRate,
-    BigInt.fromI32(0),
-    // interestRates.getAnnualSupplyRate(),
+    supplyRate,
     event.block,
     event.transaction.hash.toHexString()
   );
@@ -423,6 +427,21 @@ export function handleRebalance(event: CurrencyRebalanced): void {
   updateExchangeRate(
     pCashSupplyRate,
     factors.oracleSupplyRate,
+    event.block,
+    event.transaction.hash.toHexString()
+  );
+
+  // External lending rate
+  let pCashExternalLending = getOracle(base, pCashAsset, PrimeCashExternalLendingInterestRate);
+  let interestRates = notional.getPrimeInterestRate(event.params.currencyId);
+  pCashSupplyRate.decimals = RATE_DECIMALS;
+  pCashSupplyRate.ratePrecision = RATE_PRECISION;
+  pCashSupplyRate.oracleAddress = notional._address;
+  updateExchangeRate(
+    pCashExternalLending,
+    // The external lending rate is the difference between the oracle supply rate
+    // and the prime supply premium
+    factors.oracleSupplyRate.minus(interestRates.getAnnualSupplyRate()),
     event.block,
     event.transaction.hash.toHexString()
   );
