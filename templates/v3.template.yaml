@@ -214,7 +214,7 @@ templates:
     kind: ethereum/contract
     network: {{ networkName }}
     source:
-      abi: ERC20
+      abi: ERC4626
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -236,3 +236,5 @@ templates:
       eventHandlers:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleERC20Transfer
+        - event: ProxyRenamed()
+          handler: handleProxyRenamed

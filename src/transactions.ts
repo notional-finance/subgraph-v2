@@ -1,6 +1,6 @@
 import { Address, ethereum, log, BigInt } from "@graphprotocol/graph-ts";
 import { TransferBatch, TransferSingle } from "../generated/Transactions/Notional";
-import { Transfer as TransferEvent } from "../generated/templates/ERC20Proxy/ERC20";
+import { ERC20, Transfer as TransferEvent } from "../generated/templates/ERC20Proxy/ERC20";
 import { updateBalance } from "./balances";
 import { getAsset, createTransfer } from "./common/entities";
 import { getOrCreateERC1155Asset } from "./common/erc1155";
@@ -11,6 +11,8 @@ import {
   decodeTransferType,
   processTransfer,
 } from "./common/transfers";
+import { ProxyRenamed } from "../generated/Transactions/ERC4626";
+import { getTokenNameAndSymbol } from "./common/erc20";
 
 function _logTransfer(
   from: Address,
@@ -73,4 +75,13 @@ export function handleERC20Transfer(event: TransferEvent): void {
   let token = getAsset(event.address.toHexString());
   let transfer = createTransfer(event, 0);
   _logTransfer(event.params.from, event.params.to, event.params.value, event, transfer, token);
+}
+
+export function handleProxyRenamed(event: ProxyRenamed): void {
+  let token = getAsset(event.address.toHexString());
+  let erc20 = ERC20.bind(event.address);
+  let symbolAndName = getTokenNameAndSymbol(erc20);
+  token.name = symbolAndName[0];
+  token.symbol = symbolAndName[1];
+  token.save();
 }
