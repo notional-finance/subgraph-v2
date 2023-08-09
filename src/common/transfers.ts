@@ -14,6 +14,8 @@ import {
   VaultDebt,
   VaultShare,
   ZERO_ADDRESS,
+  RATE_PRECISION,
+  SECONDS_IN_YEAR,
 } from "./constants";
 import {
   createTransferBundle,
@@ -23,6 +25,7 @@ import {
   getUnderlying,
 } from "./entities";
 import { BundleCriteria } from "./bundles";
+import { processProfitAndLoss } from "./profit_loss";
 
 export function decodeTransferType(from: Address, to: Address): string {
   if (from == ZERO_ADDRESS) {
@@ -79,6 +82,31 @@ export function convertValueToUnderlying(
         blockTime
       );
     } else {
+      let activeMarkets = notional.getActiveMarkets(currencyId);
+      for (let i = 0; i < activeMarkets.length; i++) {
+        if (activeMarkets[i].maturity == (token.maturity as BigInt)) {
+          let lastImpliedRate = activeMarkets[i].lastImpliedRate;
+          let timeToMaturity = (token.maturity as BigInt).minus(blockTime);
+          let x: f64 = (lastImpliedRate
+            .times(timeToMaturity)
+            .div(RATE_PRECISION)
+            .toI64() / SECONDS_IN_YEAR.toI64()) as f64;
+
+          let discountFactor = BigInt.fromI64(
+            Math.floor(Math.exp(-x) * (RATE_PRECISION.toI64() as f64)) as i64
+          );
+          let underlying = getUnderlying(currencyId);
+
+          return value
+            .times(discountFactor)
+            .times(underlying.precision)
+            .div(RATE_PRECISION)
+            .div(INTERNAL_TOKEN_PRECISION);
+        }
+      }
+
+      // NOTE: if the search falls through to this point, use the oracle value b/c
+      // the fCash is idiosyncratic
       underlyingExternal = notional.try_getPresentfCashValue(
         currencyId,
         token.maturity as BigInt,
@@ -100,12 +128,6 @@ export function convertValueToUnderlying(
       value,
       token.maturity as BigInt
     );
-
-    if (!underlyingExternal.reverted) {
-      // Scale to external decimals
-      let underlying = getUnderlying(currencyId);
-      return underlyingExternal.value.times(underlying.precision).div(INTERNAL_TOKEN_PRECISION);
-    }
   } else {
     // Unknown token type
     return null;
@@ -125,26 +147,17 @@ export function processTransfer(transfer: Transfer, event: ethereum.Event): void
   transfer.save();
 
   // Scan unbundled transfers
-  txn._nextStartIndex = scanTransferBundle(
-    txn._nextStartIndex,
-    transferArray,
-    bundleArray,
-    event.transaction.hash.toHexString(),
-    event.block.number.toI32(),
-    event.block.timestamp.toI32()
-  );
+  txn._nextStartIndex = scanTransferBundle(txn._nextStartIndex, transferArray, bundleArray, event);
   txn._transferBundles = bundleArray;
   txn._transfers = transferArray;
   txn.save();
 }
 
-export function scanTransferBundle(
+function scanTransferBundle(
   startIndex: i32,
   transferArray: string[],
   bundleArray: string[],
-  txnHash: string,
-  blockNumber: i32,
-  timestamp: i32
+  event: ethereum.Event
 ): i32 {
   for (let i = 0; i < BundleCriteria.length; i++) {
     let criteria = BundleCriteria[i];
@@ -177,18 +190,21 @@ export function scanTransferBundle(
       let windowEndIndex = lookBehind + criteria.bundleSize - 1;
       let startLogIndex = window[windowStartIndex].logIndex;
       let endLogIndex = window[windowEndIndex].logIndex;
+      let txnHash = event.transaction.hash.toHexString();
       let bundle = createTransferBundle(txnHash, criteria.bundleName, startLogIndex, endLogIndex);
-      bundle.blockNumber = blockNumber;
-      bundle.timestamp = timestamp;
+      bundle.blockNumber = event.block.number.toI32();
+      bundle.timestamp = event.block.timestamp.toI32();
       bundle.transactionHash = txnHash;
       bundle.bundleName = criteria.bundleName;
       bundle.startLogIndex = startLogIndex;
       bundle.endLogIndex = endLogIndex;
 
       let bundleTransfers = new Array<string>();
+      let transfers = new Array<Transfer>();
       for (let i = windowStartIndex; i <= windowEndIndex; i++) {
         // Update the bundle id on all the transfers
         bundleTransfers.push(window[i].id);
+        transfers.push(window[i]);
       }
 
       if (criteria.rewrite) {
@@ -199,6 +215,8 @@ export function scanTransferBundle(
       bundleArray.push(bundle.id);
       bundle.transfers = bundleTransfers;
       bundle.save();
+
+      processProfitAndLoss(bundle, transfers, bundleArray, event);
 
       // Marks the next start index in the transaction level transfer array
       return startIndex + criteria.bundleSize;

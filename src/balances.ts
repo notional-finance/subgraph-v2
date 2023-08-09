@@ -1,5 +1,5 @@
-import { Address, ethereum, log, store, BigInt, Bytes, ByteArray } from "@graphprotocol/graph-ts";
-import { Account, Token, Balance, Transfer } from "../generated/schema";
+import { Address, ethereum, log, BigInt, Bytes, ByteArray } from "@graphprotocol/graph-ts";
+import { Account, Token, Balance, Transfer, BalanceSnapshot } from "../generated/schema";
 import { ERC20 } from "../generated/templates/ERC20Proxy/ERC20";
 import { ERC4626 } from "../generated/Transactions/ERC4626";
 import {
@@ -23,7 +23,61 @@ import { getAccount, getAsset, getIncentives, getNotional } from "./common/entit
 import { updatePrimeCashMarket } from "./common/market";
 import { updatefCashOraclesAndMarkets } from "./exchange_rates";
 
-function getBalance(account: Account, token: Token, event: ethereum.Event): Balance {
+export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): BalanceSnapshot {
+  let id = balance.id + ":" + event.block.number.toString();
+  let snapshot = BalanceSnapshot.load(id);
+
+  if (snapshot == null) {
+    snapshot = new BalanceSnapshot(id);
+    snapshot.balance = balance.id;
+    snapshot.blockNumber = event.block.number.toI32();
+    snapshot.timestamp = event.block.timestamp.toI32();
+    snapshot.transaction = event.transaction.hash.toHexString();
+
+    // These features are calculated at each update to the snapshot
+    snapshot.currentBalance = BigInt.zero();
+    snapshot.adjustedCostBasis = BigInt.zero();
+    snapshot.currentProfitAndLossAtSnapshot = BigInt.zero();
+    snapshot.totalProfitAndLossAtSnapshot = BigInt.zero();
+    snapshot.totalILAndFeesAtSnapshot = BigInt.zero();
+    snapshot.totalInterestAccrualAtSnapshot = BigInt.zero();
+    snapshot._accumulatedBalance = BigInt.zero();
+    snapshot._accumulatedCostRealized = BigInt.zero();
+    snapshot._accumulatedCostAdjustedBasis = BigInt.zero();
+
+    // These features are accumulated over the lifetime of the balance, as long
+    // as it is not zero.
+    if (balance.get("current") !== null) {
+      let prevSnapshot = BalanceSnapshot.load(balance.current);
+      if (!prevSnapshot) {
+        log.error("Previous snapshot not found", []);
+      } else if (prevSnapshot.currentBalance.isZero()) {
+        // Reset these to zero if the previous balance is zero
+        snapshot.totalILAndFeesAtSnapshot = BigInt.zero();
+        snapshot._accumulatedBalance = BigInt.zero();
+        snapshot._accumulatedCostAdjustedBasis = BigInt.zero();
+      } else {
+        snapshot.totalILAndFeesAtSnapshot = prevSnapshot.totalILAndFeesAtSnapshot;
+        snapshot._accumulatedBalance = prevSnapshot._accumulatedBalance;
+        snapshot._accumulatedCostAdjustedBasis = prevSnapshot._accumulatedCostAdjustedBasis;
+      }
+
+      if (prevSnapshot) {
+        // These values are always copied from the previous snapshot
+        snapshot.totalProfitAndLossAtSnapshot = prevSnapshot.totalProfitAndLossAtSnapshot;
+        snapshot._accumulatedCostRealized = prevSnapshot._accumulatedCostRealized;
+      }
+    }
+
+    // When a new snapshot is created, it is set to the current.
+    balance.current = snapshot.id;
+    balance.save();
+  }
+
+  return snapshot;
+}
+
+export function getBalance(account: Account, token: Token, event: ethereum.Event): Balance {
   let id = account.id + ":" + token.id;
   let entity = Balance.load(id);
 
@@ -34,7 +88,6 @@ function getBalance(account: Account, token: Token, event: ethereum.Event): Bala
     entity.firstUpdateBlockNumber = event.block.number.toI32();
     entity.firstUpdateTimestamp = event.block.timestamp.toI32();
     entity.firstUpdateTransactionHash = event.transaction.hash;
-    entity.balance = BigInt.zero();
   }
 
   entity.lastUpdateBlockNumber = event.block.number.toI32();
@@ -57,12 +110,17 @@ function _updateBalance(
   } else if (systemAccount == nToken) {
     updateNToken(token, account, balance, event);
   } else if (systemAccount == Vault) {
-    updateVaultState(token, account, balance);
+    updateVaultState(token, account, balance, transfer, event);
   } else if (systemAccount == FeeReserve || systemAccount == SettlementReserve) {
-    updateReserves(account, balance, transfer);
+    updateReserves(account, balance, transfer, event);
   } else {
-    updateAccount(token, account, balance);
+    updateAccount(token, account, balance, event);
   }
+}
+
+function _saveBalance(balance: Balance, snapshot: BalanceSnapshot): void {
+  balance.save();
+  snapshot.save();
 }
 
 function updateERC20ProxyTotalSupply(token: Token): void {
@@ -86,8 +144,10 @@ function updateVaultAssetTotalSupply(
   if (token.tokenType == VaultCash) {
     if (transfer.transferType == Mint) {
       token.totalSupply = (token.totalSupply as BigInt).plus(transfer.value);
+      token.save();
     } else if (transfer.transferType == Burn) {
       token.totalSupply = (token.totalSupply as BigInt).minus(transfer.value);
+      token.save();
     }
 
     // Updates the vault prime cash balance which equals the vault cash total supply.
@@ -96,9 +156,10 @@ function updateVaultAssetTotalSupply(
     let notional = getNotional();
     let primeCashAsset = getAsset(notional.pCashAddress(currencyId).toHexString());
     let vaultPrimeCashBalance = getBalance(vault, primeCashAsset, event);
+    let snapshot = getBalanceSnapshot(vaultPrimeCashBalance, event);
 
-    vaultPrimeCashBalance.balance = token.totalSupply as BigInt;
-    _saveBalance(vaultPrimeCashBalance);
+    snapshot.currentBalance = token.totalSupply as BigInt;
+    _saveBalance(vaultPrimeCashBalance, snapshot);
   }
 
   let notional = getNotional();
@@ -109,6 +170,7 @@ function updateVaultAssetTotalSupply(
 
   if (token.tokenType == VaultShare) {
     token.totalSupply = vaultState.totalVaultShares;
+    token.save();
   } else if (token.tokenType == VaultDebt) {
     if ((token.maturity as BigInt) == PRIME_CASH_VAULT_MATURITY) {
       let pDebtAddress = notional.pDebtAddress(token.currencyId);
@@ -117,6 +179,7 @@ function updateVaultAssetTotalSupply(
     } else {
       token.totalSupply = vaultState.totalDebtUnderlying;
     }
+    token.save();
   }
 }
 
@@ -135,15 +198,6 @@ function updateNTokenIncentives(token: Token, event: ethereum.Event): void {
     .getNTokenAccount(Address.fromBytes(token.tokenAddress as Bytes))
     .getAccumulatedNOTEPerNToken();
   incentives.save();
-}
-
-function _saveBalance(balance: Balance): void {
-  // Delete zero balances from cluttering up the store.
-  if (balance.balance.isZero()) {
-    store.remove("Balance", balance.id);
-  } else {
-    balance.save();
-  }
 }
 
 export function updateBalance(token: Token, transfer: Transfer, event: ethereum.Event): void {
@@ -183,12 +237,14 @@ function updateNToken(
 ): void {
   let notional = getNotional();
   let nTokenAddress = Address.fromBytes(Address.fromHexString(nTokenAccount.id));
+  let snapshot = getBalanceSnapshot(balance, event);
 
   if (token.tokenType == fCash) {
-    balance.balance = notional.balanceOf(
+    snapshot.currentBalance = notional.balanceOf(
       nTokenAddress,
       BigInt.fromUnsignedBytes(Bytes.fromHexString(token.id).reverse() as ByteArray)
     );
+
     updatefCashOraclesAndMarkets(
       token.underlying as string,
       event.block,
@@ -202,74 +258,129 @@ function updateNToken(
     let totalCash = markets.reduce((t, m) => {
       return t.plus(m.totalPrimeCash);
     }, acct.getCashBalance());
-    balance.balance = totalCash;
+    snapshot.currentBalance = totalCash;
   }
-  _saveBalance(balance);
+  _saveBalance(balance, snapshot);
 }
 
-function updateVaultState(token: Token, vault: Account, balance: Balance): void {
+function updateVaultState(
+  token: Token,
+  vault: Account,
+  balance: Balance,
+  transfer: Transfer,
+  event: ethereum.Event
+): void {
+  let prevSnapshot: BalanceSnapshot | null = null;
+  if (balance.get("current") !== null) {
+    prevSnapshot = BalanceSnapshot.load(balance.current);
+  }
+
   let notional = getNotional();
   let vaultAddress = Address.fromBytes(Address.fromHexString(vault.id));
   let vaultConfig = notional.getVaultConfig(vaultAddress);
   let totalDebtUnderlying: BigInt;
-
-  if (token.currencyId == vaultConfig.borrowCurrencyId) {
-    totalDebtUnderlying = notional.getVaultState(vaultAddress, token.maturity as BigInt)
-      .totalDebtUnderlying;
-  } else {
-    totalDebtUnderlying = notional.getSecondaryBorrow(
-      vaultAddress,
-      token.currencyId,
-      token.maturity as BigInt
-    );
-  }
+  let snapshot = getBalanceSnapshot(balance, event);
+  let isPrimary = token.currencyId == vaultConfig.borrowCurrencyId;
 
   if (token.tokenType == PrimeDebt) {
     let pDebtAddress = notional.pDebtAddress(token.currencyId);
     let pDebt = ERC4626.bind(pDebtAddress);
-    balance.balance = pDebt.convertToShares(totalDebtUnderlying.abs());
+    if (isPrimary) {
+      totalDebtUnderlying = notional.getVaultState(vaultAddress, PRIME_CASH_VAULT_MATURITY)
+        .totalDebtUnderlying;
+    } else {
+      totalDebtUnderlying = notional.getSecondaryBorrow(
+        vaultAddress,
+        token.currencyId,
+        PRIME_CASH_VAULT_MATURITY
+      );
+    }
+
+    snapshot.currentBalance = pDebt.convertToShares(totalDebtUnderlying.abs());
   } else if (token.tokenType == fCash) {
-    balance.balance = totalDebtUnderlying;
+    if (isPrimary) {
+      totalDebtUnderlying = notional.getVaultState(vaultAddress, token.maturity as BigInt)
+        .totalDebtUnderlying;
+    } else {
+      totalDebtUnderlying = notional.getSecondaryBorrow(
+        vaultAddress,
+        token.currencyId,
+        token.maturity as BigInt
+      );
+    }
+
+    snapshot.currentBalance = totalDebtUnderlying;
+  } else if (token.tokenType == PrimeCash) {
+    if (prevSnapshot == null) {
+      snapshot.currentBalance = transfer.value;
+    } else if (transfer.toSystemAccount == Vault) {
+      snapshot.currentBalance = prevSnapshot.currentBalance.plus(transfer.value);
+    } else if (transfer.fromSystemAccount == Vault) {
+      snapshot.currentBalance = prevSnapshot.currentBalance.minus(transfer.value);
+    }
   }
 
-  _saveBalance(balance);
+  _saveBalance(balance, snapshot);
 }
 
 // Includes fee reserve and settlement reserve
-function updateReserves(reserve: Account, balance: Balance, transfer: Transfer): void {
+function updateReserves(
+  reserve: Account,
+  balance: Balance,
+  transfer: Transfer,
+  event: ethereum.Event
+): void {
+  let prevSnapshot: BalanceSnapshot | null = null;
+  if (balance.get("current") !== null) {
+    prevSnapshot = BalanceSnapshot.load(balance.current);
+  }
+
+  let snapshot = getBalanceSnapshot(balance, event);
+
   if (
     transfer.transferType == Mint ||
     (transfer.transferType == _Transfer && transfer.to == reserve.id)
   ) {
-    balance.balance = balance.balance.plus(transfer.value);
+    if (prevSnapshot == null) {
+      snapshot.currentBalance = transfer.value;
+    } else {
+      snapshot.currentBalance = prevSnapshot.currentBalance.plus(transfer.value);
+    }
   } else if (
     transfer.transferType == Burn ||
     (transfer.transferType == _Transfer && transfer.from == reserve.id)
   ) {
-    balance.balance = balance.balance.minus(transfer.value);
+    if (prevSnapshot) {
+      snapshot.currentBalance = prevSnapshot.currentBalance.minus(transfer.value);
+    }
   }
 
-  // Don't do balance deletes for reserves so that we can see explicit zero balances
-  balance.save();
+  _saveBalance(balance, snapshot);
 }
 
-function updateAccount(token: Token, account: Account, balance: Balance): void {
+function updateAccount(
+  token: Token,
+  account: Account,
+  balance: Balance,
+  event: ethereum.Event
+): void {
   // updates vault account balances directly
   let notional = getNotional();
   let accountAddress = Address.fromBytes(Address.fromHexString(account.id));
+  let snapshot = getBalanceSnapshot(balance, event);
 
   // updates account balances directly
   if (token.tokenInterface == "ERC1155") {
     // Use the ERC1155 balance of selector which gets the balance directly for fCash
     // and vault assets
-    balance.balance = notional.balanceOf(
+    snapshot.currentBalance = notional.balanceOf(
       accountAddress,
       BigInt.fromUnsignedBytes(Bytes.fromHexString(token.id).reverse() as ByteArray)
     );
   } else {
     let erc20 = ERC20.bind(Address.fromBytes(token.tokenAddress as Bytes));
-    balance.balance = erc20.balanceOf(accountAddress);
+    snapshot.currentBalance = erc20.balanceOf(accountAddress);
   }
 
-  _saveBalance(balance);
+  _saveBalance(balance, snapshot);
 }

@@ -38,6 +38,7 @@ function _logTransfer(
   if (token.get("underlying") == null) log.critical("Unknown underlying for token {}", [token.id]);
   transfer.underlying = token.underlying as string;
 
+  // Ensures the balance snapshot exists for the PnL calculations
   updateBalance(token, transfer, event);
 
   // Calls transfer.save() inside

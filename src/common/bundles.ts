@@ -567,7 +567,7 @@ const vault_settle = (w: Transfer[]): boolean => {
     w[2].tokenType == VaultDebt &&
     (w[2].maturity as BigInt) == PRIME_CASH_VAULT_MATURITY
   ) && (
-    w[3].transferType == Burn &&
+    w[3].transferType == Mint &&
     w[3].tokenType == VaultShare &&
     (w[3].maturity as BigInt) == PRIME_CASH_VAULT_MATURITY
   )
@@ -589,7 +589,7 @@ const vault_roll = (w: Transfer[]): boolean => {
     w[2].tokenType == VaultDebt &&
     !w[2].value.isZero()
   ) && (
-    w[3].transferType == Burn &&
+    w[3].transferType == Mint &&
     w[3].tokenType == VaultShare &&
     !w[3].value.isZero()
   )
@@ -604,7 +604,7 @@ const vault_entry = (w: Transfer[]): boolean => {
     w[2].transferType == Mint &&
     w[2].tokenType == VaultDebt
   ) && (
-    w[3].transferType == Burn &&
+    w[3].transferType == Mint &&
     w[3].tokenType == VaultShare
   )
 }
@@ -698,7 +698,6 @@ const vault_secondary_deposit = (w: Transfer[]): boolean => {
     w[0].tokenType == PrimeCash &&
     w[0].toSystemAccount == Vault
   )
-
 }
 
 const vault_secondary_repay = (w: Transfer[]): boolean => {
@@ -809,8 +808,7 @@ BundleCriteria.push(new Criteria("Transfer Asset", 1, transfer_asset));
 BundleCriteria.push(new Criteria("Transfer Incentive", 1, transfer_incentive));
 BundleCriteria.push(new Criteria("Vault Entry Transfer", 1, vault_entry_transfer, 1));
 BundleCriteria.push(new Criteria("Vault Secondary Deposit", 2, vault_secondary_deposit, 0, false, false, 1));
-// This is a secondary vault entry transfer
-BundleCriteria.push(new Criteria("Vault Entry Transfer", 2, vault_entry_transfer, 1, false, false, 1));
+BundleCriteria.push(new Criteria("Vault Secondary Entry Transfer", 2, vault_entry_transfer, 1, false, false, 1));
 BundleCriteria.push(
   new Criteria("nToken Purchase Negative Residual", 4, ntoken_purchase_negative_residual, 1)
 );
