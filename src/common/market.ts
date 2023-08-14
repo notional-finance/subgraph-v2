@@ -11,6 +11,7 @@ import { FCASH_ASSET_TYPE_ID } from "./constants";
 import { getAsset, getNotional, getUnderlying } from "./entities";
 import { getOrCreateERC1155Asset } from "./erc1155";
 import { convertValueToUnderlying } from "./transfers";
+import { getTotalfCashDebt } from "../balances";
 
 const DAY = 86400;
 const QUARTER = DAY * 90;
@@ -146,9 +147,10 @@ function updatefCashMarketWithSnapshot(
     fCashToken,
     block.timestamp
   );
-  snapshot.totalfCashDebtOutstanding = notional
-    .getTotalfCashDebtOutstanding(currencyId, BigInt.fromI32(market.maturity))
-    .getTotalfCashDebt();
+  snapshot.totalfCashDebtOutstanding = getTotalfCashDebt(
+    currencyId,
+    BigInt.fromI32(market.maturity)
+  );
   snapshot.totalfCashDebtOutstandingPresentValue = convertValueToUnderlying(
     snapshot.totalfCashDebtOutstanding,
     fCashToken,

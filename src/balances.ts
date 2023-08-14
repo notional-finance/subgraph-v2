@@ -183,13 +183,20 @@ function updateVaultAssetTotalSupply(
   }
 }
 
-function updatefCashTotalDebtOutstanding(token: Token): void {
+export function getTotalfCashDebt(currencyId: i32, maturity: BigInt): BigInt {
   let notional = getNotional();
-  let totalDebt = notional
-    .getTotalfCashDebtOutstanding(token.currencyId, token.maturity as BigInt)
-    .getTotalfCashDebt();
-  // Total debt is returned as a negative number.
-  token.totalSupply = totalDebt.neg();
+  // NOTE: the call signature changed from the original deployed version
+  let totalDebt = notional.try_getTotalfCashDebtOutstanding1(currencyId, maturity);
+
+  if (totalDebt.reverted) {
+    return notional.getTotalfCashDebtOutstanding(currencyId, maturity as BigInt);
+  } else {
+    return totalDebt.value.getTotalfCashDebt();
+  }
+}
+
+function updatefCashTotalDebtOutstanding(token: Token): void {
+  token.totalSupply = getTotalfCashDebt(token.currencyId, token.maturity as BigInt);
   token.save();
 }
 
