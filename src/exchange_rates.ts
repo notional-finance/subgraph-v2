@@ -533,15 +533,30 @@ export function handleSettlementRate(event: SetPrimeSettlementRate): void {
       event.block,
       event.transaction.hash
     );
-    let negOracle = getOracle(pDebt, negativefCash, fCashSettlementRate);
-    negOracle.oracleAddress = notional._address;
-    negOracle.decimals = DOUBLE_SCALAR_DECIMALS;
-    negOracle.ratePrecision = DOUBLE_SCALAR_PRECISION;
-    negOracle.latestRate = event.params.debtFactor;
-    negOracle.lastUpdateBlockNumber = event.block.number.toI32();
-    negOracle.lastUpdateTimestamp = event.block.timestamp.toI32();
-    negOracle.lastUpdateTransaction = event.transaction.hash.toHexString();
-    negOracle.save();
+    {
+      let negOracle = getOracle(pDebt, negativefCash, fCashSettlementRate);
+      negOracle.oracleAddress = notional._address;
+      negOracle.decimals = DOUBLE_SCALAR_DECIMALS;
+      negOracle.ratePrecision = DOUBLE_SCALAR_PRECISION;
+      negOracle.latestRate = event.params.debtFactor;
+      negOracle.lastUpdateBlockNumber = event.block.number.toI32();
+      negOracle.lastUpdateTimestamp = event.block.timestamp.toI32();
+      negOracle.lastUpdateTransaction = event.transaction.hash.toHexString();
+      negOracle.save();
+    }
+
+    {
+      let fCashExRate = getOracle(base, negativefCash, fCashToUnderlyingExchangeRate);
+      fCashExRate.oracleAddress = notional._address;
+      fCashExRate.decimals = RATE_DECIMALS;
+      fCashExRate.ratePrecision = RATE_PRECISION;
+      fCashExRate.latestRate = RATE_PRECISION;
+      fCashExRate.lastUpdateBlockNumber = event.block.number.toI32();
+      fCashExRate.lastUpdateTimestamp = event.block.timestamp.toI32();
+      fCashExRate.lastUpdateTransaction = event.transaction.hash.toHexString();
+      fCashExRate.matured = true;
+      fCashExRate.save();
+    }
   }
 }
 
