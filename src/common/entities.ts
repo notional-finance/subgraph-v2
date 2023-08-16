@@ -149,6 +149,7 @@ export function getOracle(base: Token, quote: Token, oracleType: string): Oracle
     oracle.quote = quote.id;
     oracle.oracleType = oracleType;
     oracle.mustInvert = false;
+    oracle.matured = false;
   }
 
   return oracle as Oracle;

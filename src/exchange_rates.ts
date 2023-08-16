@@ -475,37 +475,46 @@ export function handleSettlementRate(event: SetPrimeSettlementRate): void {
   posOracle.save();
 
   let base = getUnderlying(event.params.currencyId.toI32());
-  let fCashExRate = getOracle(base, positivefCash, fCashToUnderlyingExchangeRate);
-  fCashExRate.oracleAddress = notional._address;
-  fCashExRate.decimals = RATE_DECIMALS;
-  fCashExRate.ratePrecision = RATE_PRECISION;
-  fCashExRate.latestRate = RATE_PRECISION;
-  fCashExRate.lastUpdateBlockNumber = event.block.number.toI32();
-  fCashExRate.lastUpdateTimestamp = event.block.timestamp.toI32();
-  fCashExRate.lastUpdateTransaction = event.transaction.hash.toHexString();
-  fCashExRate.save();
+  {
+    let fCashExRate = getOracle(base, positivefCash, fCashToUnderlyingExchangeRate);
+    fCashExRate.oracleAddress = notional._address;
+    fCashExRate.decimals = RATE_DECIMALS;
+    fCashExRate.ratePrecision = RATE_PRECISION;
+    fCashExRate.latestRate = RATE_PRECISION;
+    fCashExRate.lastUpdateBlockNumber = event.block.number.toI32();
+    fCashExRate.lastUpdateTimestamp = event.block.timestamp.toI32();
+    fCashExRate.lastUpdateTransaction = event.transaction.hash.toHexString();
+    fCashExRate.matured = true;
+    fCashExRate.save();
+  }
 
-  let fCashOracle = getOracle(base, positivefCash, fCashOracleRate);
-  fCashOracle.oracleAddress = notional._address;
-  fCashOracle.decimals = RATE_DECIMALS;
-  fCashOracle.ratePrecision = RATE_PRECISION;
-  // Oracle interest rate is now zero
-  fCashOracle.latestRate = BigInt.fromI32(0);
-  fCashOracle.lastUpdateBlockNumber = event.block.number.toI32();
-  fCashOracle.lastUpdateTimestamp = event.block.timestamp.toI32();
-  fCashOracle.lastUpdateTransaction = event.transaction.hash.toHexString();
-  fCashOracle.save();
+  {
+    let fCashOracle = getOracle(base, positivefCash, fCashOracleRate);
+    fCashOracle.oracleAddress = notional._address;
+    fCashOracle.decimals = RATE_DECIMALS;
+    fCashOracle.ratePrecision = RATE_PRECISION;
+    // Oracle interest rate is now zero
+    fCashOracle.latestRate = BigInt.fromI32(0);
+    fCashOracle.lastUpdateBlockNumber = event.block.number.toI32();
+    fCashOracle.lastUpdateTimestamp = event.block.timestamp.toI32();
+    fCashOracle.lastUpdateTransaction = event.transaction.hash.toHexString();
+    fCashOracle.matured = true;
+    fCashOracle.save();
+  }
 
   // Spot interest rate is also zero, same as oracle interest rate
-  let fCashSpot = getOracle(base, positivefCash, fCashSpotRate);
-  fCashSpot.oracleAddress = notional._address;
-  fCashSpot.decimals = RATE_DECIMALS;
-  fCashSpot.ratePrecision = RATE_PRECISION;
-  fCashSpot.latestRate = BigInt.fromI32(0);
-  fCashSpot.lastUpdateBlockNumber = event.block.number.toI32();
-  fCashSpot.lastUpdateTimestamp = event.block.timestamp.toI32();
-  fCashSpot.lastUpdateTransaction = event.transaction.hash.toHexString();
-  fCashSpot.save();
+  {
+    let fCashSpot = getOracle(base, positivefCash, fCashSpotRate);
+    fCashSpot.oracleAddress = notional._address;
+    fCashSpot.decimals = RATE_DECIMALS;
+    fCashSpot.ratePrecision = RATE_PRECISION;
+    fCashSpot.latestRate = BigInt.fromI32(0);
+    fCashSpot.lastUpdateBlockNumber = event.block.number.toI32();
+    fCashSpot.lastUpdateTimestamp = event.block.timestamp.toI32();
+    fCashSpot.lastUpdateTransaction = event.transaction.hash.toHexString();
+    fCashSpot.matured = true;
+    fCashSpot.save();
+  }
 
   // This is the conversion for negative fCash to negative prime debt
   let pDebtAddress = notional.pDebtAddress(event.params.currencyId.toI32());

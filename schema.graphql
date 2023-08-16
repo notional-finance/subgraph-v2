@@ -239,6 +239,7 @@ type Oracle @entity {
   oracleType: OracleType!
   mustInvert: Boolean!
   latestRate: BigInt
+  matured: Boolean!
 
   historicalRates: [ExchangeRate!] @derivedFrom(field: "oracle")
 }
