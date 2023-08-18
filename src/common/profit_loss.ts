@@ -37,6 +37,7 @@ export function processProfitAndLoss(
     snapshot._accumulatedBalance = snapshot._accumulatedBalance.plus(item.tokenAmount);
     // This never gets reset to zero. Accumulated cost is a positive number. underlyingAmountRealized
     // is negative when purchasing tokens, positive when selling so we invert it here.
+    // TODO: this is set to zero for vault debt...
     snapshot._accumulatedCostRealized = snapshot._accumulatedCostRealized.minus(
       item.underlyingAmountRealized
     );
@@ -440,7 +441,7 @@ function extractProfitLossLineItem(
     createfCashLineItems(bundle, transfers, transfers[2], lineItems);
   } else if (bundle.bundleName == "Borrow fCash" || bundle.bundleName == "Repay fCash") {
     let trade = findPrecedingBundle(
-      bundle.bundleName == "Borrow fCash" ? "Sell fCash" : "Repay fCash",
+      bundle.bundleName == "Borrow fCash" ? "Sell fCash" : "Buy fCash",
       bundleArray
     );
 
