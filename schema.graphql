@@ -149,6 +149,8 @@ type ProfitLossLineItem @entity(immutable: true) {
   realizedPrice: BigInt!
   spotPrice: BigInt!
   impliedFixedRate: BigInt
+  "Set to true for line items that do not materially change the balance at the end of the txn"
+  isTransientLineItem: Boolean!
 }
 
 type Transaction @entity(immutable: true) {
@@ -468,6 +470,8 @@ type BalanceSnapshot @entity(immutable: true) {
 
   "Current balance of the token at this block"
   currentBalance: BigInt!
+  "Balance before this snapshot"
+  previousBalance: BigInt!
 
   "Adjusted cost basis at this snapshot for the token"
   adjustedCostBasis: BigInt!

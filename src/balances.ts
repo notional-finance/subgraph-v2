@@ -36,6 +36,7 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
 
     // These features are calculated at each update to the snapshot
     snapshot.currentBalance = BigInt.zero();
+    snapshot.previousBalance = BigInt.zero();
     snapshot.adjustedCostBasis = BigInt.zero();
     snapshot.currentProfitAndLossAtSnapshot = BigInt.zero();
     snapshot.totalProfitAndLossAtSnapshot = BigInt.zero();
@@ -66,6 +67,7 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
         // These values are always copied from the previous snapshot
         snapshot.totalProfitAndLossAtSnapshot = prevSnapshot.totalProfitAndLossAtSnapshot;
         snapshot._accumulatedCostRealized = prevSnapshot._accumulatedCostRealized;
+        snapshot.previousBalance = prevSnapshot.currentBalance;
       }
     }
 

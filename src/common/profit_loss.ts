@@ -37,10 +37,18 @@ export function processProfitAndLoss(
     snapshot._accumulatedBalance = snapshot._accumulatedBalance.plus(item.tokenAmount);
     // This never gets reset to zero. Accumulated cost is a positive number. underlyingAmountRealized
     // is negative when purchasing tokens, positive when selling so we invert it here.
-    // TODO: this is set to zero for vault debt...
     snapshot._accumulatedCostRealized = snapshot._accumulatedCostRealized.minus(
       item.underlyingAmountRealized
     );
+
+    // If the change in the snapshot balance is negligible from the previous snapshot then this
+    // is a "transient" line item, such as depositing cash before lending fixed or minting nTokens.
+    // These only exist to maintain proper internal accounting, so mark it here so that we can filter
+    // them out when presenting transaction histories.
+    item.isTransientLineItem = snapshot.currentBalance
+      .minus(snapshot.previousBalance)
+      .abs()
+      .le(DUST);
 
     // If sell fcash flips negative clear this to zero...
     if (snapshot._accumulatedBalance.abs().le(DUST)) {
@@ -183,7 +191,7 @@ function createLineItem(
 
   let token = getAsset(item.token);
   let underlying = getUnderlying(token.currencyId);
-  if (token.maturity !== null && token.maturity !== PRIME_CASH_VAULT_MATURITY) {
+  if (token.maturity != null && token.maturity.notEqual(PRIME_CASH_VAULT_MATURITY)) {
     // Convert the realized price to an implied fixed rate for fixed vault debt
     // and fCash tokens
     let realizedPriceInRatePrecision: f64 = item.realizedPrice
