@@ -191,7 +191,7 @@ function createLineItem(
 
   let token = getAsset(item.token);
   let underlying = getUnderlying(token.currencyId);
-  if (token.maturity != null && token.maturity.notEqual(PRIME_CASH_VAULT_MATURITY)) {
+  if (token.maturity !== null && (token.maturity as BigInt).notEqual(PRIME_CASH_VAULT_MATURITY)) {
     // Convert the realized price to an implied fixed rate for fixed vault debt
     // and fCash tokens
     let realizedPriceInRatePrecision: f64 = item.realizedPrice

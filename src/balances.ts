@@ -198,7 +198,7 @@ export function getTotalfCashDebt(currencyId: i32, maturity: BigInt): BigInt {
 }
 
 function updatefCashTotalDebtOutstanding(token: Token): void {
-  token.totalSupply = getTotalfCashDebt(token.currencyId, token.maturity as BigInt);
+  token.totalSupply = getTotalfCashDebt(token.currencyId, token.maturity as BigInt).abs();
   token.save();
 }
 
