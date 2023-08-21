@@ -82,11 +82,9 @@ export function processProfitAndLoss(
       if (snapshot._accumulatedCostRealized.abs().le(DUST)) {
         snapshot.adjustedCostBasis = BigInt.fromI32(0);
       } else {
-        snapshot.adjustedCostBasis = snapshot._accumulatedBalance
-          .times(underlying.precision)
-          .times(underlying.precision)
-          .div(snapshot._accumulatedCostRealized)
-          .div(INTERNAL_TOKEN_PRECISION);
+        snapshot.adjustedCostBasis = snapshot._accumulatedCostRealized
+          .times(INTERNAL_TOKEN_PRECISION)
+          .div(snapshot._accumulatedBalance);
       }
 
       let accumulatedBalanceValueAtSpot = convertValueToUnderlying(
@@ -177,6 +175,7 @@ function createLineItem(
     .times(INTERNAL_TOKEN_PRECISION)
     .div(item.tokenAmount)
     .abs();
+
   item.spotPrice = underlyingAmountSpot
     .times(INTERNAL_TOKEN_PRECISION)
     .div(item.tokenAmount)
@@ -672,7 +671,7 @@ function createVaultDebtLineItem(
 ): void {
   let underlyingDebtAmountRealized: BigInt | null = null;
 
-  if (vaultDebt.maturity === PRIME_CASH_VAULT_MATURITY) {
+  if ((vaultDebt.maturity as BigInt).equals(PRIME_CASH_VAULT_MATURITY)) {
     underlyingDebtAmountRealized = vaultDebt.valueInUnderlying as BigInt;
   } else if (vaultDebt.transferType == Mint) {
     // If this is an fCash then look for the traded fCash value
