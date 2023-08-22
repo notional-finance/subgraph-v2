@@ -38,6 +38,7 @@ import {
   PrimeDebtPremiumInterestRate,
   PrimeCashPremiumInterestRate,
   PrimeCashExternalLendingInterestRate,
+  PRIME_CASH_VAULT_MATURITY,
 } from "./common/constants";
 import {
   getAsset,
@@ -85,11 +86,51 @@ export function updateChainlinkOracle(oracle: Oracle, block: ethereum.Block): vo
   }
 }
 
-export function updateVaultOracles(vaultAddress: Address, block: ethereum.Block): void {
+function updateVaultOracleMaturity(
+  vaultAddress: Address,
+  maturity: BigInt,
+  base: Token,
+  block: ethereum.Block
+): void {
   let notional = getNotional();
   let vaultConfig = notional.getVaultConfig(vaultAddress);
   let vault = IStrategyVault.bind(vaultAddress);
+
+  let shareValue = vault.try_convertStrategyToUnderlying(
+    vaultAddress,
+    INTERNAL_TOKEN_PRECISION,
+    maturity
+  );
+  let value: BigInt;
+  if (shareValue.reverted) {
+    value = BigInt.fromI32(0);
+  } else {
+    value = shareValue.value;
+  }
+
+  let vaultShareId = notional.encode(
+    vaultConfig.borrowCurrencyId,
+    maturity,
+    VAULT_SHARE_ASSET_TYPE_ID,
+    vaultAddress,
+    false
+  ) as BigInt;
+  let vaultShareAsset = getOrCreateERC1155Asset(vaultShareId, block, null);
+  let oracle = getOracle(base, vaultShareAsset, VaultShareOracleRate);
+  // These will never change but set them here just in case
+  oracle.decimals = base.decimals;
+  oracle.ratePrecision = base.precision;
+  oracle.oracleAddress = vaultAddress;
+
+  updateExchangeRate(oracle, value, block, null);
+}
+
+export function updateVaultOracles(vaultAddress: Address, block: ethereum.Block): void {
+  let notional = getNotional();
+  let vaultConfig = notional.getVaultConfig(vaultAddress);
   let base = getUnderlying(vaultConfig.borrowCurrencyId);
+
+  updateVaultOracleMaturity(vaultAddress, PRIME_CASH_VAULT_MATURITY, base, block);
 
   let activeMarkets = notional.try_getActiveMarkets(vaultConfig.borrowCurrencyId);
   if (activeMarkets.reverted) return;
@@ -97,33 +138,7 @@ export function updateVaultOracles(vaultAddress: Address, block: ethereum.Block)
   for (let i = 0; i < activeMarkets.value.length; i++) {
     if (i + 1 <= vaultConfig.maxBorrowMarketIndex.toI32()) {
       let a = activeMarkets.value[i];
-      let shareValue = vault.try_convertStrategyToUnderlying(
-        vaultAddress,
-        INTERNAL_TOKEN_PRECISION,
-        a.maturity
-      );
-      let value: BigInt;
-      if (shareValue.reverted) {
-        value = BigInt.fromI32(0);
-      } else {
-        value = shareValue.value;
-      }
-
-      let vaultShareId = notional.encode(
-        vaultConfig.borrowCurrencyId,
-        a.maturity,
-        VAULT_SHARE_ASSET_TYPE_ID,
-        vaultAddress,
-        false
-      ) as BigInt;
-      let vaultShareAsset = getOrCreateERC1155Asset(vaultShareId, block, null);
-      let oracle = getOracle(base, vaultShareAsset, VaultShareOracleRate);
-      // These will never change but set them here just in case
-      oracle.decimals = base.decimals;
-      oracle.ratePrecision = base.precision;
-      oracle.oracleAddress = vaultAddress;
-
-      updateExchangeRate(oracle, value, block, null);
+      updateVaultOracleMaturity(vaultAddress, a.maturity, base, block);
     }
   }
 }

@@ -14,6 +14,7 @@ import {
 } from "./constants";
 import { convertValueToUnderlying } from "./transfers";
 
+const TRANSIENT_DUST = BigInt.fromI32(5000);
 const DUST = BigInt.fromI32(100);
 
 export function processProfitAndLoss(
@@ -48,7 +49,7 @@ export function processProfitAndLoss(
     item.isTransientLineItem = snapshot.currentBalance
       .minus(snapshot.previousBalance)
       .abs()
-      .le(DUST);
+      .le(TRANSIENT_DUST);
 
     // If sell fcash flips negative clear this to zero...
     if (snapshot._accumulatedBalance.abs().le(DUST)) {
