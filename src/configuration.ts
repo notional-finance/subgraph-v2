@@ -42,8 +42,16 @@ import {
   Vault,
   ZERO_ADDRESS,
 } from "./common/constants";
-import { getAccount, getAsset, getIncentives, getNotional, getUnderlying } from "./common/entities";
+import {
+  getAccount,
+  getAsset,
+  getIncentives,
+  getNotional,
+  getOracleRegistry,
+  getUnderlying,
+} from "./common/entities";
 import { setActiveMarkets } from "./common/market";
+import { updateVaultOracles } from "./exchange_rates";
 
 function getCurrencyConfiguration(currencyId: i32): CurrencyConfiguration {
   let id = currencyId.toString();
@@ -388,6 +396,16 @@ export function handleMarketsInitialized(event: MarketsInitialized): void {
 
   // Updates and sets the currently active markets
   setActiveMarkets(event.params.currencyId, event.block, event.transaction.hash.toHexString());
+
+  // Updates any vault oracles that have a primary borrow in this currency
+  let registry = getOracleRegistry();
+  for (let i = 0; i < registry.listedVaults.length; i++) {
+    let vaultAddress = Address.fromBytes(registry.listedVaults[i]);
+    let vaultConfig = notional.getVaultConfig(vaultAddress);
+    if (vaultConfig.borrowCurrencyId == event.params.currencyId) {
+      updateVaultOracles(vaultAddress, event.block);
+    }
+  }
 }
 
 export function handleUpdateIncentiveEmissionRate(event: UpdateIncentiveEmissionRate): void {
