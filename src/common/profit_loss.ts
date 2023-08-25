@@ -264,11 +264,11 @@ function extractProfitLossLineItem(
 
       createLineItem(
         bundle,
-        transfers[0],
+        transfers[1],
         Burn,
         lineItems,
-        transfers[0].valueInUnderlying as BigInt,
-        transfers[0].valueInUnderlying as BigInt
+        transfers[1].valueInUnderlying as BigInt,
+        transfers[1].valueInUnderlying as BigInt
       );
     }
   } else if (bundle.bundleName == "Transfer Incentive") {
