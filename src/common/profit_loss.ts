@@ -262,10 +262,21 @@ function extractProfitLossLineItem(
       depositLineItem.bundle = bundle.id;
       depositLineItem.save();
 
+      // The original depositor burns their cash balance
       createLineItem(
         bundle,
         transfers[1],
         Burn,
+        lineItems,
+        transfers[1].valueInUnderlying as BigInt,
+        transfers[1].valueInUnderlying as BigInt
+      );
+
+      // The receiver of the transfer will mint a balance
+      createLineItem(
+        bundle,
+        transfers[1],
+        Mint,
         lineItems,
         transfers[1].valueInUnderlying as BigInt,
         transfers[1].valueInUnderlying as BigInt
@@ -636,7 +647,49 @@ function extractProfitLossLineItem(
       transfers[3].valueInUnderlying as BigInt,
       transfers[3].valueInUnderlying as BigInt
     );
-    // } else if (bundle.bundleName == "Vault Liquidate Excess Cash") {
+  } else if (bundle.bundleName == "Vault Liquidate Excess Cash") {
+    // Liquidator receives cash from vault
+    createLineItem(
+      bundle,
+      transfers[0],
+      Mint,
+      lineItems,
+      transfers[0].valueInUnderlying as BigInt,
+      transfers[0].valueInUnderlying as BigInt
+    );
+
+    // Liquidator withdraws cash
+    createLineItem(
+      bundle,
+      transfers[1],
+      transfers[1].transferType,
+      lineItems,
+      transfers[1].valueInUnderlying as BigInt,
+      transfers[1].valueInUnderlying as BigInt
+    );
+
+    // Vault account burns cash
+    createLineItem(
+      bundle,
+      transfers[2],
+      transfers[2].transferType,
+      lineItems,
+      transfers[2].valueInUnderlying as BigInt,
+      transfers[2].valueInUnderlying as BigInt
+    );
+
+    // Liquidator deposits and transfers cash to vault in 3 and 4, we don't track vault PnL
+    // so those don't get logged here.
+
+    // Vault account mints cash in a different currency
+    createLineItem(
+      bundle,
+      transfers[5],
+      transfers[5].transferType,
+      lineItems,
+      transfers[5].valueInUnderlying as BigInt,
+      transfers[5].valueInUnderlying as BigInt
+    );
   }
 
   return lineItems;
