@@ -719,6 +719,12 @@ const vault_secondary_repay = (w: Transfer[]): boolean => {
   ) && (
     // Secondary repays are not followed by minting vault shares
     w[3].tokenType != VaultShare
+  ) && !( // not
+    // Secondary repay is not followed by minting prime debt, this is
+    // a vault settle with cash repayment
+    w[3].transferType == Mint &&
+    w[3].tokenType == VaultDebt &&
+    (w[3].maturity as BigInt) == PRIME_CASH_VAULT_MATURITY
   )
 }
 

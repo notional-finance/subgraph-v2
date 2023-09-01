@@ -49,6 +49,7 @@ import {
 } from "./common/entities";
 import { getOrCreateERC1155Asset } from "./common/erc1155";
 import { updatefCashMarket } from "./common/market";
+import { getExpFactor } from "./common/transfers";
 
 function updateExchangeRate(
   oracle: Oracle,
@@ -180,15 +181,10 @@ export function updatefCashOraclesAndMarkets(
     posExRate.decimals = RATE_DECIMALS;
     posExRate.ratePrecision = RATE_PRECISION;
     posExRate.oracleAddress = notional._address;
-    let exchangeRate = BigInt.fromI32(
-      Math.floor(
-        Math.exp(
-          a.lastImpliedRate
-            .times(a.maturity.minus(block.timestamp))
-            .div(SECONDS_IN_YEAR)
-            .toI32() / RATE_PRECISION.toI32()
-        ) * RATE_PRECISION.toI32()
-      ) as i32
+
+    let x: f64 = getExpFactor(a.lastImpliedRate, a.maturity.minus(block.timestamp));
+    let exchangeRate = BigInt.fromI64(
+      Math.floor(Math.exp(x) * (RATE_PRECISION.toI64() as f64)) as i64
     );
     updateExchangeRate(posExRate, exchangeRate, block, txnHash);
 
@@ -479,7 +475,7 @@ export function handleSettlementRate(event: SetPrimeSettlementRate): void {
 
   let positivefCash = getOrCreateERC1155Asset(positivefCashId, event.block, event.transaction.hash);
 
-  let posOracle = getOracle(pCash, positivefCash, fCashSettlementRate);
+  let posOracle = getOracle(positivefCash, pCash, fCashSettlementRate);
   posOracle.oracleAddress = notional._address;
   posOracle.decimals = DOUBLE_SCALAR_DECIMALS;
   posOracle.ratePrecision = DOUBLE_SCALAR_PRECISION;
@@ -548,8 +544,9 @@ export function handleSettlementRate(event: SetPrimeSettlementRate): void {
       event.block,
       event.transaction.hash
     );
+
     {
-      let negOracle = getOracle(pDebt, negativefCash, fCashSettlementRate);
+      let negOracle = getOracle(negativefCash, pDebt, fCashSettlementRate);
       negOracle.oracleAddress = notional._address;
       negOracle.decimals = DOUBLE_SCALAR_DECIMALS;
       negOracle.ratePrecision = DOUBLE_SCALAR_PRECISION;

@@ -18,8 +18,9 @@ import {
   VaultShare,
   ZeroAddress,
   Transfer as _Transfer,
+  INTERNAL_TOKEN_PRECISION,
 } from "./common/constants";
-import { getAccount, getAsset, getIncentives, getNotional } from "./common/entities";
+import { getAccount, getAsset, getIncentives, getNotional, getUnderlying } from "./common/entities";
 import { updatePrimeCashMarket } from "./common/market";
 import { updatefCashOraclesAndMarkets } from "./exchange_rates";
 
@@ -177,9 +178,15 @@ function updateVaultAssetTotalSupply(
     if ((token.maturity as BigInt) == PRIME_CASH_VAULT_MATURITY) {
       let pDebtAddress = notional.pDebtAddress(token.currencyId);
       let pDebt = ERC4626.bind(pDebtAddress);
-      token.totalSupply = pDebt.convertToShares(vaultState.totalDebtUnderlying.abs());
+      let underlying = getUnderlying(token.currencyId);
+      // Have to convert to external precision to do the shares conversion
+      let totalDebtInExternal = vaultState.totalDebtUnderlying
+        .times(underlying.precision)
+        .div(INTERNAL_TOKEN_PRECISION)
+        .abs();
+      token.totalSupply = pDebt.convertToShares(totalDebtInExternal);
     } else {
-      token.totalSupply = vaultState.totalDebtUnderlying;
+      token.totalSupply = vaultState.totalDebtUnderlying.abs();
     }
     token.save();
   }
@@ -307,7 +314,13 @@ function updateVaultState(
       );
     }
 
-    snapshot.currentBalance = pDebt.convertToShares(totalDebtUnderlying.abs());
+    // Have to convert to external precision to do the shares conversion
+    let underlying = getUnderlying(token.currencyId);
+    let totalDebtInExternal = totalDebtUnderlying
+      .times(underlying.precision)
+      .div(INTERNAL_TOKEN_PRECISION)
+      .abs();
+    snapshot.currentBalance = pDebt.convertToShares(totalDebtInExternal);
   } else if (token.tokenType == fCash) {
     if (isPrimary) {
       totalDebtUnderlying = notional.getVaultState(vaultAddress, token.maturity as BigInt)

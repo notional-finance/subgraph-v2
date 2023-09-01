@@ -27,6 +27,15 @@ import {
 import { BundleCriteria } from "./bundles";
 import { processProfitAndLoss } from "./profit_loss";
 
+export function getExpFactor(rateInRatePrecision: BigInt, timeToMaturity: BigInt): f64 {
+  return (
+    (rateInRatePrecision
+      .times(timeToMaturity)
+      .div(RATE_PRECISION)
+      .toI64() as f64) / (SECONDS_IN_YEAR.toI64() as f64)
+  );
+}
+
 export function decodeTransferType(from: Address, to: Address): string {
   if (from == ZERO_ADDRESS) {
     return "Mint";
@@ -87,12 +96,7 @@ export function convertValueToUnderlying(
         if (activeMarkets[i].maturity == (token.maturity as BigInt)) {
           let lastImpliedRate = activeMarkets[i].lastImpliedRate;
           let timeToMaturity = (token.maturity as BigInt).minus(blockTime);
-          let x: f64 =
-            (lastImpliedRate
-              .times(timeToMaturity)
-              .div(RATE_PRECISION)
-              .toI64() as f64) / (SECONDS_IN_YEAR.toI64() as f64);
-
+          let x: f64 = getExpFactor(lastImpliedRate, timeToMaturity);
           let discountFactor = BigInt.fromI64(
             Math.floor(Math.exp(-x) * (RATE_PRECISION.toI64() as f64)) as i64
           );
