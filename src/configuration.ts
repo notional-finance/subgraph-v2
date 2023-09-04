@@ -473,7 +473,14 @@ export function handleUpdateAuthorizedCallbackContract(
   operator.lastUpdateBlockNumber = event.block.number.toI32();
   operator.lastUpdateTimestamp = event.block.timestamp.toI32();
   operator.lastUpdateTransactionHash = event.transaction.hash;
+  let op = IStrategyVault.bind(event.params.operator);
+  let name = op.try_name();
   let capability = operator.capability;
+  if (!name.reverted) {
+    operator.name = name.value;
+  } else {
+    operator.name = "unknown";
+  }
 
   if (event.params.approved) {
     if (!capability.includes(AuthorizedCallbackContract))

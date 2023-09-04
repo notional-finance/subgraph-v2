@@ -434,6 +434,7 @@ type WhitelistedContract @entity {
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
   capability: [WhitelistedCapability!]!
+  name: String!
 }
 
 ### Balances ###
