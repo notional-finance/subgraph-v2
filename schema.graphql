@@ -149,6 +149,8 @@ type ProfitLossLineItem @entity(immutable: true) {
   realizedPrice: BigInt!
   spotPrice: BigInt!
   impliedFixedRate: BigInt
+  "Set to true for line items that do not materially change the balance at the end of the txn"
+  isTransientLineItem: Boolean!
 }
 
 type Transaction @entity(immutable: true) {
@@ -197,8 +199,9 @@ enum OracleType {
   fCashToUnderlyingExchangeRate,
   fCashSpotRate,
   PrimeCashToUnderlyingOracleInterestRate,
-  PrimeCashSpotInterestRate,
-  PrimeDebtSpotInterestRate,
+  PrimeCashPremiumInterestRate,
+  PrimeDebtPremiumInterestRate,
+  PrimeCashExternalLendingInterestRate,
   PrimeCashToUnderlyingExchangeRate,
   PrimeCashToMoneyMarketExchangeRate,
   PrimeDebtToUnderlyingExchangeRate,
@@ -238,6 +241,7 @@ type Oracle @entity {
   oracleType: OracleType!
   mustInvert: Boolean!
   latestRate: BigInt
+  matured: Boolean!
 
   historicalRates: [ExchangeRate!] @derivedFrom(field: "oracle")
 }
@@ -335,6 +339,8 @@ type CurrencyConfiguration @entity {
   pvHaircutPercentage: Int
   "Discount on nToken PV given to liquidators"
   liquidationHaircutPercentage: Int
+
+  incentives: Incentive! @derivedFrom(field: "currencyConfiguration")
 }
 
 type InterestRateCurve @entity {
@@ -430,6 +436,7 @@ type WhitelistedContract @entity {
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
   capability: [WhitelistedCapability!]!
+  name: String!
 }
 
 ### Balances ###
@@ -466,6 +473,8 @@ type BalanceSnapshot @entity(immutable: true) {
 
   "Current balance of the token at this block"
   currentBalance: BigInt!
+  "Balance before this snapshot"
+  previousBalance: BigInt!
 
   "Adjusted cost basis at this snapshot for the token"
   adjustedCostBasis: BigInt!
@@ -547,10 +556,12 @@ type PrimeCashMarketSnapshot @entity(immutable: true) {
   debtScalar: BigInt!
   "Snapshot value of the underlying scalar"
   underlyingScalar: BigInt!
-  "Spot prime cash interest rate"
-  supplyInterestRate: Int
-  "Spot prime debt interest rate"
-  debtInterestRate: Int
+  "Prime cash premium interest rate"
+  supplyInterestRate: BigInt
+  "Prime debt premium interest rate"
+  debtInterestRate: BigInt
+  "External lending interest rate"
+  externalLendingRate: BigInt
 }
 
 type fCashMarket @entity {
@@ -623,6 +634,8 @@ type Incentive @entity {
 
   "Current accumulated NOTE per nToken"
   accumulatedNOTEPerNToken: BigInt
+  "Last accumulation time"
+  lastAccumulatedTime: BigInt
 
   "Deprecated last supply change time value"
   deprecated_lastSupplyChangeTime: BigInt

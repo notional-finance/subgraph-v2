@@ -37,14 +37,19 @@ function _logTransfer(
   transfer.tokenType = token.tokenType;
   if (token.get("maturity") != null) transfer.maturity = token.maturity;
 
-  if (token.get("underlying") == null) log.critical("Unknown underlying for token {}", [token.id]);
-  transfer.underlying = token.underlying as string;
+  if (token.get("underlying") == null) {
+    // This is a NOTE token transfer, we don't track any balance snapshots for this yet
+    transfer.underlying = token.id;
+    transfer.save();
+  } else {
+    transfer.underlying = token.underlying as string;
 
-  // Ensures the balance snapshot exists for the PnL calculations
-  updateBalance(token, transfer, event);
+    // Ensures the balance snapshot exists for the PnL calculations
+    updateBalance(token, transfer, event);
 
-  // Calls transfer.save() inside
-  processTransfer(transfer, event);
+    // Calls transfer.save() inside
+    processTransfer(transfer, event);
+  }
 }
 
 export function handleERC1155Transfer(event: TransferSingle): void {

@@ -14,6 +14,7 @@ import {
 } from "./constants";
 import { convertValueToUnderlying } from "./transfers";
 
+const TRANSIENT_DUST = BigInt.fromI32(5000);
 const DUST = BigInt.fromI32(100);
 
 export function processProfitAndLoss(
@@ -40,6 +41,15 @@ export function processProfitAndLoss(
     snapshot._accumulatedCostRealized = snapshot._accumulatedCostRealized.minus(
       item.underlyingAmountRealized
     );
+
+    // If the change in the snapshot balance is negligible from the previous snapshot then this
+    // is a "transient" line item, such as depositing cash before lending fixed or minting nTokens.
+    // These only exist to maintain proper internal accounting, so mark it here so that we can filter
+    // them out when presenting transaction histories.
+    item.isTransientLineItem = snapshot.currentBalance
+      .minus(snapshot.previousBalance)
+      .abs()
+      .le(TRANSIENT_DUST);
 
     // If sell fcash flips negative clear this to zero...
     if (snapshot._accumulatedBalance.abs().le(DUST)) {
@@ -81,11 +91,9 @@ export function processProfitAndLoss(
       if (snapshot._accumulatedCostRealized.abs().le(DUST)) {
         snapshot.adjustedCostBasis = BigInt.fromI32(0);
       } else {
-        snapshot.adjustedCostBasis = snapshot._accumulatedBalance
-          .times(underlying.precision)
-          .times(underlying.precision)
-          .div(snapshot._accumulatedCostRealized)
-          .div(INTERNAL_TOKEN_PRECISION);
+        snapshot.adjustedCostBasis = snapshot._accumulatedCostRealized
+          .times(INTERNAL_TOKEN_PRECISION)
+          .div(snapshot._accumulatedBalance);
       }
 
       let accumulatedBalanceValueAtSpot = convertValueToUnderlying(
@@ -176,6 +184,7 @@ function createLineItem(
     .times(INTERNAL_TOKEN_PRECISION)
     .div(item.tokenAmount)
     .abs();
+
   item.spotPrice = underlyingAmountSpot
     .times(INTERNAL_TOKEN_PRECISION)
     .div(item.tokenAmount)
@@ -183,7 +192,7 @@ function createLineItem(
 
   let token = getAsset(item.token);
   let underlying = getUnderlying(token.currencyId);
-  if (token.maturity !== null && token.maturity !== PRIME_CASH_VAULT_MATURITY) {
+  if (token.maturity !== null && (token.maturity as BigInt).notEqual(PRIME_CASH_VAULT_MATURITY)) {
     // Convert the realized price to an implied fixed rate for fixed vault debt
     // and fCash tokens
     let realizedPriceInRatePrecision: f64 = item.realizedPrice
@@ -253,13 +262,24 @@ function extractProfitLossLineItem(
       depositLineItem.bundle = bundle.id;
       depositLineItem.save();
 
+      // The original depositor burns their cash balance
       createLineItem(
         bundle,
-        transfers[0],
+        transfers[1],
         Burn,
         lineItems,
-        transfers[0].valueInUnderlying as BigInt,
-        transfers[0].valueInUnderlying as BigInt
+        transfers[1].valueInUnderlying as BigInt,
+        transfers[1].valueInUnderlying as BigInt
+      );
+
+      // The receiver of the transfer will mint a balance
+      createLineItem(
+        bundle,
+        transfers[1],
+        Mint,
+        lineItems,
+        transfers[1].valueInUnderlying as BigInt,
+        transfers[1].valueInUnderlying as BigInt
       );
     }
   } else if (bundle.bundleName == "Transfer Incentive") {
@@ -440,7 +460,7 @@ function extractProfitLossLineItem(
     createfCashLineItems(bundle, transfers, transfers[2], lineItems);
   } else if (bundle.bundleName == "Borrow fCash" || bundle.bundleName == "Repay fCash") {
     let trade = findPrecedingBundle(
-      bundle.bundleName == "Borrow fCash" ? "Sell fCash" : "Repay fCash",
+      bundle.bundleName == "Borrow fCash" ? "Sell fCash" : "Buy fCash",
       bundleArray
     );
 
@@ -627,7 +647,49 @@ function extractProfitLossLineItem(
       transfers[3].valueInUnderlying as BigInt,
       transfers[3].valueInUnderlying as BigInt
     );
-    // } else if (bundle.bundleName == "Vault Liquidate Excess Cash") {
+  } else if (bundle.bundleName == "Vault Liquidate Excess Cash") {
+    // Liquidator receives cash from vault
+    createLineItem(
+      bundle,
+      transfers[0],
+      Mint,
+      lineItems,
+      transfers[0].valueInUnderlying as BigInt,
+      transfers[0].valueInUnderlying as BigInt
+    );
+
+    // Liquidator withdraws cash
+    createLineItem(
+      bundle,
+      transfers[1],
+      transfers[1].transferType,
+      lineItems,
+      transfers[1].valueInUnderlying as BigInt,
+      transfers[1].valueInUnderlying as BigInt
+    );
+
+    // Vault account burns cash
+    createLineItem(
+      bundle,
+      transfers[2],
+      transfers[2].transferType,
+      lineItems,
+      transfers[2].valueInUnderlying as BigInt,
+      transfers[2].valueInUnderlying as BigInt
+    );
+
+    // Liquidator deposits and transfers cash to vault in 3 and 4, we don't track vault PnL
+    // so those don't get logged here.
+
+    // Vault account mints cash in a different currency
+    createLineItem(
+      bundle,
+      transfers[5],
+      transfers[5].transferType,
+      lineItems,
+      transfers[5].valueInUnderlying as BigInt,
+      transfers[5].valueInUnderlying as BigInt
+    );
   }
 
   return lineItems;
@@ -671,7 +733,7 @@ function createVaultDebtLineItem(
 ): void {
   let underlyingDebtAmountRealized: BigInt | null = null;
 
-  if (vaultDebt.maturity === PRIME_CASH_VAULT_MATURITY) {
+  if ((vaultDebt.maturity as BigInt).equals(PRIME_CASH_VAULT_MATURITY)) {
     underlyingDebtAmountRealized = vaultDebt.valueInUnderlying as BigInt;
   } else if (vaultDebt.transferType == Mint) {
     // If this is an fCash then look for the traded fCash value

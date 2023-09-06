@@ -719,6 +719,12 @@ const vault_secondary_repay = (w: Transfer[]): boolean => {
   ) && (
     // Secondary repays are not followed by minting vault shares
     w[3].tokenType != VaultShare
+  ) && !( // not
+    // Secondary repay is not followed by minting prime debt, this is
+    // a vault settle with cash repayment
+    w[3].transferType == Mint &&
+    w[3].tokenType == VaultDebt &&
+    (w[3].maturity as BigInt) == PRIME_CASH_VAULT_MATURITY
   )
 }
 
@@ -759,25 +765,31 @@ const vault_burn_cash = (w: Transfer[]): boolean => {
 
 const vault_liquidate_excess_cash = (w: Transfer[]): boolean => {
   return (
+    // Liquidator receives cash from vault
     w[0].transferType == _Transfer &&
     w[0].tokenType == PrimeCash &&
     w[0].fromSystemAccount == Vault
   ) && (
+    // Liquidator withdraws cash
     w[1].transferType == Burn &&
     w[1].tokenType == PrimeCash &&
     w[1].fromSystemAccount == None
   ) && (
+    // Vault account burns cash
     w[2].transferType == Burn &&
     w[2].tokenType == VaultCash
   ) && (
+    // Liquidator deposits cash
     w[3].transferType == Mint &&
     w[3].tokenType == PrimeCash &&
     w[3].fromSystemAccount == None
   ) && (
+    // Liquidator transfers cash to vault
     w[4].transferType == _Transfer &&
     w[4].tokenType == PrimeCash &&
     w[4].toSystemAccount == Vault
   ) && (
+    // Vault account mints cash
     w[5].transferType == Mint &&
     w[5].tokenType == VaultCash
   )

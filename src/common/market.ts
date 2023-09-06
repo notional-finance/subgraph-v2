@@ -11,6 +11,7 @@ import { FCASH_ASSET_TYPE_ID } from "./constants";
 import { getAsset, getNotional, getUnderlying } from "./entities";
 import { getOrCreateERC1155Asset } from "./erc1155";
 import { convertValueToUnderlying } from "./transfers";
+import { getTotalfCashDebt } from "../balances";
 
 const DAY = 86400;
 const QUARTER = DAY * 90;
@@ -146,7 +147,7 @@ function updatefCashMarketWithSnapshot(
     fCashToken,
     block.timestamp
   );
-  snapshot.totalfCashDebtOutstanding = notional.getTotalfCashDebtOutstanding(
+  snapshot.totalfCashDebtOutstanding = getTotalfCashDebt(
     currencyId,
     BigInt.fromI32(market.maturity)
   );
@@ -216,9 +217,16 @@ export function updatePrimeCashMarket(
     );
   }
 
-  // TODO: this is based on the interest rate curve
-  // pCashSnapshot.supplyInterestRate =
-  // pCashSnapshot.debtInterestRate =
+  // TODO: this is based on the interest rate curve and it needs to be calculated
+  // on a prior basis
+  let interestRates = notional.try_getPrimeInterestRate(currencyId);
+  if (!interestRates.reverted) {
+    pCashSnapshot.supplyInterestRate = interestRates.value.getAnnualSupplyRate();
+    pCashSnapshot.debtInterestRate = interestRates.value.getAnnualDebtRatePostFee();
+    pCashSnapshot.externalLendingRate = factors.oracleSupplyRate.minus(
+      interestRates.value.getAnnualSupplyRate()
+    );
+  }
 
   pCashSnapshot.save();
 

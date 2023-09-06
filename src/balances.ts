@@ -18,8 +18,9 @@ import {
   VaultShare,
   ZeroAddress,
   Transfer as _Transfer,
+  INTERNAL_TOKEN_PRECISION,
 } from "./common/constants";
-import { getAccount, getAsset, getIncentives, getNotional } from "./common/entities";
+import { getAccount, getAsset, getIncentives, getNotional, getUnderlying } from "./common/entities";
 import { updatePrimeCashMarket } from "./common/market";
 import { updatefCashOraclesAndMarkets } from "./exchange_rates";
 
@@ -36,6 +37,7 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
 
     // These features are calculated at each update to the snapshot
     snapshot.currentBalance = BigInt.zero();
+    snapshot.previousBalance = BigInt.zero();
     snapshot.adjustedCostBasis = BigInt.zero();
     snapshot.currentProfitAndLossAtSnapshot = BigInt.zero();
     snapshot.totalProfitAndLossAtSnapshot = BigInt.zero();
@@ -66,6 +68,7 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
         // These values are always copied from the previous snapshot
         snapshot.totalProfitAndLossAtSnapshot = prevSnapshot.totalProfitAndLossAtSnapshot;
         snapshot._accumulatedCostRealized = prevSnapshot._accumulatedCostRealized;
+        snapshot.previousBalance = prevSnapshot.currentBalance;
       }
     }
 
@@ -175,19 +178,34 @@ function updateVaultAssetTotalSupply(
     if ((token.maturity as BigInt) == PRIME_CASH_VAULT_MATURITY) {
       let pDebtAddress = notional.pDebtAddress(token.currencyId);
       let pDebt = ERC4626.bind(pDebtAddress);
-      token.totalSupply = pDebt.convertToShares(vaultState.totalDebtUnderlying.abs());
+      let underlying = getUnderlying(token.currencyId);
+      // Have to convert to external precision to do the shares conversion
+      let totalDebtInExternal = vaultState.totalDebtUnderlying
+        .times(underlying.precision)
+        .div(INTERNAL_TOKEN_PRECISION)
+        .abs();
+      token.totalSupply = pDebt.convertToShares(totalDebtInExternal);
     } else {
-      token.totalSupply = vaultState.totalDebtUnderlying;
+      token.totalSupply = vaultState.totalDebtUnderlying.abs();
     }
     token.save();
   }
 }
 
-function updatefCashTotalDebtOutstanding(token: Token): void {
+export function getTotalfCashDebt(currencyId: i32, maturity: BigInt): BigInt {
   let notional = getNotional();
-  let totalDebt = notional.getTotalfCashDebtOutstanding(token.currencyId, token.maturity as BigInt);
-  // Total debt is returned as a negative number.
-  token.totalSupply = totalDebt.neg();
+  // NOTE: the call signature changed from the original deployed version
+  let totalDebt = notional.try_getTotalfCashDebtOutstanding1(currencyId, maturity);
+
+  if (totalDebt.reverted) {
+    return notional.getTotalfCashDebtOutstanding(currencyId, maturity as BigInt);
+  } else {
+    return totalDebt.value.getTotalfCashDebt();
+  }
+}
+
+function updatefCashTotalDebtOutstanding(token: Token): void {
+  token.totalSupply = getTotalfCashDebt(token.currencyId, token.maturity as BigInt).abs();
   token.save();
 }
 
@@ -197,6 +215,9 @@ function updateNTokenIncentives(token: Token, event: ethereum.Event): void {
   incentives.accumulatedNOTEPerNToken = notional
     .getNTokenAccount(Address.fromBytes(token.tokenAddress as Bytes))
     .getAccumulatedNOTEPerNToken();
+  incentives.lastAccumulatedTime = notional
+    .getNTokenAccount(Address.fromBytes(token.tokenAddress as Bytes))
+    .getLastAccumulatedTime();
   incentives.save();
 }
 
@@ -296,7 +317,13 @@ function updateVaultState(
       );
     }
 
-    snapshot.currentBalance = pDebt.convertToShares(totalDebtUnderlying.abs());
+    // Have to convert to external precision to do the shares conversion
+    let underlying = getUnderlying(token.currencyId);
+    let totalDebtInExternal = totalDebtUnderlying
+      .times(underlying.precision)
+      .div(INTERNAL_TOKEN_PRECISION)
+      .abs();
+    snapshot.currentBalance = pDebt.convertToShares(totalDebtInExternal);
   } else if (token.tokenType == fCash) {
     if (isPrimary) {
       totalDebtUnderlying = notional.getVaultState(vaultAddress, token.maturity as BigInt)
