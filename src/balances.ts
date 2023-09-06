@@ -215,6 +215,9 @@ function updateNTokenIncentives(token: Token, event: ethereum.Event): void {
   incentives.accumulatedNOTEPerNToken = notional
     .getNTokenAccount(Address.fromBytes(token.tokenAddress as Bytes))
     .getAccumulatedNOTEPerNToken();
+  incentives.lastAccumulatedTime = notional
+    .getNTokenAccount(Address.fromBytes(token.tokenAddress as Bytes))
+    .getLastAccumulatedTime();
   incentives.save();
 }
 

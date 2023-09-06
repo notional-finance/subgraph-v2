@@ -339,6 +339,8 @@ type CurrencyConfiguration @entity {
   pvHaircutPercentage: Int
   "Discount on nToken PV given to liquidators"
   liquidationHaircutPercentage: Int
+
+  incentives: Incentive! @derivedFrom(field: "currencyConfiguration")
 }
 
 type InterestRateCurve @entity {
@@ -632,6 +634,8 @@ type Incentive @entity {
 
   "Current accumulated NOTE per nToken"
   accumulatedNOTEPerNToken: BigInt
+  "Last accumulation time"
+  lastAccumulatedTime: BigInt
 
   "Deprecated last supply change time value"
   deprecated_lastSupplyChangeTime: BigInt
