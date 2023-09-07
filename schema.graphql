@@ -682,5 +682,26 @@ type TradingModulePermission @entity {
   allowedTradeTypes: [TradeType!]!
 }
 
+type Reinvestment @entity {
+  "Vault:TxnHash"
+  id: ID!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+
+  vault: VaultConfiguration!
+
+  "Address of the token sold"
+  rewardTokenSold: Bytes!
+  "Amount of reward tokens sold"
+  rewardAmountSold: BigInt!
+
+  "Amount of LP tokens reinvested"
+  tokensReinvested: BigInt!
+
+  tokensPerVaultShare: BigInt
+  "Value of the tokens reinvested"
+  underlyingAmountRealized: BigInt
+}
+
 # Staked NOTE
-# Vault Reinvestments?
