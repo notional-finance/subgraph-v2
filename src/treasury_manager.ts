@@ -13,7 +13,7 @@ export function handleVaultRewardReinvested(event: VaultRewardReinvested): void 
     event.transaction.hash.toHexString();
 
   let reinvestment = new Reinvestment(id);
-  reinvestment.blockNumber = event.block.number.toI32();
+  reinvestment.blockNumber = event.block.number;
   reinvestment.timestamp = event.block.timestamp.toI32();
   reinvestment.transactionHash = event.transaction.hash;
 

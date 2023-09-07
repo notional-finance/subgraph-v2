@@ -79,7 +79,7 @@ function getfCashMarket(
     market.fCash = getOrCreateERC1155Asset(fCashID, block, _txnHash).id;
   }
 
-  market.lastUpdateBlockNumber = block.number.toI32();
+  market.lastUpdateBlockNumber = block.number;
   market.lastUpdateTimestamp = block.timestamp.toI32();
   market.lastUpdateTransaction = txnHash;
   return market;
@@ -100,7 +100,7 @@ function getPrimeCashMarket(
     market.primeDebt = notional.pDebtAddress(currencyId).toHexString();
   }
 
-  market.lastUpdateBlockNumber = block.number.toI32();
+  market.lastUpdateBlockNumber = block.number;
   market.lastUpdateTimestamp = block.timestamp.toI32();
   market.lastUpdateTransaction = txnHash;
   return market;
@@ -123,7 +123,7 @@ function updatefCashMarketWithSnapshot(
 
   let snapshot = new fCashMarketSnapshot(market.id + ":" + block.number.toString());
   snapshot.market = market.id;
-  snapshot.blockNumber = block.number.toI32();
+  snapshot.blockNumber = block.number;
   snapshot.timestamp = block.timestamp.toI32();
   snapshot.transaction = txnHash;
 
@@ -187,7 +187,7 @@ export function updatePrimeCashMarket(
 ): PrimeCashMarket {
   let pCashMarket = getPrimeCashMarket(currencyId, block, txnHash);
   let pCashSnapshot = new PrimeCashMarketSnapshot(pCashMarket.id + ":" + block.number.toString());
-  pCashSnapshot.blockNumber = block.number.toI32();
+  pCashSnapshot.blockNumber = block.number;
   pCashSnapshot.timestamp = block.timestamp.toI32();
   pCashSnapshot.transaction = txnHash;
   pCashSnapshot.market = pCashMarket.id;
@@ -247,7 +247,7 @@ export function setActiveMarkets(
     activeMarkets.underlying = currencyId.toString();
   }
 
-  activeMarkets.lastUpdateBlockNumber = block.number.toI32();
+  activeMarkets.lastUpdateBlockNumber = block.number;
   activeMarkets.lastUpdateTimestamp = block.timestamp.toI32();
   activeMarkets.lastUpdateTransaction = txnHash;
 

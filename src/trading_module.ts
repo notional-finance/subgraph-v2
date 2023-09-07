@@ -30,7 +30,7 @@ function getTradingModulePermissions(
     permissions.allowedTradeTypes = new Array<string>();
   }
 
-  permissions.lastUpdateBlockNumber = event.block.number.toI32();
+  permissions.lastUpdateBlockNumber = event.block.number;
   permissions.lastUpdateTimestamp = event.block.timestamp.toI32();
   permissions.lastUpdateTransactionHash = event.transaction.hash;
 

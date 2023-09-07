@@ -60,7 +60,7 @@ function updateExchangeRate(
   let hashString = txnHash ? txnHash : "0x";
   let id = oracle.id + ":" + block.number.toString() + ":" + hashString;
   let exchangeRate = new ExchangeRate(id);
-  exchangeRate.blockNumber = block.number.toI32();
+  exchangeRate.blockNumber = block.number;
   exchangeRate.timestamp = block.timestamp.toI32();
   exchangeRate.rate = rate;
   exchangeRate.oracle = oracle.id;
@@ -68,7 +68,7 @@ function updateExchangeRate(
   exchangeRate.save();
 
   oracle.latestRate = rate;
-  oracle.lastUpdateBlockNumber = block.number.toI32();
+  oracle.lastUpdateBlockNumber = block.number;
   oracle.lastUpdateTimestamp = block.timestamp.toI32();
   oracle.lastUpdateTransaction = txnHash;
   oracle.save();
@@ -243,7 +243,7 @@ export function registerChainlinkOracle(
   let oracle = getOracle(baseAsset, quoteAsset, Chainlink);
   oracle.oracleAddress = oracleAddress;
   oracle.mustInvert = mustInvert;
-  oracle.lastUpdateBlockNumber = event.block.number.toI32();
+  oracle.lastUpdateBlockNumber = event.block.number;
   oracle.lastUpdateTimestamp = event.block.timestamp.toI32();
   oracle.lastUpdateTransaction = event.transaction.hash.toHexString();
 
@@ -480,7 +480,7 @@ export function handleSettlementRate(event: SetPrimeSettlementRate): void {
   posOracle.decimals = DOUBLE_SCALAR_DECIMALS;
   posOracle.ratePrecision = DOUBLE_SCALAR_PRECISION;
   posOracle.latestRate = event.params.supplyFactor;
-  posOracle.lastUpdateBlockNumber = event.block.number.toI32();
+  posOracle.lastUpdateBlockNumber = event.block.number;
   posOracle.lastUpdateTimestamp = event.block.timestamp.toI32();
   posOracle.lastUpdateTransaction = event.transaction.hash.toHexString();
   posOracle.save();
@@ -579,7 +579,7 @@ export function handleBlockOracleUpdate(block: ethereum.Block): void {
   /*
   let registry = getOracleRegistry();
   if (block.timestamp.toI32() - registry.lastRefreshTimestamp < ORACLE_REFRESH_SECONDS) return;
-  registry.lastRefreshBlockNumber = block.number.toI32();
+  registry.lastRefreshBlockNumber = block.number;
   registry.lastRefreshTimestamp = block.timestamp.toI32();
   registry.save();
 

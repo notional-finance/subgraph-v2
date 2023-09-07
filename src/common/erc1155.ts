@@ -100,11 +100,11 @@ export function getOrCreateERC1155Asset(
     token.tokenAddress = notional._address;
     token.hasTransferFee = false;
 
-    token.lastUpdateBlockNumber = block.number.toI32();
+    token.lastUpdateBlockNumber = block.number;
     token.lastUpdateTimestamp = block.timestamp.toI32();
     token.lastUpdateTransactionHash = txnHash;
 
-    token.firstUpdateBlockNumber = block.number.toI32();
+    token.firstUpdateBlockNumber = block.number;
     token.firstUpdateTimestamp = block.timestamp.toI32();
     token.firstUpdateTransactionHash = txnHash;
 

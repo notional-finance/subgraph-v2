@@ -197,7 +197,7 @@ function scanTransferBundle(
       let endLogIndex = window[windowEndIndex].logIndex;
       let txnHash = event.transaction.hash.toHexString();
       let bundle = createTransferBundle(txnHash, criteria.bundleName, startLogIndex, endLogIndex);
-      bundle.blockNumber = event.block.number.toI32();
+      bundle.blockNumber = event.block.number;
       bundle.timestamp = event.block.timestamp.toI32();
       bundle.transactionHash = txnHash;
       bundle.bundleName = criteria.bundleName;

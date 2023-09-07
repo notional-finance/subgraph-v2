@@ -31,7 +31,7 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
   if (snapshot == null) {
     snapshot = new BalanceSnapshot(id);
     snapshot.balance = balance.id;
-    snapshot.blockNumber = event.block.number.toI32();
+    snapshot.blockNumber = event.block.number;
     snapshot.timestamp = event.block.timestamp.toI32();
     snapshot.transaction = event.transaction.hash.toHexString();
 
@@ -88,12 +88,12 @@ export function getBalance(account: Account, token: Token, event: ethereum.Event
     entity = new Balance(id);
     entity.token = token.id;
     entity.account = account.id;
-    entity.firstUpdateBlockNumber = event.block.number.toI32();
+    entity.firstUpdateBlockNumber = event.block.number;
     entity.firstUpdateTimestamp = event.block.timestamp.toI32();
     entity.firstUpdateTransactionHash = event.transaction.hash;
   }
 
-  entity.lastUpdateBlockNumber = event.block.number.toI32();
+  entity.lastUpdateBlockNumber = event.block.number;
   entity.lastUpdateTimestamp = event.block.timestamp.toI32();
   entity.lastUpdateTransactionHash = event.transaction.hash;
   return entity as Balance;

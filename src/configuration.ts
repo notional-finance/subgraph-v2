@@ -103,7 +103,7 @@ export function handleUpdateETHRate(event: UpdateETHRate): void {
   // NOTE: during list currency this gets emitted before ListCurrency so most of the
   // fields in configuration have to be left nullable.
   let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number.toI32();
+  configuration.lastUpdateBlockNumber = event.block.number;
   configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
   configuration.lastUpdateTransactionHash = event.transaction.hash;
 
@@ -118,7 +118,7 @@ export function handleUpdateETHRate(event: UpdateETHRate): void {
 
 export function handleListCurrency(event: ListCurrency): void {
   let configuration = getCurrencyConfiguration(event.params.newCurrencyId);
-  configuration.lastUpdateBlockNumber = event.block.number.toI32();
+  configuration.lastUpdateBlockNumber = event.block.number;
   configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
   configuration.lastUpdateTransactionHash = event.transaction.hash;
 
@@ -165,7 +165,7 @@ export function handleListCurrency(event: ListCurrency): void {
 
 export function handleUpdatePrimeCashOracle(event: PrimeCashHoldingsOracleUpdated): void {
   let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number.toI32();
+  configuration.lastUpdateBlockNumber = event.block.number;
   configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
   configuration.lastUpdateTransactionHash = event.transaction.hash;
 
@@ -178,7 +178,7 @@ export function handleUpdatePrimeCashOracle(event: PrimeCashHoldingsOracleUpdate
 
 export function handleUpdateMaxUnderlyingSupply(event: UpdateMaxUnderlyingSupply): void {
   let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number.toI32();
+  configuration.lastUpdateBlockNumber = event.block.number;
   configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
   configuration.lastUpdateTransactionHash = event.transaction.hash;
 
@@ -190,7 +190,7 @@ export function handleDeployPrimeProxy(event: PrimeProxyDeployed): void {
   if (!event.params.isCashProxy) {
     // Only check debt proxies here to set the proper currency configuration
     let configuration = getCurrencyConfiguration(event.params.currencyId);
-    configuration.lastUpdateBlockNumber = event.block.number.toI32();
+    configuration.lastUpdateBlockNumber = event.block.number;
     configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
     configuration.lastUpdateTransactionHash = event.transaction.hash;
 
@@ -202,7 +202,7 @@ export function handleDeployPrimeProxy(event: PrimeProxyDeployed): void {
 
 export function handleUpdateCashGroup(event: UpdateCashGroup): void {
   let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number.toI32();
+  configuration.lastUpdateBlockNumber = event.block.number;
   configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
   configuration.lastUpdateTransactionHash = event.transaction.hash;
   let notional = getNotional();
@@ -226,7 +226,7 @@ export function handleUpdateCashGroup(event: UpdateCashGroup): void {
 
 export function handleUpdateDepositParameters(event: UpdateDepositParameters): void {
   let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number.toI32();
+  configuration.lastUpdateBlockNumber = event.block.number;
   configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
   configuration.lastUpdateTransactionHash = event.transaction.hash;
   let notional = getNotional();
@@ -242,7 +242,7 @@ export function handleUpdateDepositParameters(event: UpdateDepositParameters): v
 
 export function handleUpdateInitializationParameters(event: UpdateInitializationParameters): void {
   let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number.toI32();
+  configuration.lastUpdateBlockNumber = event.block.number;
   configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
   configuration.lastUpdateTransactionHash = event.transaction.hash;
   let notional = getNotional();
@@ -260,7 +260,7 @@ export function handleUpdateTokenCollateralParameters(
   event: UpdateTokenCollateralParameters
 ): void {
   let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number.toI32();
+  configuration.lastUpdateBlockNumber = event.block.number;
   configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
   configuration.lastUpdateTransactionHash = event.transaction.hash;
   let notional = getNotional();
@@ -284,7 +284,7 @@ export function handleUpdateTokenCollateralParameters(
 
 export function handleRebalancingTargetsUpdated(event: RebalancingTargetsUpdated): void {
   let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number.toI32();
+  configuration.lastUpdateBlockNumber = event.block.number;
   configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
   configuration.lastUpdateTransactionHash = event.transaction.hash;
 
@@ -294,7 +294,7 @@ export function handleRebalancingTargetsUpdated(event: RebalancingTargetsUpdated
 
 export function handleRebalancingCooldownUpdated(event: RebalancingCooldownUpdated): void {
   let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number.toI32();
+  configuration.lastUpdateBlockNumber = event.block.number;
   configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
   configuration.lastUpdateTransactionHash = event.transaction.hash;
 
@@ -304,7 +304,7 @@ export function handleRebalancingCooldownUpdated(event: RebalancingCooldownUpdat
 
 export function handleUpdatePrimeCashCurve(event: PrimeCashCurveChanged): void {
   let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number.toI32();
+  configuration.lastUpdateBlockNumber = event.block.number;
   configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
   configuration.lastUpdateTransactionHash = event.transaction.hash;
 
@@ -320,7 +320,7 @@ export function handleUpdatePrimeCashCurve(event: PrimeCashCurveChanged): void {
   curve.minFeeRate = _curve.minFeeRate.toI32();
   curve.maxFeeRate = _curve.maxFeeRate.toI32();
   curve.feeRatePercent = _curve.feeRatePercent.toI32();
-  curve.lastUpdateBlockNumber = event.block.number.toI32();
+  curve.lastUpdateBlockNumber = event.block.number;
   curve.lastUpdateTimestamp = event.block.timestamp.toI32();
   curve.lastUpdateTransactionHash = event.transaction.hash;
   curve.save();
@@ -331,7 +331,7 @@ export function handleUpdatePrimeCashCurve(event: PrimeCashCurveChanged): void {
 
 export function handleUpdateInterestRateCurve(event: UpdateInterestRateCurve): void {
   let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number.toI32();
+  configuration.lastUpdateBlockNumber = event.block.number;
   configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
   configuration.lastUpdateTransactionHash = event.transaction.hash;
   let notional = getNotional();
@@ -350,7 +350,7 @@ export function handleUpdateInterestRateCurve(event: UpdateInterestRateCurve): v
     curve.maxFeeRate = next[i].maxFeeRate.toI32();
     curve.feeRatePercent = next[i].feeRatePercent.toI32();
 
-    curve.lastUpdateBlockNumber = event.block.number.toI32();
+    curve.lastUpdateBlockNumber = event.block.number;
     curve.lastUpdateTimestamp = event.block.timestamp.toI32();
     curve.lastUpdateTransactionHash = event.transaction.hash;
     curve.save();
@@ -364,7 +364,7 @@ export function handleUpdateInterestRateCurve(event: UpdateInterestRateCurve): v
 
 export function handleMarketsInitialized(event: MarketsInitialized): void {
   let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number.toI32();
+  configuration.lastUpdateBlockNumber = event.block.number;
   configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
   configuration.lastUpdateTransactionHash = event.transaction.hash;
   let notional = getNotional();
@@ -383,7 +383,7 @@ export function handleMarketsInitialized(event: MarketsInitialized): void {
     curve.maxFeeRate = active[i].maxFeeRate.toI32();
     curve.feeRatePercent = active[i].feeRatePercent.toI32();
 
-    curve.lastUpdateBlockNumber = event.block.number.toI32();
+    curve.lastUpdateBlockNumber = event.block.number;
     curve.lastUpdateTimestamp = event.block.timestamp.toI32();
     curve.lastUpdateTransactionHash = event.transaction.hash;
     curve.save();
@@ -410,7 +410,7 @@ export function handleMarketsInitialized(event: MarketsInitialized): void {
 
 export function handleUpdateIncentiveEmissionRate(event: UpdateIncentiveEmissionRate): void {
   let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number.toI32();
+  configuration.lastUpdateBlockNumber = event.block.number;
   configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
   configuration.lastUpdateTransactionHash = event.transaction.hash;
 
@@ -431,7 +431,7 @@ export function handleUpdateSecondaryIncentiveRewarder(
   event: UpdateSecondaryIncentiveRewarder
 ): void {
   let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number.toI32();
+  configuration.lastUpdateBlockNumber = event.block.number;
   configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
   configuration.lastUpdateTransactionHash = event.transaction.hash;
 
@@ -441,7 +441,7 @@ export function handleUpdateSecondaryIncentiveRewarder(
 
 export function handleReserveBufferUpdate(event: ReserveBufferUpdated): void {
   let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number.toI32();
+  configuration.lastUpdateBlockNumber = event.block.number;
   configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
   configuration.lastUpdateTransactionHash = event.transaction.hash;
 
@@ -451,7 +451,7 @@ export function handleReserveBufferUpdate(event: ReserveBufferUpdated): void {
 
 export function handleUpdateGlobalTransferOperator(event: UpdateGlobalTransferOperator): void {
   let operator = getWhitelistedContract(event.params.operator);
-  operator.lastUpdateBlockNumber = event.block.number.toI32();
+  operator.lastUpdateBlockNumber = event.block.number;
   operator.lastUpdateTimestamp = event.block.timestamp.toI32();
   operator.lastUpdateTransactionHash = event.transaction.hash;
   let capability = operator.capability;
@@ -470,7 +470,7 @@ export function handleUpdateAuthorizedCallbackContract(
   event: UpdateAuthorizedCallbackContract
 ): void {
   let operator = getWhitelistedContract(event.params.operator);
-  operator.lastUpdateBlockNumber = event.block.number.toI32();
+  operator.lastUpdateBlockNumber = event.block.number;
   operator.lastUpdateTimestamp = event.block.timestamp.toI32();
   operator.lastUpdateTransactionHash = event.transaction.hash;
   let op = IStrategyVault.bind(event.params.operator);
@@ -590,7 +590,7 @@ export function handleVaultUpdated(event: VaultUpdated): void {
     vault.totalUsedPrimaryBorrowCapacity = BigInt.fromI32(0);
   }
 
-  vault.lastUpdateBlockNumber = event.block.number.toI32();
+  vault.lastUpdateBlockNumber = event.block.number;
   vault.lastUpdateTimestamp = event.block.timestamp.toI32();
   vault.lastUpdateBlockHash = event.block.hash;
   vault.lastUpdateTransactionHash = event.transaction.hash;
@@ -604,7 +604,7 @@ export function handleVaultUpdated(event: VaultUpdated): void {
 export function handleVaultPauseStatus(event: VaultPauseStatus): void {
   let vault = getVaultConfiguration(event.params.vault);
   vault.enabled = event.params.enabled;
-  vault.lastUpdateBlockNumber = event.block.number.toI32();
+  vault.lastUpdateBlockNumber = event.block.number;
   vault.lastUpdateTimestamp = event.block.timestamp.toI32();
   vault.lastUpdateBlockHash = event.block.hash;
   vault.lastUpdateTransactionHash = event.transaction.hash;
@@ -614,7 +614,7 @@ export function handleVaultPauseStatus(event: VaultPauseStatus): void {
 export function handleVaultDeleverageStatus(event: VaultDeleverageStatus): void {
   let vault = getVaultConfiguration(event.params.vaultAddress);
   vault.deleverageDisabled = event.params.disableDeleverage;
-  vault.lastUpdateBlockNumber = event.block.number.toI32();
+  vault.lastUpdateBlockNumber = event.block.number;
   vault.lastUpdateTimestamp = event.block.timestamp.toI32();
   vault.lastUpdateBlockHash = event.block.hash;
   vault.lastUpdateTransactionHash = event.transaction.hash;
@@ -645,7 +645,7 @@ export function handleVaultUpdateSecondaryBorrowCapacity(
   }
 
   vault.maxSecondaryBorrowCapacity = maxSecondaryBorrowCapacity;
-  vault.lastUpdateBlockNumber = event.block.number.toI32();
+  vault.lastUpdateBlockNumber = event.block.number;
   vault.lastUpdateTimestamp = event.block.timestamp.toI32();
   vault.lastUpdateBlockHash = event.block.hash;
   vault.lastUpdateTransactionHash = event.transaction.hash;
@@ -677,7 +677,7 @@ export function handleVaultBorrowCapacityChange(event: VaultBorrowCapacityChange
     vault.totalUsedSecondaryBorrowCapacity = totalUsedSecondaryBorrowCapacity;
   }
 
-  vault.lastUpdateBlockNumber = event.block.number.toI32();
+  vault.lastUpdateBlockNumber = event.block.number;
   vault.lastUpdateTimestamp = event.block.timestamp.toI32();
   vault.lastUpdateBlockHash = event.block.hash;
   vault.lastUpdateTransactionHash = event.transaction.hash;

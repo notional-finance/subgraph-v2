@@ -43,7 +43,7 @@ export function createERC20ProxyAsset(
   ERC20Proxy.createWithContext(tokenAddress, context);
 
   let account = getAccount(tokenAddress.toHexString(), event);
-  account.lastUpdateBlockNumber = event.block.number.toI32();
+  account.lastUpdateBlockNumber = event.block.number;
   account.lastUpdateTimestamp = event.block.timestamp.toI32();
   account.lastUpdateTransactionHash = event.transaction.hash;
 
@@ -88,11 +88,11 @@ export function createERC20TokenAsset(
   token.tokenType = tokenType;
   token.isfCashDebt = false;
 
-  token.lastUpdateBlockNumber = event.block.number.toI32();
+  token.lastUpdateBlockNumber = event.block.number;
   token.lastUpdateTimestamp = event.block.timestamp.toI32();
   token.lastUpdateTransactionHash = event.transaction.hash;
 
-  token.firstUpdateBlockNumber = event.block.number.toI32();
+  token.firstUpdateBlockNumber = event.block.number;
   token.firstUpdateTimestamp = event.block.timestamp.toI32();
   token.firstUpdateTransactionHash = event.transaction.hash;
 

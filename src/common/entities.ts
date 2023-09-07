@@ -1,4 +1,4 @@
-import { Address, Bytes, dataSource, ethereum, log } from "@graphprotocol/graph-ts";
+import { Address, BigInt, Bytes, dataSource, ethereum, log } from "@graphprotocol/graph-ts";
 import { Notional } from "../../generated/Assets/Notional";
 import {
   Account,
@@ -59,11 +59,11 @@ export function getAccount(id: string, event: ethereum.Event): Account {
       entity.systemAccountType = None;
     }
 
-    entity.firstUpdateBlockNumber = event.block.number.toI32();
+    entity.firstUpdateBlockNumber = event.block.number;
     entity.firstUpdateTimestamp = event.block.timestamp.toI32();
     entity.firstUpdateTransactionHash = event.transaction.hash;
 
-    entity.lastUpdateBlockNumber = event.block.number.toI32();
+    entity.lastUpdateBlockNumber = event.block.number;
     entity.lastUpdateTimestamp = event.block.timestamp.toI32();
     entity.lastUpdateTransactionHash = event.transaction.hash;
 
@@ -82,7 +82,7 @@ export function createTransfer(event: ethereum.Event, index: i32): Transfer {
     ":" +
     index.toString();
   let transfer = new Transfer(id);
-  transfer.blockNumber = event.block.number.toI32();
+  transfer.blockNumber = event.block.number;
   transfer.timestamp = event.block.timestamp.toI32();
   transfer.transactionHash = event.transaction.hash.toHexString();
   transfer.logIndex = event.transactionLogIndex.toI32();
@@ -94,7 +94,7 @@ export function getTransaction(event: ethereum.Event): Transaction {
   let transaction = Transaction.load(event.transaction.hash.toHexString());
   if (transaction == null) {
     transaction = new Transaction(event.transaction.hash.toHexString());
-    transaction.blockNumber = event.block.number.toI32();
+    transaction.blockNumber = event.block.number;
     transaction.timestamp = event.block.timestamp.toI32();
     transaction.transactionHash = event.transaction.hash;
 
@@ -132,7 +132,7 @@ export function getOracleRegistry(): OracleRegistry {
     registry.chainlinkOracles = new Array<string>();
     registry.listedVaults = new Array<Bytes>();
     registry.fCashEnabled = new Array<string>();
-    registry.lastRefreshBlockNumber = 0;
+    registry.lastRefreshBlockNumber = BigInt.fromI32(0);
     registry.lastRefreshTimestamp = 0;
     registry.save();
   }
@@ -163,7 +163,7 @@ export function getIncentives(currencyId: i32, event: ethereum.Event): Incentive
     incentives.currencyConfiguration = id;
   }
 
-  incentives.lastUpdateBlockNumber = event.block.number.toI32();
+  incentives.lastUpdateBlockNumber = event.block.number;
   incentives.lastUpdateTimestamp = event.block.timestamp.toI32();
   incentives.lastUpdateTransactionHash = event.transaction.hash;
 

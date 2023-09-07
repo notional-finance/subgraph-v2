@@ -39,7 +39,7 @@ export function handleListCurrency(event: ListCurrency): void {
   );
 
   underlying.currencyId = event.params.newCurrencyId;
-  underlying.lastUpdateBlockNumber = event.block.number.toI32();
+  underlying.lastUpdateBlockNumber = event.block.number;
   underlying.lastUpdateTimestamp = event.block.timestamp.toI32();
   underlying.lastUpdateTransactionHash = event.transaction.hash;
 
