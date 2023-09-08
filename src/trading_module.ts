@@ -40,7 +40,13 @@ function getTradingModulePermissions(
 export function handleTokenPermissionsUpdate(event: TokenPermissionsUpdated): void {
   let permissions = getTradingModulePermissions(event.params.sender, event.params.token, event);
   permissions.allowSell = event.params.permissions.allowSell;
-  let dexFlags = ByteArray.fromHexString(event.params.permissions.dexFlags.toHexString());
+  let dexFlagsString =
+    "0x" +
+    event.params.permissions.dexFlags
+      .toHexString()
+      .slice(2)
+      .padStart(12, "0");
+  let dexFlags = ByteArray.fromHexString(dexFlagsString);
   let dexes = new Array<string>();
   if (dexFlags[0]) dexes.push("UNISWAP_V2");
   if (dexFlags[1]) dexes.push("UNISWAP_V3");
@@ -50,9 +56,13 @@ export function handleTokenPermissionsUpdate(event: TokenPermissionsUpdated): vo
   if (dexFlags[5]) dexes.push("NOTIONAL_VAULT");
   permissions.allowedDexes = dexes;
 
-  let tradeTypeFlags = ByteArray.fromHexString(
-    event.params.permissions.tradeTypeFlags.toHexString()
-  );
+  let tradeTypeFlagsString =
+    "0x" +
+    event.params.permissions.tradeTypeFlags
+      .toHexString()
+      .slice(2)
+      .padStart(8, "0");
+  let tradeTypeFlags = ByteArray.fromHexString(tradeTypeFlagsString);
   let tradeType = new Array<string>();
   if (tradeTypeFlags[0]) tradeType.push("EXACT_IN_SINGLE");
   if (tradeTypeFlags[1]) tradeType.push("EXACT_OUT_SINGLE");

@@ -200,8 +200,14 @@ dataSources:
       entities:
         - Oracle
       abis:
+        - name: Aggregator
+          file: ./abi/Aggregator.json
         - name: TradingModule
           file: ./abi/TradingModule.json
+        - name: Notional
+          file: ./abi/Notional.json
+        - name: ERC20
+          file: ./abi/ERC20.json
       eventHandlers:
         - event: PriceOracleUpdated(address,address)
           handler: handlePriceOracleUpdate
