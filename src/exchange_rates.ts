@@ -492,7 +492,7 @@ export function handleSettlementRate(event: SetPrimeSettlementRate): void {
     fCashExRate.decimals = RATE_DECIMALS;
     fCashExRate.ratePrecision = RATE_PRECISION;
     fCashExRate.latestRate = RATE_PRECISION;
-    fCashExRate.lastUpdateBlockNumber = event.block.number.toI32();
+    fCashExRate.lastUpdateBlockNumber = event.block.number;
     fCashExRate.lastUpdateTimestamp = event.block.timestamp.toI32();
     fCashExRate.lastUpdateTransaction = event.transaction.hash.toHexString();
     fCashExRate.matured = true;
@@ -506,7 +506,7 @@ export function handleSettlementRate(event: SetPrimeSettlementRate): void {
     fCashOracle.ratePrecision = RATE_PRECISION;
     // Oracle interest rate is now zero
     fCashOracle.latestRate = BigInt.fromI32(0);
-    fCashOracle.lastUpdateBlockNumber = event.block.number.toI32();
+    fCashOracle.lastUpdateBlockNumber = event.block.number;
     fCashOracle.lastUpdateTimestamp = event.block.timestamp.toI32();
     fCashOracle.lastUpdateTransaction = event.transaction.hash.toHexString();
     fCashOracle.matured = true;
@@ -520,7 +520,7 @@ export function handleSettlementRate(event: SetPrimeSettlementRate): void {
     fCashSpot.decimals = RATE_DECIMALS;
     fCashSpot.ratePrecision = RATE_PRECISION;
     fCashSpot.latestRate = BigInt.fromI32(0);
-    fCashSpot.lastUpdateBlockNumber = event.block.number.toI32();
+    fCashSpot.lastUpdateBlockNumber = event.block.number;
     fCashSpot.lastUpdateTimestamp = event.block.timestamp.toI32();
     fCashSpot.lastUpdateTransaction = event.transaction.hash.toHexString();
     fCashSpot.matured = true;
@@ -551,7 +551,7 @@ export function handleSettlementRate(event: SetPrimeSettlementRate): void {
       negOracle.decimals = DOUBLE_SCALAR_DECIMALS;
       negOracle.ratePrecision = DOUBLE_SCALAR_PRECISION;
       negOracle.latestRate = event.params.debtFactor;
-      negOracle.lastUpdateBlockNumber = event.block.number.toI32();
+      negOracle.lastUpdateBlockNumber = event.block.number;
       negOracle.lastUpdateTimestamp = event.block.timestamp.toI32();
       negOracle.lastUpdateTransaction = event.transaction.hash.toHexString();
       negOracle.save();
@@ -563,7 +563,7 @@ export function handleSettlementRate(event: SetPrimeSettlementRate): void {
       fCashExRate.decimals = RATE_DECIMALS;
       fCashExRate.ratePrecision = RATE_PRECISION;
       fCashExRate.latestRate = RATE_PRECISION;
-      fCashExRate.lastUpdateBlockNumber = event.block.number.toI32();
+      fCashExRate.lastUpdateBlockNumber = event.block.number;
       fCashExRate.lastUpdateTimestamp = event.block.timestamp.toI32();
       fCashExRate.lastUpdateTransaction = event.transaction.hash.toHexString();
       fCashExRate.matured = true;
