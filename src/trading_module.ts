@@ -1,16 +1,44 @@
-import { Address, ethereum, ByteArray } from "@graphprotocol/graph-ts";
-import { TradingModulePermission } from "../generated/schema";
+import { Address, ethereum, ByteArray, BigInt } from "@graphprotocol/graph-ts";
+import { Token, TradingModulePermission } from "../generated/schema";
 import {
   PriceOracleUpdated,
   TokenPermissionsUpdated,
 } from "../generated/TradingModule/TradingModule";
 import { Underlying, USD_ASSET_ID } from "./common/constants";
-import { getAsset } from "./common/entities";
 import { createERC20TokenAsset } from "./common/erc20";
 import { registerChainlinkOracle } from "./exchange_rates";
 
+function getUSDAsset(event: ethereum.Event): Token {
+  let token = Token.load(USD_ASSET_ID);
+  if (token == null) {
+    token = new Token(USD_ASSET_ID);
+    token.name = "US Dollar";
+    token.symbol = "USD";
+    token.decimals = 8;
+    token.precision = BigInt.fromI32(10).pow(8);
+
+    token.tokenInterface = "FIAT";
+    token.tokenAddress = Address.fromHexString(USD_ASSET_ID);
+    token.hasTransferFee = false;
+    token.tokenType = "Fiat";
+    token.isfCashDebt = false;
+
+    token.lastUpdateBlockNumber = event.block.number;
+    token.lastUpdateTimestamp = event.block.timestamp.toI32();
+    token.lastUpdateTransactionHash = event.transaction.hash;
+
+    token.firstUpdateBlockNumber = event.block.number;
+    token.firstUpdateTimestamp = event.block.timestamp.toI32();
+    token.firstUpdateTransactionHash = event.transaction.hash;
+
+    token.save();
+  }
+
+  return token as Token;
+}
+
 export function handlePriceOracleUpdate(event: PriceOracleUpdated): void {
-  let usdBaseAsset = getAsset(USD_ASSET_ID);
+  let usdBaseAsset = getUSDAsset(event);
   let quoteAsset = createERC20TokenAsset(event.params.token, false, event, Underlying);
   registerChainlinkOracle(usdBaseAsset, quoteAsset, event.params.oracle, false, event);
 }
