@@ -20,14 +20,13 @@ export function handleVaultRewardReinvested(event: VaultRewardReinvested): void 
   reinvestment.vault = event.params.vault.toHexString();
   reinvestment.rewardTokenSold = event.params.rewardToken;
 
-  // TODO: rewrite this
-  reinvestment.rewardAmountSold = event.params.primaryAmount;
-  reinvestment.tokensReinvested = event.params.strategyTokenAmount;
+  reinvestment.rewardAmountSold = event.params.soldAmount;
+  reinvestment.tokensReinvested = event.params.poolClaimAmount;
 
   let vault = ISingleSidedLPStrategyVault.bind(event.params.vault);
   let context = vault.try_getStrategyVaultInfo();
   if (!context.reverted) {
-    let tokensAsVaultShares = event.params.strategyTokenAmount
+    let tokensAsVaultShares = event.params.poolClaimAmount
       .times(context.value.totalVaultShares)
       .div(context.value.totalLPTokens);
 

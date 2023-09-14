@@ -233,7 +233,7 @@ dataSources:
         - name: ISingleSidedLPStrategyVault
           file: ./abi/ISingleSidedLPStrategyVault.json
       eventHandlers:
-        - event: VaultRewardReinvested(indexed address,indexed address,uint256,uint256,uint256,uint256)
+        - event: VaultRewardReinvested(indexed address,indexed address,uint256,uint256)
           handler: handleVaultRewardReinvested
   # TODO: add snote balancer pool and snote
 templates:
