@@ -27,6 +27,7 @@ function _logTransfer(
   transfer.fromSystemAccount = decodeSystemAccount(from, event);
   transfer.to = to.toHexString();
   transfer.toSystemAccount = decodeSystemAccount(to, event);
+  transfer.transactionHash = event.transaction.hash.toHexString();
 
   transfer.transferType = decodeTransferType(from, to);
   transfer.value = value;
@@ -40,16 +41,15 @@ function _logTransfer(
   if (token.get("underlying") == null) {
     // This is a NOTE token transfer, we don't track any balance snapshots for this yet
     transfer.underlying = token.id;
-    transfer.save();
   } else {
     transfer.underlying = token.underlying as string;
-
-    // Ensures the balance snapshot exists for the PnL calculations
-    updateBalance(token, transfer, event);
-
-    // Calls transfer.save() inside
-    processTransfer(transfer, event);
   }
+
+  // Ensures the balance snapshot exists for the PnL calculations
+  updateBalance(token, transfer, event);
+
+  // Calls transfer.save() inside
+  processTransfer(transfer, event);
 }
 
 export function handleERC1155Transfer(event: TransferSingle): void {

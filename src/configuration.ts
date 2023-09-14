@@ -52,6 +52,7 @@ import {
 } from "./common/entities";
 import { setActiveMarkets } from "./common/market";
 import { updateVaultOracles } from "./exchange_rates";
+import { updateNTokenIncentives } from "./balances";
 
 function getCurrencyConfiguration(currencyId: i32): CurrencyConfiguration {
   let id = currencyId.toString();
@@ -416,6 +417,8 @@ export function handleUpdateIncentiveEmissionRate(event: UpdateIncentiveEmission
 
   configuration.incentiveEmissionRate = event.params.newEmissionRate;
   configuration.save();
+
+  updateNTokenIncentives(event.params.currencyId, event);
 }
 
 export function handleIncentivesMigrated(event: IncentivesMigrated): void {

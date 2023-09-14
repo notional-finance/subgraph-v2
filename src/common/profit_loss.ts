@@ -29,7 +29,6 @@ export function processProfitAndLoss(
     let item = lineItems[i];
 
     let token = getAsset(item.token);
-    let underlying = getAsset(token.underlying as string);
     let account = getAccount(item.account, event);
     let balance = getBalance(account, token, event);
     let snapshot = getBalanceSnapshot(balance, event);
@@ -103,6 +102,7 @@ export function processProfitAndLoss(
       );
 
       if (accumulatedBalanceValueAtSpot !== null) {
+        let underlying = getAsset(token.underlying as string);
         snapshot.currentProfitAndLossAtSnapshot = accumulatedBalanceValueAtSpot.minus(
           snapshot.adjustedCostBasis
             .times(snapshot._accumulatedBalance)
@@ -191,8 +191,8 @@ function createLineItem(
     .abs();
 
   let token = getAsset(item.token);
-  let underlying = getUnderlying(token.currencyId);
   if (token.maturity !== null && (token.maturity as BigInt).notEqual(PRIME_CASH_VAULT_MATURITY)) {
+    let underlying = getUnderlying(token.currencyId);
     // Convert the realized price to an implied fixed rate for fixed vault debt
     // and fCash tokens
     let realizedPriceInRatePrecision: f64 = item.realizedPrice

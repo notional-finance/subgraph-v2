@@ -19,6 +19,8 @@ import {
   ZeroAddress,
   Transfer as _Transfer,
   INTERNAL_TOKEN_PRECISION,
+  NOTE,
+  Notional,
 } from "./common/constants";
 import { getAccount, getAsset, getIncentives, getNotional, getUnderlying } from "./common/entities";
 import { updatePrimeCashMarket } from "./common/market";
@@ -209,16 +211,20 @@ function updatefCashTotalDebtOutstanding(token: Token): void {
   token.save();
 }
 
-function updateNTokenIncentives(token: Token, event: ethereum.Event): void {
-  let incentives = getIncentives(token.currencyId, event);
+export function updateNTokenIncentives(currencyId: i32, event: ethereum.Event): void {
+  let incentives = getIncentives(currencyId, event);
   let notional = getNotional();
-  incentives.accumulatedNOTEPerNToken = notional
-    .getNTokenAccount(Address.fromBytes(token.tokenAddress as Bytes))
-    .getAccumulatedNOTEPerNToken();
-  incentives.lastAccumulatedTime = notional
-    .getNTokenAccount(Address.fromBytes(token.tokenAddress as Bytes))
-    .getLastAccumulatedTime();
-  incentives.save();
+  let nTokenAddress = notional.try_nTokenAddress(currencyId);
+
+  if (!nTokenAddress.reverted) {
+    incentives.accumulatedNOTEPerNToken = notional
+      .getNTokenAccount(nTokenAddress.value)
+      .getAccumulatedNOTEPerNToken();
+    incentives.lastAccumulatedTime = notional
+      .getNTokenAccount(nTokenAddress.value)
+      .getLastAccumulatedTime();
+    incentives.save();
+  }
 }
 
 export function updateBalance(token: Token, transfer: Transfer, event: ethereum.Event): void {
@@ -236,8 +242,13 @@ export function updateBalance(token: Token, transfer: Transfer, event: ethereum.
     updateVaultAssetTotalSupply(token, transfer, event);
   }
 
-  if (token.tokenType == nToken) {
-    updateNTokenIncentives(token, event);
+  if (transfer.tokenType == NOTE && transfer.fromSystemAccount == Notional) {
+    // Update all nToken incentives when tokens are claimed
+    let notional = getNotional();
+    let maxCurrencyId = notional.getMaxCurrencyId();
+    for (let id = 1; id <= maxCurrencyId; id++) {
+      updateNTokenIncentives(id, event);
+    }
   }
 
   let fromAccount = getAccount(transfer.from, event);
