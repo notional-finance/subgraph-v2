@@ -1,9 +1,16 @@
-import { Address, DataSourceContext, ethereum, log, BigInt } from "@graphprotocol/graph-ts";
+import {
+  Address,
+  DataSourceContext,
+  ethereum,
+  log,
+  BigInt,
+  dataSource,
+} from "@graphprotocol/graph-ts";
 import { Token } from "../../generated/schema";
 import { ERC20 } from "../../generated/templates/ERC20Proxy/ERC20";
 import { ERC20Proxy } from "../../generated/templates";
 import { getAccount } from "./entities";
-import { ZERO_ADDRESS } from "./constants";
+import { ARB_USDC, ARB_USDC_E, ZERO_ADDRESS } from "./constants";
 
 export function getTokenNameAndSymbol(erc20: ERC20): string[] {
   let nameResult = erc20.try_name();
@@ -66,6 +73,7 @@ export function createERC20TokenAsset(
 
   // If token does not exist, then create it here
   token = new Token(tokenAddress.toHexString());
+  let network = dataSource.network();
 
   if (tokenAddress == ZERO_ADDRESS) {
     token.name = "Ether";
@@ -73,6 +81,11 @@ export function createERC20TokenAsset(
     token.decimals = 18;
     token.precision = BigInt.fromI32(10).pow(18);
   } else {
+    if (network == "arbitrum-one" && tokenAddress == Address.fromBytes(ARB_USDC_E)) {
+      // Rewrite the USDC address to account for the token migration
+      tokenAddress = Address.fromBytes(ARB_USDC);
+    }
+
     let erc20 = ERC20.bind(tokenAddress);
     let symbolAndName = getTokenNameAndSymbol(erc20);
     let decimals = erc20.decimals();
