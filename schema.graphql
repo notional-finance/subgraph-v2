@@ -45,11 +45,11 @@ type Token @entity {
   """
   id: ID!
 
-  firstUpdateBlockNumber: Int!
+  firstUpdateBlockNumber: BigInt!
   firstUpdateTimestamp: Int!
   firstUpdateTransactionHash: Bytes
 
-  lastUpdateBlockNumber: Int!
+  lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes
 
@@ -87,7 +87,7 @@ type Token @entity {
 type Transfer @entity(immutable: true) {
   "Transaction Hash:Log Index"
   id: ID!
-  blockNumber: Int!
+  blockNumber: BigInt!
   timestamp: Int!
   transactionHash: Transaction!
   logIndex: Int!
@@ -116,7 +116,7 @@ type Transfer @entity(immutable: true) {
 type TransferBundle @entity(immutable: true) {
   "Transaction Hash:Start Log Index:End Log Index:Bundle Name"
   id: ID!
-  blockNumber: Int!
+  blockNumber: BigInt!
   timestamp: Int!
   transactionHash: Transaction!
 
@@ -131,7 +131,7 @@ type TransferBundle @entity(immutable: true) {
 type ProfitLossLineItem @entity(immutable: true) {
   "Bundle ID:Index"
   id: ID!
-  blockNumber: Int!
+  blockNumber: BigInt!
   timestamp: Int!
   transactionHash: Transaction!
 
@@ -156,7 +156,7 @@ type ProfitLossLineItem @entity(immutable: true) {
 type Transaction @entity(immutable: true) {
   "Transaction Hash"
   id: ID!
-  blockNumber: Int!
+  blockNumber: BigInt!
   timestamp: Int!
   transactionHash: Bytes!
 
@@ -173,11 +173,11 @@ type Account @entity {
   "Address of Account"
   id: ID!
 
-  firstUpdateBlockNumber: Int!
+  firstUpdateBlockNumber: BigInt!
   firstUpdateTimestamp: Int!
   firstUpdateTransactionHash: Bytes!
 
-  lastUpdateBlockNumber: Int!
+  lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
   systemAccountType: SystemAccount!
@@ -214,7 +214,7 @@ enum OracleType {
 type OracleRegistry @entity {
   "ID is hardcoded to zero"
   id: ID!
-  lastRefreshBlockNumber: Int!
+  lastRefreshBlockNumber: BigInt!
   lastRefreshTimestamp: Int!
 
   chainlinkOracles: [Oracle!]!
@@ -228,7 +228,7 @@ type Oracle @entity {
   "Base Token Id:Quote Token Id:Oracle Type"
   id: ID!
 
-  lastUpdateBlockNumber: Int!
+  lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
   "Some oracles are updated via block handlers and do not have a txn hash for updates"
   lastUpdateTransaction: Transaction
@@ -249,7 +249,7 @@ type Oracle @entity {
 type ExchangeRate @entity(immutable: true) {
   "External Oracle ID:Block Number:Transaction Hash"
   id: ID!
-  blockNumber: Int!
+  blockNumber: BigInt!
   timestamp: Int!
   transaction: Transaction
   oracle: Oracle!
@@ -262,7 +262,7 @@ type ExchangeRate @entity(immutable: true) {
 type CurrencyConfiguration @entity {
   "Currency ID"
   id: ID!
-  lastUpdateBlockNumber: Int!
+  lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
 
@@ -346,7 +346,7 @@ type CurrencyConfiguration @entity {
 type InterestRateCurve @entity {
   "ID is the currency id:market index:true if current"
   id: ID!
-  lastUpdateBlockNumber: Int!
+  lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
 
@@ -364,7 +364,7 @@ type VaultConfiguration @entity {
   "ID is the address of the vault"
   id: ID!
   lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
+  lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
   "Address of the strategy vault"
@@ -432,7 +432,7 @@ enum WhitelistedCapability {
 
 type WhitelistedContract @entity {
   id: ID!
-  lastUpdateBlockNumber: Int!
+  lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
   capability: [WhitelistedCapability!]!
@@ -449,11 +449,11 @@ type Balance @entity {
   "Address of the account that holds this balance"
   account: Account!
 
-  firstUpdateBlockNumber: Int!
+  firstUpdateBlockNumber: BigInt!
   firstUpdateTimestamp: Int!
   firstUpdateTransactionHash: Bytes!
 
-  lastUpdateBlockNumber: Int!
+  lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
   
@@ -464,7 +464,7 @@ type Balance @entity {
 type BalanceSnapshot @entity(immutable: true) {
   "Address of Account:ID of Token:Block Number"
   id: ID!
-  blockNumber: Int!
+  blockNumber: BigInt!
   timestamp: Int!
   transaction: Transaction!
 
@@ -504,7 +504,7 @@ type BalanceSnapshot @entity(immutable: true) {
 type ActiveMarket @entity {
   "Currency ID"
   id: ID!
-  lastUpdateBlockNumber: Int!
+  lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
   lastUpdateTransaction: Transaction
   
@@ -516,7 +516,7 @@ type ActiveMarket @entity {
 type PrimeCashMarket @entity {
   "Currency ID"
   id: ID!
-  lastUpdateBlockNumber: Int!
+  lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
   lastUpdateTransaction: Transaction
 
@@ -534,7 +534,7 @@ type PrimeCashMarket @entity {
 type PrimeCashMarketSnapshot @entity(immutable: true) {
   "Currency ID:Block Number:Transaction Hash"
   id: ID!
-  blockNumber: Int!
+  blockNumber: BigInt!
   timestamp: Int!
   transaction: Transaction
 
@@ -567,7 +567,7 @@ type PrimeCashMarketSnapshot @entity(immutable: true) {
 type fCashMarket @entity {
   "Currency Id:Settlement Date:Maturity combination"
   id: ID!
-  lastUpdateBlockNumber: Int!
+  lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
   lastUpdateTransaction: Transaction
 
@@ -591,7 +591,7 @@ type fCashMarket @entity {
 type fCashMarketSnapshot @entity(immutable: true) {
   "Market ID:Block Number"
   id: ID!
-  blockNumber: Int!
+  blockNumber: BigInt!
   timestamp: Int!
   transaction: Transaction
 
@@ -626,7 +626,7 @@ type fCashMarketSnapshot @entity(immutable: true) {
 type Incentive @entity {
   "ID is the currency id"
   id: ID!
-  lastUpdateBlockNumber: Int!
+  lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
 
@@ -670,7 +670,7 @@ enum TradeType {
 
 type TradingModulePermission @entity {
   id: ID!
-  lastUpdateBlockNumber: Int!
+  lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
 
@@ -682,5 +682,26 @@ type TradingModulePermission @entity {
   allowedTradeTypes: [TradeType!]!
 }
 
+type Reinvestment @entity {
+  "Vault:TxnHash"
+  id: ID!
+  blockNumber: BigInt!
+  timestamp: Int!
+  transactionHash: Bytes!
+
+  vault: VaultConfiguration!
+
+  "Address of the token sold"
+  rewardTokenSold: Bytes!
+  "Amount of reward tokens sold"
+  rewardAmountSold: BigInt!
+
+  "Amount of LP tokens reinvested"
+  tokensReinvested: BigInt!
+
+  tokensPerVaultShare: BigInt
+  "Value of the tokens reinvested"
+  underlyingAmountRealized: BigInt
+}
+
 # Staked NOTE
-# Vault Reinvestments?

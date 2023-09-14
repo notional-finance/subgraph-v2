@@ -200,14 +200,41 @@ dataSources:
       entities:
         - Oracle
       abis:
+        - name: Aggregator
+          file: ./abi/Aggregator.json
         - name: TradingModule
           file: ./abi/TradingModule.json
+        - name: Notional
+          file: ./abi/Notional.json
+        - name: ERC20
+          file: ./abi/ERC20.json
       eventHandlers:
         - event: PriceOracleUpdated(address,address)
           handler: handlePriceOracleUpdate
         - event: TokenPermissionsUpdated(address,address,(bool,uint32,uint32))
           handler: handleTokenPermissionsUpdate
-  # TODO: add treasury manager events
+  - name: TreasuryManager
+    kind: ethereum/contract
+    network: {{ networkName }}
+    source:
+      address: '{{ treasuryManager }}'
+      abi: TreasuryManager
+      startBlock: {{ startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/treasury_manager.ts
+      entities:
+        - Reinvestment
+      abis:
+        - name: TreasuryManager
+          file: ./abi/TreasuryManager.json
+        - name: ISingleSidedLPStrategyVault
+          file: ./abi/ISingleSidedLPStrategyVault.json
+      eventHandlers:
+        - event: VaultRewardReinvested(indexed address,indexed address,uint256,uint256)
+          handler: handleVaultRewardReinvested
   # TODO: add snote balancer pool and snote
 templates:
   - name: ERC20Proxy

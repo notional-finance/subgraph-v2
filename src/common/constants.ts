@@ -10,7 +10,7 @@ export const PRIME_CASH_VAULT_MATURITY = BigInt.fromI32(2)
   .minus(BigInt.fromI32(1));
 export const INTERNAL_TOKEN_DECIMALS = 8;
 export const INTERNAL_TOKEN_PRECISION = BigInt.fromI32(10).pow(8);
-export const USD_ASSET_ID = "0";
+export const USD_ASSET_ID = "0x000000000000000000000000000000000000F147";
 export const ETH_CURRENCY_ID = 1 as i32;
 export const ORACLE_REGISTRY_ID = "0";
 export const RATE_DECIMALS = 9;
