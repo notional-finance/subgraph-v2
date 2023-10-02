@@ -73,7 +73,6 @@ export function createERC20TokenAsset(
 
   // If token does not exist, then create it here
   token = new Token(tokenAddress.toHexString());
-  let network = dataSource.network();
 
   if (tokenAddress == ZERO_ADDRESS) {
     token.name = "Ether";
@@ -81,11 +80,6 @@ export function createERC20TokenAsset(
     token.decimals = 18;
     token.precision = BigInt.fromI32(10).pow(18);
   } else {
-    if (network == "arbitrum-one" && tokenAddress == Address.fromBytes(ARB_USDC_E)) {
-      // Rewrite the USDC address to account for the token migration
-      tokenAddress = Address.fromBytes(ARB_USDC);
-    }
-
     let erc20 = ERC20.bind(tokenAddress);
     let symbolAndName = getTokenNameAndSymbol(erc20);
     let decimals = erc20.decimals();

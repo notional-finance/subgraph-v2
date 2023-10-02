@@ -1,4 +1,4 @@
-import { ethereum, log } from "@graphprotocol/graph-ts";
+import { Address, dataSource, ethereum, log } from "@graphprotocol/graph-ts";
 import {
   ListCurrency,
   DeployNToken,
@@ -14,9 +14,27 @@ import {
   PrimeCash,
   PrimeDebt,
   Underlying,
+  ARB_USDC,
+  ARB_USDC_E,
 } from "./common/constants";
 import { getAccount, getNotional, getUnderlying } from "./common/entities";
 import { createERC20ProxyAsset, createERC20TokenAsset } from "./common/erc20";
+
+export function readUnderlyingTokenFromNotional(currencyId: i32): Address {
+  let notional = getNotional();
+  let results = notional.getCurrency(currencyId);
+
+  let tokenAddress = results.getUnderlyingToken().tokenAddress;
+
+  // Rewrite the USDC address on arbitrum
+  let network = dataSource.network();
+  if (network == "arbitrum-one" && tokenAddress == Address.fromBytes(ARB_USDC_E)) {
+    // Rewrite the USDC address to account for the token migration
+    tokenAddress = Address.fromBytes(ARB_USDC);
+  }
+
+  return tokenAddress;
+}
 
 function _initializeNOTEToken(notional: Notional, event: ethereum.Event): void {
   let noteToken = notional.getNoteToken();
@@ -30,9 +48,10 @@ export function handleListCurrency(event: ListCurrency): void {
   let results = notional.getCurrency(event.params.newCurrencyId);
   let id = event.params.newCurrencyId as i32;
   let underlyingToken = results.getUnderlyingToken();
+  let tokenAddress = readUnderlyingTokenFromNotional(event.params.newCurrencyId);
 
   let underlying = createERC20TokenAsset(
-    underlyingToken.tokenAddress,
+    tokenAddress,
     underlyingToken.hasTransferFee,
     event,
     Underlying
@@ -79,10 +98,8 @@ export function handleDeployPrimeProxy(event: PrimeProxyDeployed): void {
 
   // This is required due to the order in which events are emitted (this is
   // emitted prior to list currency)
-  let notional = getNotional();
-  let results = notional.getCurrency(event.params.currencyId);
-
+  let tokenAddress = readUnderlyingTokenFromNotional(currencyId);
+  token.underlying = tokenAddress.toHexString();
   token.currencyId = currencyId;
-  token.underlying = results.getUnderlyingToken().tokenAddress.toHexString();
   token.save();
 }
