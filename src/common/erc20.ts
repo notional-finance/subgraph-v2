@@ -1,9 +1,16 @@
-import { Address, DataSourceContext, ethereum, log, BigInt } from "@graphprotocol/graph-ts";
+import {
+  Address,
+  DataSourceContext,
+  ethereum,
+  log,
+  BigInt,
+  dataSource,
+} from "@graphprotocol/graph-ts";
 import { Token } from "../../generated/schema";
 import { ERC20 } from "../../generated/templates/ERC20Proxy/ERC20";
 import { ERC20Proxy } from "../../generated/templates";
 import { getAccount } from "./entities";
-import { ZERO_ADDRESS } from "./constants";
+import { ARB_USDC, ARB_USDC_E, ZERO_ADDRESS } from "./constants";
 
 export function getTokenNameAndSymbol(erc20: ERC20): string[] {
   let nameResult = erc20.try_name();

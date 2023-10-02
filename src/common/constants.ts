@@ -80,3 +80,7 @@ export const nTokenToUnderlyingExchangeRate = "nTokenToUnderlyingExchangeRate";
 // Whitelisted Capability
 export const GlobalTransferOperator = "GlobalTransferOperator";
 export const AuthorizedCallbackContract = "AuthorizedCallbackContract";
+
+// Arbitrum USDC Migration
+export const ARB_USDC = Address.fromHexString("0xaf88d065e77c8cc2239327c5edb3a432268e5831");
+export const ARB_USDC_E = Address.fromHexString("0xff970a61a04b1ca14834a43f5de4533ebddb5cc8");

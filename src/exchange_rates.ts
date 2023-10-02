@@ -50,6 +50,7 @@ import {
 import { getOrCreateERC1155Asset } from "./common/erc1155";
 import { updatefCashMarket } from "./common/market";
 import { getExpFactor } from "./common/transfers";
+import { readUnderlyingTokenFromNotional } from "./assets";
 
 function updateExchangeRate(
   oracle: Oracle,
@@ -276,8 +277,7 @@ export function registerChainlinkOracle(
 
 export function handleUpdateETHRate(event: UpdateETHRate): void {
   let notional = getNotional();
-  let results = notional.getCurrency(event.params.currencyId);
-  let quoteId = results.getUnderlyingToken().tokenAddress.toHexString();
+  let quoteId = readUnderlyingTokenFromNotional(event.params.currencyId).toHexString();
   let quoteAsset = getAsset(quoteId);
   let ethBaseAsset = getAsset(Address.zero().toHexString());
   let rateStorage = notional.getRateStorage(event.params.currencyId);
