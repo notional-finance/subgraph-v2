@@ -688,7 +688,7 @@ export function handleVaultBorrowCapacityChange(event: VaultBorrowCapacityChange
   vault.save();
 }
 
-export function handleAccountContextUpdated(event: AccountContextUpdate): void {
+export function handleAccountContextUpdate(event: AccountContextUpdate): void {
   let notional = getNotional();
   let account = getAccount(event.params.account.toHexString(), event);
   let context = notional.getAccountContext(event.params.account);
