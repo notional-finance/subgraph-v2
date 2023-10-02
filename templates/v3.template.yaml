@@ -183,8 +183,10 @@ dataSources:
           handler: handleVaultDeleverageStatus
         - event: VaultUpdateSecondaryBorrowCapacity(indexed address,indexed uint16,uint80)
           handler: handleVaultUpdateSecondaryBorrowCapacity
-        - event: VaultBorrowCapacityChange(indexed address,indexed uint16,uint256) 
+        - event: VaultBorrowCapacityChange(indexed address,indexed uint16,uint256)
           handler: handleVaultBorrowCapacityChange
+        - event: AccountContextUpdate(indexed address)
+          handler: handleAccountContextUpdate
   - name: TradingModule
     kind: ethereum/contract
     network: {{ networkName }}

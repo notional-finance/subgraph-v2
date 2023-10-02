@@ -1,5 +1,6 @@
 import { Address, BigInt, ByteArray, Bytes } from "@graphprotocol/graph-ts";
 import {
+  AccountContextUpdate,
   IncentivesMigrated,
   ListCurrency,
   MarketsInitialized,
@@ -685,4 +686,29 @@ export function handleVaultBorrowCapacityChange(event: VaultBorrowCapacityChange
   vault.lastUpdateBlockHash = event.block.hash;
   vault.lastUpdateTransactionHash = event.transaction.hash;
   vault.save();
+}
+
+export function handleAccountContextUpdated(event: AccountContextUpdate): void {
+  let notional = getNotional();
+  let account = getAccount(event.params.account.toHexString(), event);
+  let context = notional.getAccountContext(event.params.account);
+
+  account.allowPrimeBorrow = context.allowPrimeBorrow;
+  account.nextSettleTime = context.nextSettleTime;
+  account.bitmapCurrencyId = context.bitmapCurrencyId;
+
+  let hasDebtHex = context.hasDebt.toHexString();
+  if (hasDebtHex == "0x01" || hasDebtHex == "0x03") {
+    account.hasPortfolioAssetDebt = true;
+  } else {
+    account.hasPortfolioAssetDebt = false;
+  }
+
+  if (hasDebtHex == "0x02" || hasDebtHex == "0x03") {
+    account.hasCashDebt = true;
+  } else {
+    account.hasCashDebt = false;
+  }
+
+  account.save();
 }

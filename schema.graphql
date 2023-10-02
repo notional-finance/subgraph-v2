@@ -182,6 +182,12 @@ type Account @entity {
   lastUpdateTransactionHash: Bytes!
   systemAccountType: SystemAccount!
 
+  allowPrimeBorrow: Boolean
+  nextSettleTime: BigInt
+  hasPortfolioAssetDebt: Boolean
+  hasCashDebt: Boolean
+  bitmapCurrencyId: Int
+
   "All current balances linked to this account"
   balances: [Balance!] @derivedFrom(field: "account")
   "All historical token transfers linked to this account"
