@@ -170,6 +170,7 @@ function createLineItem(
     log.critical("Unknown transfer type {}", [transferType]);
   }
 
+  // This ratio is used to split fCash transfers between the positive and negative portions
   if (ratio) {
     item.tokenAmount = item.tokenAmount.times(ratio).div(RATE_PRECISION);
     item.underlyingAmountRealized = item.underlyingAmountRealized.times(ratio).div(RATE_PRECISION);
@@ -287,14 +288,17 @@ function extractProfitLossLineItem(
     // Only do a "Mint" here because we don't register an PnL item on the Notional side.
     createLineItem(bundle, transfers[0], Mint, lineItems, BigInt.fromI32(0), BigInt.fromI32(0));
   } else if (bundle.bundleName == "Transfer Asset") {
+    // Don't create transfer PnL items if the value is null (happens for NOTE tokens)
+    if (transfers[0].valueInUnderlying == null) return lineItems;
+
     // Creates one line item on the sender and receiver at the current spot price.
     createLineItem(
       bundle,
       transfers[0],
       Mint,
       lineItems,
-      transfers[0].valueInUnderlying as BigInt,
-      transfers[0].valueInUnderlying as BigInt
+      transfers[0].valueInUnderlying,
+      transfers[0].valueInUnderlying
     );
 
     createLineItem(
@@ -302,8 +306,8 @@ function extractProfitLossLineItem(
       transfers[0],
       Burn,
       lineItems,
-      transfers[0].valueInUnderlying as BigInt,
-      transfers[0].valueInUnderlying as BigInt
+      transfers[0].valueInUnderlying,
+      transfers[0].valueInUnderlying
     );
     /** Residual Purchase */
   } else if (
