@@ -289,26 +289,13 @@ function extractProfitLossLineItem(
     createLineItem(bundle, transfers[0], Mint, lineItems, BigInt.fromI32(0), BigInt.fromI32(0));
   } else if (bundle.bundleName == "Transfer Asset") {
     // Don't create transfer PnL items if the value is null (happens for NOTE tokens)
-    if (transfers[0].valueInUnderlying == null) return lineItems;
+    let valueInUnderlying = transfers[0].valueInUnderlying;
+    if (valueInUnderlying === null) return lineItems;
 
     // Creates one line item on the sender and receiver at the current spot price.
-    createLineItem(
-      bundle,
-      transfers[0],
-      Mint,
-      lineItems,
-      transfers[0].valueInUnderlying,
-      transfers[0].valueInUnderlying
-    );
+    createLineItem(bundle, transfers[0], Mint, lineItems, valueInUnderlying, valueInUnderlying);
 
-    createLineItem(
-      bundle,
-      transfers[0],
-      Burn,
-      lineItems,
-      transfers[0].valueInUnderlying,
-      transfers[0].valueInUnderlying
-    );
+    createLineItem(bundle, transfers[0], Burn, lineItems, valueInUnderlying, valueInUnderlying);
     /** Residual Purchase */
   } else if (
     bundle.bundleName == "nToken Purchase Positive Residual" ||
