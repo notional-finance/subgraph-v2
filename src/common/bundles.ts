@@ -100,7 +100,11 @@ const deposit_transfer = (w: Transfer[]): boolean => {
   ) && (
     w[1].transferType == _Transfer &&
     w[1].tokenType == PrimeCash &&
-    w[1].toSystemAccount != nToken
+    // Transfers to these system accounts should not be
+    // considered as deposit / transfer
+    w[1].toSystemAccount != nToken &&
+    w[1].toSystemAccount != FeeReserve &&
+    w[1].toSystemAccount != SettlementReserve
   ) && (
     w[0].to == w[1].from &&
     w[0].token == w[1].token
