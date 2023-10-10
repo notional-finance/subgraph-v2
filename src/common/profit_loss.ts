@@ -449,6 +449,61 @@ function extractProfitLossLineItem(
     // positive fCash. These fCash line items may be deleted by the "Borrow fCash" or "Repay fCash"
     // bundles.
     createfCashLineItems(bundle, transfers, transfers[2], lineItems);
+  } else if (bundle.bundleName == "nToken Residual Transfer") {
+    let positiveResidual = transfers[0].fromSystemAccount == "nToken";
+    let trade = findPrecedingBundle(positiveResidual ? "Sell fCash" : "Buy fCash", bundleArray);
+
+    if (trade) {
+      // Create line item for the fCash transfer to "undo the trade", negative residuals result
+      // in Buy fCash so negate the boolean here.
+      let underlyingAmountRealized = getfCashAmountRealized(!positiveResidual, trade);
+      let underlyingAmountSpot = transfers[0].valueInUnderlying as BigInt;
+      createLineItem(
+        bundle,
+        transfers[0],
+        // This matches the direction of the transfer, the trade was in the opposite
+        // direction of the transfer.
+        positiveResidual ? Mint : Burn,
+        lineItems,
+        underlyingAmountRealized,
+        underlyingAmountSpot
+      );
+
+      let redeem = findPrecedingBundle("Redeem nToken", bundleArray);
+      if (redeem) {
+        // Create a line item for the nToken redeem to account for the trade pCash
+        createLineItem(
+          bundle,
+          redeem[1],
+          Burn,
+          lineItems,
+          positiveResidual ? underlyingAmountRealized : underlyingAmountRealized.neg(),
+          positiveResidual ? underlyingAmountSpot : underlyingAmountSpot.neg()
+        );
+
+        // Clear the token amount, realized price and spot price. They are not accurate here. These
+        // values are not used in the PnL calculation.
+        lineItems[lineItems.length - 1].tokenAmount = BigInt.zero();
+        lineItems[lineItems.length - 1].realizedPrice = BigInt.zero();
+        lineItems[lineItems.length - 1].spotPrice = BigInt.zero();
+      } else {
+        log.critical("Cannot find Redeem nToken during residual transfer {}", [
+          transfers[0].transactionHash,
+        ]);
+      }
+    } else {
+      // Create line item for the fCash transfer
+      createLineItem(
+        bundle,
+        transfers[0],
+        // This matches the direction of the transfer, the trade was in the opposite
+        // direction of the transfer.
+        positiveResidual ? Mint : Burn,
+        lineItems,
+        transfers[0].valueInUnderlying as BigInt,
+        transfers[0].valueInUnderlying as BigInt
+      );
+    }
   } else if (bundle.bundleName == "Borrow fCash" || bundle.bundleName == "Repay fCash") {
     let trade = findPrecedingBundle(
       bundle.bundleName == "Borrow fCash" ? "Sell fCash" : "Buy fCash",
@@ -794,6 +849,18 @@ function createVaultShareLineItem(
   );
 }
 
+function getfCashAmountRealized(isBuy: boolean, fCashTrade: Transfer[]): BigInt {
+  if (isBuy) {
+    return (fCashTrade[0].valueInUnderlying as BigInt).plus(
+      fCashTrade[1].valueInUnderlying as BigInt
+    );
+  } else {
+    return (fCashTrade[0].valueInUnderlying as BigInt).minus(
+      fCashTrade[1].valueInUnderlying as BigInt
+    );
+  }
+}
+
 function createfCashLineItems(
   bundle: TransferBundle,
   fCashTrade: Transfer[],
@@ -830,17 +897,7 @@ function createfCashLineItems(
     ratio
   );
 
-  let underlyingAmountRealized: BigInt;
-  if (isBuy) {
-    underlyingAmountRealized = (fCashTrade[0].valueInUnderlying as BigInt).plus(
-      fCashTrade[1].valueInUnderlying as BigInt
-    );
-  } else {
-    underlyingAmountRealized = (fCashTrade[0].valueInUnderlying as BigInt).minus(
-      fCashTrade[1].valueInUnderlying as BigInt
-    );
-  }
-
+  let underlyingAmountRealized = getfCashAmountRealized(isBuy, fCashTrade);
   createLineItem(
     bundle,
     fCashTransfer,
