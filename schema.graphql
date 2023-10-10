@@ -151,6 +151,9 @@ type ProfitLossLineItem @entity(immutable: true) {
   impliedFixedRate: BigInt
   "Set to true for line items that do not materially change the balance at the end of the txn"
   isTransientLineItem: Boolean!
+
+  "Set to a value that points to the token that generated an incentive payment"
+  incentivizedToken: Token
 }
 
 type Transaction @entity(immutable: true) {
@@ -501,6 +504,16 @@ type BalanceSnapshot @entity(immutable: true) {
   _accumulatedCostRealized: BigInt!
   "Cumulative realized cost using adjusted cost basis for internal PnL calculations"
   _accumulatedCostAdjustedBasis: BigInt!
+
+  "Current account incentive debt for NOTE"
+  currentNOTEIncentiveDebt: BigInt!
+  "Previous account incentive debt for NOTE"
+  previousNOTEIncentiveDebt: BigInt!
+
+  "Total NOTE accrued over the lifetime of this balance"
+  totalNOTEAccrued: BigInt!
+  "NOTE Earnings adjusted for balance changes"
+  adjustedNOTEEarned: BigInt!
 
   profitLossLineItems: [ProfitLossLineItem!] @derivedFrom(field: "balanceSnapshot")
 }

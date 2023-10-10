@@ -1,5 +1,12 @@
 import { ethereum, BigInt, log } from "@graphprotocol/graph-ts";
-import { ProfitLossLineItem, Transfer, TransferBundle } from "../../generated/schema";
+import {
+  Balance,
+  BalanceSnapshot,
+  ProfitLossLineItem,
+  Token,
+  Transfer,
+  TransferBundle,
+} from "../../generated/schema";
 import { getAccount, getAsset, getNotional, getUnderlying } from "./entities";
 import { getBalance, getBalanceSnapshot } from "../balances";
 import {
@@ -8,6 +15,7 @@ import {
   Mint,
   PRIME_CASH_VAULT_MATURITY,
   RATE_PRECISION,
+  SCALAR_PRECISION,
   SECONDS_IN_YEAR,
   Transfer as _Transfer,
   nToken,
@@ -23,16 +31,29 @@ export function processProfitAndLoss(
   bundleArray: string[],
   event: ethereum.Event
 ): void {
-  let lineItems = extractProfitLossLineItem(bundle, transfers, bundleArray);
+  let lineItems = extractProfitLossLineItem(bundle, transfers, bundleArray, event);
 
   for (let i = 0; i < lineItems.length; i++) {
     let item = lineItems[i];
 
-    let token = getAsset(item.token);
+    let token: Token;
+    if (item.get("incentivizedToken") !== null) {
+      token = getAsset(item.incentivizedToken as string);
+    } else {
+      token = getAsset(item.token);
+    }
     let account = getAccount(item.account, event);
     let balance = getBalance(account, token, event);
     let snapshot = getBalanceSnapshot(balance, event);
     item.balanceSnapshot = snapshot.id;
+
+    if (item.get("incentivizedToken") !== null) {
+      updateSnapshotForIncentives(snapshot, item);
+
+      snapshot.save();
+      item.save();
+      continue;
+    }
 
     snapshot._accumulatedBalance = snapshot._accumulatedBalance.plus(item.tokenAmount);
     // This never gets reset to zero. Accumulated cost is a positive number. underlyingAmountRealized
@@ -139,6 +160,21 @@ export function processProfitAndLoss(
   }
 }
 
+function updateSnapshotForIncentives(snapshot: BalanceSnapshot, item: ProfitLossLineItem): void {
+  snapshot.totalNOTEAccrued = snapshot.totalNOTEAccrued.plus(item.tokenAmount);
+  // If the balance increases, add the token amount to the virtual NOTE balance
+  snapshot.adjustedNOTEEarned = snapshot.adjustedNOTEEarned.plus(item.tokenAmount);
+
+  if (snapshot.previousBalance.gt(snapshot.currentBalance)) {
+    // This is a negative number
+    let noteAdjustment = snapshot.previousBalance
+      .minus(snapshot.currentBalance)
+      .times(INTERNAL_TOKEN_PRECISION)
+      .div(snapshot.previousBalance);
+    snapshot.adjustedNOTEEarned = snapshot.adjustedNOTEEarned.plus(noteAdjustment);
+  }
+}
+
 function createLineItem(
   bundle: TransferBundle,
   tokenTransfer: Transfer,
@@ -212,6 +248,33 @@ function createLineItem(
   lineItems.push(item);
 }
 
+function createIncentiveLineItem(
+  bundle: TransferBundle,
+  tokenTransfer: Transfer,
+  transferAmount: BigInt,
+  incentivizedTokenId: string,
+  lineItems: ProfitLossLineItem[]
+): void {
+  let item = new ProfitLossLineItem(bundle.id + ":" + lineItems.length.toString());
+  item.bundle = bundle.id;
+  item.blockNumber = bundle.blockNumber;
+  item.timestamp = bundle.timestamp;
+  item.transactionHash = bundle.transactionHash;
+  item.token = tokenTransfer.token;
+  item.underlyingToken = tokenTransfer.underlying;
+
+  item.account = tokenTransfer.to;
+  item.tokenAmount = transferAmount;
+  item.underlyingAmountRealized = BigInt.zero();
+  item.underlyingAmountSpot = BigInt.zero();
+  item.realizedPrice = BigInt.zero();
+  item.spotPrice = BigInt.zero();
+  item.isTransientLineItem = false;
+  item.incentivizedToken = incentivizedTokenId;
+
+  lineItems.push(item);
+}
+
 /**
  * Non-Listed PnL Items
  * Transfer Asset
@@ -230,7 +293,8 @@ function createLineItem(
 function extractProfitLossLineItem(
   bundle: TransferBundle,
   transfers: Transfer[],
-  bundleArray: string[]
+  bundleArray: string[],
+  event: ethereum.Event
 ): ProfitLossLineItem[] {
   let lineItems = new Array<ProfitLossLineItem>();
   /** Deposits and Withdraws */
@@ -284,9 +348,46 @@ function extractProfitLossLineItem(
       );
     }
   } else if (bundle.bundleName == "Transfer Incentive") {
-    // Spot price for NOTE does not exist on all chains.
-    // Only do a "Mint" here because we don't register an PnL item on the Notional side.
-    createLineItem(bundle, transfers[0], Mint, lineItems, BigInt.fromI32(0), BigInt.fromI32(0));
+    // Due to the nature of this update it cannot run twice for a given transaction
+    // or the transfers will be double counted.
+    let prevTransfer = findPrecedingBundle("Transfer Incentive", bundleArray);
+    if (prevTransfer) return lineItems;
+
+    let notional = getNotional();
+    let maxCurrencyId = notional.getMaxCurrencyId();
+    for (let i = 1; i <= maxCurrencyId; i++) {
+      // No nToken address available
+      let nTokenAddress = notional.try_nTokenAddress(i);
+      if (nTokenAddress.reverted) continue;
+
+      let snapshotId =
+        transfers[0].to +
+        ":" +
+        nTokenAddress.value.toHexString() +
+        ":" +
+        event.block.number.toString();
+      // No Snapshot available
+      let snapshot = BalanceSnapshot.load(snapshotId);
+      if (snapshot == null) continue;
+
+      let accumulatedNOTEPerNToken = notional
+        .getNTokenAccount(nTokenAddress.value)
+        .getAccumulatedNOTEPerNToken();
+
+      // This is mimics the incentive claim calculation internally
+      let incentivesClaimed = snapshot.previousBalance
+        .times(accumulatedNOTEPerNToken)
+        .div(SCALAR_PRECISION)
+        .minus(snapshot.previousNOTEIncentiveDebt);
+
+      createIncentiveLineItem(
+        bundle,
+        transfers[0],
+        incentivesClaimed,
+        nTokenAddress.value.toHexString(),
+        lineItems
+      );
+    }
   } else if (bundle.bundleName == "Transfer Asset") {
     // Don't create transfer PnL items if the value is null (happens for NOTE tokens)
     let valueInUnderlying = transfers[0].valueInUnderlying;

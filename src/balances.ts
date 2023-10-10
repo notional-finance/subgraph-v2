@@ -26,6 +26,17 @@ import { getAccount, getAsset, getIncentives, getNotional, getUnderlying } from 
 import { updatePrimeCashMarket } from "./common/market";
 import { updatefCashOraclesAndMarkets } from "./exchange_rates";
 
+function getAccountIncentiveDebt(token: Token, account: Address): BigInt {
+  if (token.tokenType == "nToken") {
+    let notional = getNotional();
+    let b = notional.getAccount(account).getAccountBalances();
+    for (let i = 0; i < b.length; i++) {
+      if (b[i].currencyId == token.currencyId) return b[i].accountIncentiveDebt;
+    }
+  }
+  return BigInt.zero();
+}
+
 export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): BalanceSnapshot {
   let id = balance.id + ":" + event.block.number.toString();
   let snapshot = BalanceSnapshot.load(id);
@@ -49,6 +60,15 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
     snapshot._accumulatedCostRealized = BigInt.zero();
     snapshot._accumulatedCostAdjustedBasis = BigInt.zero();
 
+    let token = getAsset(balance.token);
+    snapshot.currentNOTEIncentiveDebt = getAccountIncentiveDebt(
+      token,
+      Address.fromBytes(Address.fromHexString(balance.account))
+    );
+    snapshot.previousNOTEIncentiveDebt = BigInt.zero();
+    snapshot.totalNOTEAccrued = BigInt.zero();
+    snapshot.adjustedNOTEEarned = BigInt.zero();
+
     // These features are accumulated over the lifetime of the balance, as long
     // as it is not zero.
     if (balance.get("current") !== null) {
@@ -71,6 +91,9 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
         snapshot.totalProfitAndLossAtSnapshot = prevSnapshot.totalProfitAndLossAtSnapshot;
         snapshot._accumulatedCostRealized = prevSnapshot._accumulatedCostRealized;
         snapshot.previousBalance = prevSnapshot.currentBalance;
+        snapshot.previousNOTEIncentiveDebt = prevSnapshot.currentNOTEIncentiveDebt;
+        snapshot.totalNOTEAccrued = prevSnapshot.totalNOTEAccrued;
+        snapshot.adjustedNOTEEarned = prevSnapshot.adjustedNOTEEarned;
       }
     }
 
