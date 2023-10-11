@@ -587,10 +587,6 @@ function extractProfitLossLineItem(
         lineItems[lineItems.length - 1].tokenAmount = BigInt.zero();
         lineItems[lineItems.length - 1].realizedPrice = BigInt.zero();
         lineItems[lineItems.length - 1].spotPrice = BigInt.zero();
-      } else {
-        log.critical("Cannot find Redeem nToken during residual transfer {}", [
-          transfers[0].transactionHash,
-        ]);
       }
     } else {
       // Create line item for the fCash transfer
