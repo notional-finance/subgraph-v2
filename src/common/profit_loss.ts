@@ -237,12 +237,13 @@ function createLineItem(
       .div(underlying.precision)
       .toI64() as f64;
     let ratePrecision = RATE_PRECISION.toI64() as f64;
-    let timeToMaturity: f64 = ((token.maturity as BigInt).toI64() - bundle.timestamp) as f64;
-    let x: f64 = Math.log(ratePrecision / realizedPriceInRatePrecision);
-    let fixedRate = Math.floor(
-      (ratePrecision * (x * (SECONDS_IN_YEAR.toI64() as f64))) / timeToMaturity
-    ) as i64;
-    item.impliedFixedRate = BigInt.fromI64(fixedRate);
+    let timeToMaturity = (token.maturity as BigInt).minus(BigInt.fromI32(bundle.timestamp));
+    let x: f64 = Math.trunc(Math.log(ratePrecision / realizedPriceInRatePrecision) * ratePrecision);
+    if (isFinite(x)) {
+      let r = BigInt.fromI64(x as i64);
+      let fixedRate = r.times(SECONDS_IN_YEAR).div(timeToMaturity);
+      item.impliedFixedRate = fixedRate;
+    }
   }
 
   lineItems.push(item);
@@ -297,6 +298,7 @@ function extractProfitLossLineItem(
   event: ethereum.Event
 ): ProfitLossLineItem[] {
   let lineItems = new Array<ProfitLossLineItem>();
+  log.debug("INSIDE BUNDLE {}", [bundle.bundleName]);
   /** Deposits and Withdraws */
   if (bundle.bundleName == "Deposit" || bundle.bundleName == "Withdraw") {
     if (transfers[0].valueInUnderlying !== null) {
@@ -350,8 +352,8 @@ function extractProfitLossLineItem(
   } else if (bundle.bundleName == "Transfer Incentive") {
     // Due to the nature of this update it cannot run twice for a given transaction
     // or the transfers will be double counted.
-    let prevTransfer = findPrecedingBundle("Transfer Incentive", bundleArray);
-    if (prevTransfer) return lineItems;
+    let prevTransfer = findPrecedingBundle("Transfer Incentive", bundleArray.slice(0, -1));
+    if (prevTransfer !== null) return lineItems;
 
     let notional = getNotional();
     let maxCurrencyId = notional.getMaxCurrencyId();
