@@ -133,6 +133,16 @@ export function convertValueToUnderlying(
       value,
       token.maturity as BigInt
     );
+    if (underlyingExternal.reverted) {
+      // Sometimes when the vault clears, the convertStrategyToUnderlying will fail on a
+      // divide by zero error. In this case we just use the spot exchange rate for the
+      // underlying value.
+      let exchangeRate = vault.try_getExchangeRate(token.maturity as BigInt);
+      if (!exchangeRate.reverted) {
+        let underlying = getUnderlying(currencyId);
+        return value.times(exchangeRate.value).div(underlying.precision);
+      }
+    }
   } else {
     // Unknown token type
     return null;

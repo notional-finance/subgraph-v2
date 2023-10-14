@@ -107,7 +107,10 @@ const deposit_transfer = (w: Transfer[]): boolean => {
     w[1].toSystemAccount != SettlementReserve
   ) && (
     w[0].to == w[1].from &&
-    w[0].token == w[1].token
+    w[0].token == w[1].token &&
+    // If the "Minter" of the deposit is the vault itself, then this is
+    // a vault redeem action
+    w[0].toSystemAccount != Vault
   )
 }
 
@@ -701,6 +704,11 @@ const vault_secondary_deposit = (w: Transfer[]): boolean => {
     w[0].transferType == Mint &&
     w[0].tokenType == PrimeCash &&
     w[0].toSystemAccount == Vault
+  ) && !( // not
+    // This represents a vault redeem
+    w[1].transferType == _Transfer &&
+    w[1].tokenType == PrimeCash &&
+    w[1].fromSystemAccount == Vault
   )
 }
 

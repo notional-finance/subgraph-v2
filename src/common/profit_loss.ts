@@ -938,13 +938,22 @@ function createVaultShareLineItem(
   lineItems: ProfitLossLineItem[],
   underlyingShareAmountRealized: BigInt
 ): void {
+  let underlyingShareAmountSpot: BigInt;
+  // In some cases, the spot price cannot be calculated via the contract. Just use the underlying
+  // share amount realized instead. This will mark the ILandFees value at 0.
+  if (vaultShares.valueInUnderlying === null) {
+    underlyingShareAmountSpot = underlyingShareAmountRealized;
+  } else {
+    underlyingShareAmountSpot = vaultShares.valueInUnderlying as BigInt;
+  }
+
   createLineItem(
     bundle,
     vaultShares,
     vaultShares.transferType,
     lineItems,
     underlyingShareAmountRealized,
-    vaultShares.valueInUnderlying as BigInt
+    underlyingShareAmountSpot
   );
 }
 
