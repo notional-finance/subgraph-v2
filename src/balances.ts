@@ -66,8 +66,8 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
       Address.fromBytes(Address.fromHexString(balance.account))
     );
     snapshot.previousNOTEIncentiveDebt = BigInt.zero();
-    snapshot.totalNOTEAccrued = BigInt.zero();
-    snapshot.adjustedNOTEEarned = BigInt.zero();
+    snapshot.totalNOTEClaimed = BigInt.zero();
+    snapshot.adjustedNOTEClaimed = BigInt.zero();
 
     // These features are accumulated over the lifetime of the balance, as long
     // as it is not zero.
@@ -92,8 +92,8 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
         snapshot._accumulatedCostRealized = prevSnapshot._accumulatedCostRealized;
         snapshot.previousBalance = prevSnapshot.currentBalance;
         snapshot.previousNOTEIncentiveDebt = prevSnapshot.currentNOTEIncentiveDebt;
-        snapshot.totalNOTEAccrued = prevSnapshot.totalNOTEAccrued;
-        snapshot.adjustedNOTEEarned = prevSnapshot.adjustedNOTEEarned;
+        snapshot.totalNOTEClaimed = prevSnapshot.totalNOTEClaimed;
+        snapshot.adjustedNOTEClaimed = prevSnapshot.adjustedNOTEClaimed;
       }
     }
 

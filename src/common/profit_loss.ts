@@ -161,17 +161,17 @@ export function processProfitAndLoss(
 }
 
 function updateSnapshotForIncentives(snapshot: BalanceSnapshot, item: ProfitLossLineItem): void {
-  snapshot.totalNOTEAccrued = snapshot.totalNOTEAccrued.plus(item.tokenAmount);
+  snapshot.totalNOTEClaimed = snapshot.totalNOTEClaimed.plus(item.tokenAmount);
   // If the balance increases, add the token amount to the virtual NOTE balance
-  snapshot.adjustedNOTEEarned = snapshot.adjustedNOTEEarned.plus(item.tokenAmount);
+  snapshot.adjustedNOTEClaimed = snapshot.adjustedNOTEClaimed.plus(item.tokenAmount);
 
   if (snapshot.previousBalance.gt(snapshot.currentBalance)) {
-    // This is a negative number
+    // When nTokens are redeemed, we adjust the note earned downwards
     let noteAdjustment = snapshot.previousBalance
       .minus(snapshot.currentBalance)
       .times(INTERNAL_TOKEN_PRECISION)
       .div(snapshot.previousBalance);
-    snapshot.adjustedNOTEEarned = snapshot.adjustedNOTEEarned.plus(noteAdjustment);
+    snapshot.adjustedNOTEClaimed = snapshot.adjustedNOTEClaimed.minus(noteAdjustment);
   }
 }
 

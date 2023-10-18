@@ -511,9 +511,9 @@ type BalanceSnapshot @entity(immutable: true) {
   previousNOTEIncentiveDebt: BigInt!
 
   "Total NOTE accrued over the lifetime of this balance"
-  totalNOTEAccrued: BigInt!
+  totalNOTEClaimed: BigInt!
   "NOTE Earnings adjusted for balance changes"
-  adjustedNOTEEarned: BigInt!
+  adjustedNOTEClaimed: BigInt!
 
   profitLossLineItems: [ProfitLossLineItem!] @derivedFrom(field: "balanceSnapshot")
 }
