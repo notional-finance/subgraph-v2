@@ -20,7 +20,7 @@ dataSources:
         - Asset
       abis:
         - name: Notional
-          file: ./abi/Notional.json
+          file: ./abi/NotionalV3.json
         - name: ERC20
           file: ./abi/ERC20.json
       eventHandlers:
@@ -52,7 +52,7 @@ dataSources:
         - Incentives
       abis:
         - name: Notional
-          file: ./abi/Notional.json
+          file: ./abi/NotionalV3.json
         - name: IStrategyVault
           file: ./abi/IStrategyVault.json
         - name: ERC4626
@@ -81,7 +81,7 @@ dataSources:
         - ExchangeRate
       abis:
         - name: Notional
-          file: ./abi/Notional.json
+          file: ./abi/NotionalV3.json
         - name: Aggregator
           file: ./abi/Aggregator.json
         - name: IStrategyVault
@@ -127,7 +127,7 @@ dataSources:
         - ActiveMarkets
       abis:
         - name: Notional
-          file: ./abi/Notional.json
+          file: ./abi/NotionalV3.json
         - name: PrimeCashHoldingsOracle
           file: ./abi/PrimeCashHoldingsOracle.json
         - name: IStrategyVault
@@ -214,7 +214,7 @@ dataSources:
         - name: TradingModule
           file: ./abi/TradingModule.json
         - name: Notional
-          file: ./abi/Notional.json
+          file: ./abi/NotionalV3.json
         - name: ERC20
           file: ./abi/ERC20.json
       eventHandlers:
@@ -264,7 +264,7 @@ templates:
         - Account
       abis:
         - name: Notional
-          file: ./abi/Notional.json
+          file: ./abi/NotionalV3.json
         - name: ERC20
           file: ./abi/ERC20.json
         - name: ERC4626
