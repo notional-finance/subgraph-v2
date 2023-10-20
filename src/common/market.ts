@@ -217,8 +217,7 @@ export function updatePrimeCashMarket(
     );
   }
 
-  // TODO: this is based on the interest rate curve and it needs to be calculated
-  // on a prior basis
+  // TODO: does this get the right value if we have not properly accrued?
   let interestRates = notional.try_getPrimeInterestRate(currencyId);
   if (!interestRates.reverted) {
     pCashSnapshot.supplyInterestRate = interestRates.value.getAnnualSupplyRate();

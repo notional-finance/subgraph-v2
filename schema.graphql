@@ -309,6 +309,8 @@ type CurrencyConfiguration @entity {
   primeCashCurve: InterestRateCurve
   primeDebtAllowed: Boolean
 
+  "Max market that can be initialized"
+  maxMarketIndex: Int
   "Time window in seconds that the rate oracle will be averaged over"
   fCashRateOracleTimeWindowSeconds: Int
   "Share of the fees given to the protocol, denominated in percentage"

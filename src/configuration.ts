@@ -48,8 +48,10 @@ import {
   getAsset,
   getIncentives,
   getNotional,
+  getNotionalV2,
   getOracleRegistry,
   getUnderlying,
+  isV2,
 } from "./common/entities";
 import { setActiveMarkets } from "./common/market";
 import { updateVaultOracles } from "./exchange_rates";
@@ -128,39 +130,42 @@ export function handleListCurrency(event: ListCurrency): void {
   let underlyingToken = readUnderlyingTokenFromNotional(event.params.newCurrencyId);
   configuration.underlying = underlyingToken.toHexString();
 
-  let notional = getNotional();
-  // Set the underlying id directly here to avoid race conditions
-  configuration.pCash = notional.pCashAddress(event.params.newCurrencyId).toHexString();
-  let pDebtAddress = notional.pDebtAddress(event.params.newCurrencyId);
-  if (pDebtAddress != ZERO_ADDRESS) {
-    configuration.pDebt = pDebtAddress.toHexString();
-    configuration.primeDebtAllowed = true;
+  // This section is only valid in V3
+  if (!isV2()) {
+    let notional = getNotional();
+    // Set the underlying id directly here to avoid race conditions
+    configuration.pCash = notional.pCashAddress(event.params.newCurrencyId).toHexString();
+    let pDebtAddress = notional.pDebtAddress(event.params.newCurrencyId);
+    if (pDebtAddress != ZERO_ADDRESS) {
+      configuration.pDebt = pDebtAddress.toHexString();
+      configuration.primeDebtAllowed = true;
+    }
+
+    let factors = notional.getPrimeFactors(event.params.newCurrencyId, event.block.timestamp);
+    let maxSupply = factors.getMaxUnderlyingSupply();
+    if (maxSupply > BigInt.zero()) configuration.maxUnderlyingSupply = maxSupply;
+
+    configuration.primeCashRateOracleTimeWindowSeconds = factors
+      .getFactors()
+      .rateOracleTimeWindow.toI32();
+    configuration.primeCashHoldingsOracle = notional.getPrimeCashHoldingsOracle(
+      event.params.newCurrencyId
+    );
+
+    let curve = getInterestRateCurve(event.params.newCurrencyId, 0, true);
+    let _curve = notional.getPrimeInterestRateCurve(event.params.newCurrencyId);
+    curve.kinkUtilization1 = _curve.kinkUtilization1.toI32();
+    curve.kinkUtilization2 = _curve.kinkUtilization2.toI32();
+    curve.kinkRate1 = _curve.kinkRate1.toI32();
+    curve.kinkRate2 = _curve.kinkRate2.toI32();
+    curve.maxRate = _curve.maxRate.toI32();
+    curve.minFeeRate = _curve.minFeeRate.toI32();
+    curve.maxFeeRate = _curve.maxFeeRate.toI32();
+    curve.feeRatePercent = _curve.feeRatePercent.toI32();
+    curve.save();
+
+    configuration.primeCashCurve = curve.id;
   }
-
-  let factors = notional.getPrimeFactors(event.params.newCurrencyId, event.block.timestamp);
-  let maxSupply = factors.getMaxUnderlyingSupply();
-  if (maxSupply > BigInt.zero()) configuration.maxUnderlyingSupply = maxSupply;
-
-  configuration.primeCashRateOracleTimeWindowSeconds = factors
-    .getFactors()
-    .rateOracleTimeWindow.toI32();
-  configuration.primeCashHoldingsOracle = notional.getPrimeCashHoldingsOracle(
-    event.params.newCurrencyId
-  );
-
-  let curve = getInterestRateCurve(event.params.newCurrencyId, 0, true);
-  let _curve = notional.getPrimeInterestRateCurve(event.params.newCurrencyId);
-  curve.kinkUtilization1 = _curve.kinkUtilization1.toI32();
-  curve.kinkUtilization2 = _curve.kinkUtilization2.toI32();
-  curve.kinkRate1 = _curve.kinkRate1.toI32();
-  curve.kinkRate2 = _curve.kinkRate2.toI32();
-  curve.maxRate = _curve.maxRate.toI32();
-  curve.minFeeRate = _curve.minFeeRate.toI32();
-  curve.maxFeeRate = _curve.maxFeeRate.toI32();
-  curve.feeRatePercent = _curve.feeRatePercent.toI32();
-  curve.save();
-
-  configuration.primeCashCurve = curve.id;
 
   configuration.save();
 }
@@ -207,21 +212,37 @@ export function handleUpdateCashGroup(event: UpdateCashGroup): void {
   configuration.lastUpdateBlockNumber = event.block.number;
   configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
   configuration.lastUpdateTransactionHash = event.transaction.hash;
-  let notional = getNotional();
-  let cashGroup = notional.getCashGroup(event.params.currencyId);
 
-  configuration.fCashRateOracleTimeWindowSeconds = cashGroup.rateOracleTimeWindow5Min * 5 * 60;
-  configuration.fCashReserveFeeSharePercent = cashGroup.reserveFeeShare;
-  configuration.fCashDebtBufferBasisPoints = cashGroup.debtBuffer25BPS * 25 * BASIS_POINT;
-  configuration.fCashHaircutBasisPoints = cashGroup.fCashHaircut25BPS * 25 * BASIS_POINT;
-  configuration.fCashLiquidationDebtBufferBasisPoints =
-    cashGroup.liquidationDebtBuffer25BPS * 25 * BASIS_POINT;
-  configuration.fCashLiquidationHaircutBasisPoints =
-    cashGroup.liquidationfCashHaircut25BPS * 25 * BASIS_POINT;
-  configuration.fCashMinOracleRate = cashGroup.minOracleRate25BPS * 25 * BASIS_POINT;
-  configuration.fCashMaxOracleRate = cashGroup.maxOracleRate25BPS * 25 * BASIS_POINT;
-  configuration.fCashMaxDiscountFactor =
-    RATE_PRECISION.toI32() - cashGroup.maxDiscountFactor5BPS * 5 * BASIS_POINT;
+  // v2: parameters are slightly different
+  if (isV2()) {
+    let notional = getNotionalV2();
+    let cashGroup = notional.getCashGroup(event.params.currencyId);
+    configuration.maxMarketIndex = cashGroup.maxMarketIndex;
+    configuration.fCashRateOracleTimeWindowSeconds = cashGroup.rateOracleTimeWindow5Min * 5 * 60;
+    configuration.fCashReserveFeeSharePercent = cashGroup.reserveFeeShare;
+    configuration.fCashDebtBufferBasisPoints = cashGroup.debtBuffer5BPS * 5 * BASIS_POINT;
+    configuration.fCashHaircutBasisPoints = cashGroup.fCashHaircut5BPS * 5 * BASIS_POINT;
+    configuration.fCashLiquidationDebtBufferBasisPoints =
+      cashGroup.liquidationDebtBuffer5BPS * 5 * BASIS_POINT;
+    configuration.fCashLiquidationHaircutBasisPoints =
+      cashGroup.liquidationfCashHaircut5BPS * 5 * BASIS_POINT;
+  } else {
+    let notional = getNotional();
+    let cashGroup = notional.getCashGroup(event.params.currencyId);
+    configuration.maxMarketIndex = cashGroup.maxMarketIndex;
+    configuration.fCashRateOracleTimeWindowSeconds = cashGroup.rateOracleTimeWindow5Min * 5 * 60;
+    configuration.fCashReserveFeeSharePercent = cashGroup.reserveFeeShare;
+    configuration.fCashDebtBufferBasisPoints = cashGroup.debtBuffer25BPS * 25 * BASIS_POINT;
+    configuration.fCashHaircutBasisPoints = cashGroup.fCashHaircut25BPS * 25 * BASIS_POINT;
+    configuration.fCashLiquidationDebtBufferBasisPoints =
+      cashGroup.liquidationDebtBuffer25BPS * 25 * BASIS_POINT;
+    configuration.fCashLiquidationHaircutBasisPoints =
+      cashGroup.liquidationfCashHaircut25BPS * 25 * BASIS_POINT;
+    configuration.fCashMinOracleRate = cashGroup.minOracleRate25BPS * 25 * BASIS_POINT;
+    configuration.fCashMaxOracleRate = cashGroup.maxOracleRate25BPS * 25 * BASIS_POINT;
+    configuration.fCashMaxDiscountFactor =
+      RATE_PRECISION.toI32() - cashGroup.maxDiscountFactor5BPS * 5 * BASIS_POINT;
+  }
 
   configuration.save();
 }
@@ -365,49 +386,54 @@ export function handleUpdateInterestRateCurve(event: UpdateInterestRateCurve): v
 }
 
 export function handleMarketsInitialized(event: MarketsInitialized): void {
-  let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number;
-  configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
-  configuration.lastUpdateTransactionHash = event.transaction.hash;
-  let notional = getNotional();
-  let fCashCurves = notional.getInterestRateCurve(event.params.currencyId);
+  // V2 does not update fCash curves on initialization, we also do not carry over
+  // leveraged vault data from V2
+  if (!isV2()) {
+    let notional = getNotional();
+    let configuration = getCurrencyConfiguration(event.params.currencyId);
+    configuration.lastUpdateBlockNumber = event.block.number;
+    configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
+    configuration.lastUpdateTransactionHash = event.transaction.hash;
 
-  let active = fCashCurves.getActiveInterestRateCurve();
-  let fCashActiveCurves = new Array<string>();
-  for (let i = 0; i < active.length; i++) {
-    let curve = getInterestRateCurve(event.params.currencyId, i + 1, true);
-    curve.kinkUtilization1 = active[i].kinkUtilization1.toI32();
-    curve.kinkUtilization2 = active[i].kinkUtilization2.toI32();
-    curve.kinkRate1 = active[i].kinkRate1.toI32();
-    curve.kinkRate2 = active[i].kinkRate2.toI32();
-    curve.maxRate = active[i].maxRate.toI32();
-    curve.minFeeRate = active[i].minFeeRate.toI32();
-    curve.maxFeeRate = active[i].maxFeeRate.toI32();
-    curve.feeRatePercent = active[i].feeRatePercent.toI32();
+    let fCashCurves = notional.getInterestRateCurve(event.params.currencyId);
 
-    curve.lastUpdateBlockNumber = event.block.number;
-    curve.lastUpdateTimestamp = event.block.timestamp.toI32();
-    curve.lastUpdateTransactionHash = event.transaction.hash;
-    curve.save();
+    let active = fCashCurves.getActiveInterestRateCurve();
+    let fCashActiveCurves = new Array<string>();
+    for (let i = 0; i < active.length; i++) {
+      let curve = getInterestRateCurve(event.params.currencyId, i + 1, true);
+      curve.kinkUtilization1 = active[i].kinkUtilization1.toI32();
+      curve.kinkUtilization2 = active[i].kinkUtilization2.toI32();
+      curve.kinkRate1 = active[i].kinkRate1.toI32();
+      curve.kinkRate2 = active[i].kinkRate2.toI32();
+      curve.maxRate = active[i].maxRate.toI32();
+      curve.minFeeRate = active[i].minFeeRate.toI32();
+      curve.maxFeeRate = active[i].maxFeeRate.toI32();
+      curve.feeRatePercent = active[i].feeRatePercent.toI32();
 
-    fCashActiveCurves.push(curve.id);
+      curve.lastUpdateBlockNumber = event.block.number;
+      curve.lastUpdateTimestamp = event.block.timestamp.toI32();
+      curve.lastUpdateTransactionHash = event.transaction.hash;
+      curve.save();
+
+      fCashActiveCurves.push(curve.id);
+    }
+
+    configuration.fCashActiveCurves = fCashActiveCurves;
+    configuration.save();
+
+    // Updates any vault oracles that have a primary borrow in this currency.
+    let registry = getOracleRegistry();
+    for (let i = 0; i < registry.listedVaults.length; i++) {
+      let vaultAddress = Address.fromBytes(registry.listedVaults[i]);
+      let vaultConfig = notional.getVaultConfig(vaultAddress);
+      if (vaultConfig.borrowCurrencyId == event.params.currencyId) {
+        updateVaultOracles(vaultAddress, event.block);
+      }
+    }
   }
-
-  configuration.fCashActiveCurves = fCashActiveCurves;
-  configuration.save();
 
   // Updates and sets the currently active markets
   setActiveMarkets(event.params.currencyId, event.block, event.transaction.hash.toHexString());
-
-  // Updates any vault oracles that have a primary borrow in this currency
-  let registry = getOracleRegistry();
-  for (let i = 0; i < registry.listedVaults.length; i++) {
-    let vaultAddress = Address.fromBytes(registry.listedVaults[i]);
-    let vaultConfig = notional.getVaultConfig(vaultAddress);
-    if (vaultConfig.borrowCurrencyId == event.params.currencyId) {
-      updateVaultOracles(vaultAddress, event.block);
-    }
-  }
 }
 
 export function handleUpdateIncentiveEmissionRate(event: UpdateIncentiveEmissionRate): void {
@@ -539,6 +565,9 @@ function getSecondaryBorrowCurrencyIndex(vault: VaultConfiguration, currencyId: 
 }
 
 export function handleVaultUpdated(event: VaultUpdated): void {
+  // Leveraged vault information is not recorded for V2
+  if (isV2()) return;
+
   let vault = getVaultConfiguration(event.params.vault);
   let notional = getNotional();
   let vaultConfig = notional.getVaultConfig(event.params.vault);
@@ -693,6 +722,7 @@ export function handleAccountContextUpdate(event: AccountContextUpdate): void {
   let account = getAccount(event.params.account.toHexString(), event);
   let context = notional.getAccountContext(event.params.account);
 
+  // v2: this does not exist in v2, but maybe this will still work?
   account.allowPrimeBorrow = context.allowPrimeBorrow;
   account.nextSettleTime = context.nextSettleTime;
   account.bitmapCurrencyId = context.bitmapCurrencyId;
