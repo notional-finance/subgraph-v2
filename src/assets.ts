@@ -16,8 +16,9 @@ import {
   Underlying,
   ARB_USDC,
   ARB_USDC_E,
+  AssetCash,
 } from "./common/constants";
-import { getAccount, getNotional, getUnderlying } from "./common/entities";
+import { getAccount, getNotional, getUnderlying, isV2 } from "./common/entities";
 import { createERC20ProxyAsset, createERC20TokenAsset } from "./common/erc20";
 
 export function readUnderlyingTokenFromNotional(currencyId: i32): Address {
@@ -64,6 +65,21 @@ export function handleListCurrency(event: ListCurrency): void {
 
   log.debug("Updated currency variables for entity {}", [id.toString()]);
   underlying.save();
+
+  if (isV2()) {
+    let assetToken = results.getAssetToken();
+    let assetCash = createERC20TokenAsset(
+      assetToken.tokenAddress,
+      assetToken.hasTransferFee,
+      event,
+      AssetCash
+    );
+    assetCash.currencyId = event.params.newCurrencyId;
+    assetCash.lastUpdateBlockNumber = event.block.number;
+    assetCash.lastUpdateTimestamp = event.block.timestamp.toI32();
+    assetCash.lastUpdateTransactionHash = event.transaction.hash;
+    assetCash.save();
+  }
 
   // Set the Notional proxy account if it is not set already to initialize it
   let notionalAccount = getAccount(event.address.toHexString(), event);
