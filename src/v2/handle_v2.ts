@@ -1,4 +1,4 @@
-import { BigInt } from "@graphprotocol/graph-ts";
+import { BigInt, dataSource } from "@graphprotocol/graph-ts";
 import {
   FCASH_ASSET_TYPE_ID,
   RATE_DECIMALS,
@@ -10,9 +10,15 @@ import {
   fCashSpotRate,
   fCashToUnderlyingExchangeRate,
 } from "../common/constants";
-import { getAsset, getNotionalV2, getOracle, getUnderlying } from "../common/entities";
+import {
+  getAsset,
+  getIncentives,
+  getNotionalV2,
+  getOracle,
+  getUnderlying,
+} from "../common/entities";
 import { convertToNegativeFCashId, getOrCreateERC1155Asset } from "../common/erc1155";
-import { SetSettlementRate } from "../../generated/Assets/NotionalV2";
+import { IncentivesMigrated, SetSettlementRate } from "../../generated/Assets/NotionalV2";
 
 export function handleV2SettlementRate(event: SetSettlementRate): void {
   let notional = getNotionalV2();
@@ -106,4 +112,16 @@ export function handleV2SettlementRate(event: SetSettlementRate): void {
     fCashExRate.matured = true;
     fCashExRate.save();
   }
+}
+
+export function handleIncentivesMigrated(event: IncentivesMigrated): void {
+  let currencyId = event.params.currencyId as i32;
+  let migration = getIncentives(currencyId, event);
+  migration.migrationEmissionRate = event.params.migrationEmissionRate;
+  migration.migrationTime = event.params.migrationTime;
+  migration.finalIntegralTotalSupply = event.params.finalIntegralTotalSupply;
+  migration.save();
+
+  let context = dataSource.context();
+  context.setBoolean("incentivesMigrated", true);
 }
