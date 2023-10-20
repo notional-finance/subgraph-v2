@@ -314,7 +314,9 @@ function updateNTokenRates(
   let nTokenUnderlyingPV = notional.nTokenPresentValueUnderlyingDenominated(currencyId);
   let totalSupply = nTokenAccount.getTotalSupply();
 
-  let nTokenExRate = nTokenUnderlyingPV.times(RATE_PRECISION).div(totalSupply);
+  let nTokenExRate = totalSupply.isZero()
+    ? BigInt.zero()
+    : nTokenUnderlyingPV.times(RATE_PRECISION).div(totalSupply);
   // prettier-ignore
   updateNTokenRate(
     nTokenToUnderlyingExchangeRate,
@@ -332,32 +334,34 @@ function updateNTokenRates(
     base, nToken, notional._address, block, txnHash
   );
 
-  let feeBuffer = getNTokenFeeBuffer(currencyId);
-  // NOTE: this is in pCash terms so need to convert to underlying
-  let feeAPY = feeBuffer.last30DayNTokenFees
-    // NOTE: this sets the value on an annualized basis
-    .times(BigInt.fromI32(12))
-    .times(RATE_PRECISION)
-    .div(nTokenUnderlyingPV);
-  // prettier-ignore
-  updateNTokenRate(
+  if (nTokenUnderlyingPV.gt(BigInt.zero())) {
+    let feeBuffer = getNTokenFeeBuffer(currencyId);
+    // NOTE: this is in pCash terms so need to convert to underlying
+    let feeAPY = feeBuffer.last30DayNTokenFees
+      // NOTE: this sets the value on an annualized basis
+      .times(BigInt.fromI32(12))
+      .times(RATE_PRECISION)
+      .div(nTokenUnderlyingPV);
+    // prettier-ignore
+    updateNTokenRate(
     nTokenFeeRate,
     feeAPY,
     base, nToken, notional._address, block, txnHash
   );
 
-  // incentiveAPY needs a NOTE token price / nTokenTVL
-  // noteToNTokenExRate * [(noteIncentives * RATE_PRECISION) / nTokenTVL]
-  let config = getCurrencyConfiguration(currencyId);
-  let noteAPYInNOTETerms = config.incentiveEmissionRate
-    ? (config.incentiveEmissionRate as BigInt).times(RATE_PRECISION).div(nTokenUnderlyingPV)
-    : BigInt.zero();
-  // prettier-ignore
-  updateNTokenRate(
+    // incentiveAPY needs a NOTE token price / nTokenTVL
+    // noteToNTokenExRate * [(noteIncentives * RATE_PRECISION) / nTokenTVL]
+    let config = getCurrencyConfiguration(currencyId);
+    let noteAPYInNOTETerms = config.incentiveEmissionRate
+      ? (config.incentiveEmissionRate as BigInt).times(RATE_PRECISION).div(nTokenUnderlyingPV)
+      : BigInt.zero();
+    // prettier-ignore
+    updateNTokenRate(
     nTokenIncentiveRate,
     noteAPYInNOTETerms,
     base, nToken, notional._address, block, txnHash
   );
+  }
 }
 
 export function registerChainlinkOracle(
