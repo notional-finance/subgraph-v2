@@ -1,5 +1,5 @@
 import { BigInt, ByteArray, Bytes, ethereum, log } from "@graphprotocol/graph-ts";
-import { Notional__getActiveMarketsResultValue0Struct } from "../../generated/Assets/Notional";
+import { NotionalV3__getActiveMarketsResultValue0Struct } from "../../generated/Assets/NotionalV3";
 import {
   ActiveMarket,
   fCashMarket,
@@ -111,7 +111,7 @@ function updatefCashMarketWithSnapshot(
   currencyId: i32,
   block: ethereum.Block,
   txnHash: string | null,
-  marketData: Notional__getActiveMarketsResultValue0Struct
+  marketData: NotionalV3__getActiveMarketsResultValue0Struct
 ): string {
   let settlementDate = getCurrentSettlementDate(block.timestamp);
   let market = getfCashMarket(

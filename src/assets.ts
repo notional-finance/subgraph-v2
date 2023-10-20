@@ -2,9 +2,9 @@ import { Address, dataSource, ethereum, log } from "@graphprotocol/graph-ts";
 import {
   ListCurrency,
   DeployNToken,
-  Notional,
+  NotionalV3,
   PrimeProxyDeployed,
-} from "../generated/Assets/Notional";
+} from "../generated/Assets/NotionalV3";
 import { Token } from "../generated/schema";
 import {
   None,
@@ -36,7 +36,7 @@ export function readUnderlyingTokenFromNotional(currencyId: i32): Address {
   return tokenAddress;
 }
 
-function _initializeNOTEToken(notional: Notional, event: ethereum.Event): void {
+function _initializeNOTEToken(notional: NotionalV3, event: ethereum.Event): void {
   let noteToken = notional.getNoteToken();
   if (Token.load(noteToken.toHexString()) == null) {
     createERC20ProxyAsset(noteToken, NOTE, event);
@@ -44,7 +44,7 @@ function _initializeNOTEToken(notional: Notional, event: ethereum.Event): void {
 }
 
 export function handleListCurrency(event: ListCurrency): void {
-  let notional = Notional.bind(event.address);
+  let notional = getNotional();
   let results = notional.getCurrency(event.params.newCurrencyId);
   let id = event.params.newCurrencyId as i32;
   let underlyingToken = results.getUnderlyingToken();

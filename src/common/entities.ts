@@ -1,5 +1,6 @@
 import { Address, BigInt, Bytes, dataSource, ethereum, log } from "@graphprotocol/graph-ts";
-import { Notional } from "../../generated/Assets/Notional";
+import { NotionalV2 } from "../../generated/Assets/NotionalV2";
+import { NotionalV3 } from "../../generated/Assets/NotionalV3";
 import {
   Account,
   Token,
@@ -27,16 +28,28 @@ export function isV2(): boolean {
   return context.getString("version") === "v2";
 }
 
-export function getNotional(): Notional {
+export function getNotionalV2(): NotionalV2 {
   if (dataSource.network() == "mainnet") {
-    return Notional.bind(Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369"));
+    return NotionalV2.bind(Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369"));
   } else if (dataSource.network() == "arbitrum-one") {
-    return Notional.bind(Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369"));
+    return NotionalV2.bind(Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369"));
   }
 
   log.critical("Unsupported network {}", [dataSource.network()]);
   // This return statement will never be reached
-  return null as Notional;
+  return null as NotionalV2;
+}
+
+export function getNotional(): NotionalV3 {
+  if (dataSource.network() == "mainnet") {
+    return NotionalV3.bind(Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369"));
+  } else if (dataSource.network() == "arbitrum-one") {
+    return NotionalV3.bind(Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369"));
+  }
+
+  log.critical("Unsupported network {}", [dataSource.network()]);
+  // This return statement will never be reached
+  return null as NotionalV3;
 }
 
 export function getAsset(id: string): Token {
