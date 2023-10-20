@@ -10,8 +10,10 @@ import {
   VaultCash,
   VaultDebt,
   VaultShare,
+  ZERO_ADDRESS,
 } from "./constants";
-import { getAsset, getNotional, getUnderlying } from "./entities";
+import { getAsset, getNotional, getUnderlying, isV2 } from "./entities";
+import { decodeERC1155Id } from "../v2/v2_utils";
 
 const FCASH_ASSET_TYPE = 1;
 const VAULT_SHARE_ASSET_TYPE = 9;
@@ -66,7 +68,21 @@ export function getOrCreateERC1155Asset(
   txnHash: Bytes | null
 ): Token {
   let notional = getNotional();
-  let decodedId = notional.decodeERC1155Id(erc1155ID);
+  let decodedId: NotionalV3__decodeERC1155IdResult;
+
+  if (isV2()) {
+    // The decodeERC1155Id method does not exist in v2
+    let decoded = decodeERC1155Id(erc1155ID);
+    decodedId = new NotionalV3__decodeERC1155IdResult(
+      decoded[2].toI32(), // currencyId
+      decoded[1], // maturity
+      decoded[0], // asset type
+      ZERO_ADDRESS, // vault address
+      decoded[3].equals(BigInt.fromI32(1)) // isfCashDebt
+    );
+  } else {
+    decodedId = notional.decodeERC1155Id(erc1155ID);
+  }
 
   if (decodedId.getAssetType() == LEGACY_NTOKEN_ASSET_TYPE_ID) {
     // In this case return the token as the ERC20 nToken token
