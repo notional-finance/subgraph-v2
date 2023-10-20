@@ -22,6 +22,11 @@ import {
   ZERO_ADDRESS,
 } from "./constants";
 
+export function isV2(): boolean {
+  let context = dataSource.context();
+  return context.getString("version") === "v2";
+}
+
 export function getNotional(): Notional {
   if (dataSource.network() == "mainnet") {
     return Notional.bind(Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369"));
