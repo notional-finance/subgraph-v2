@@ -1,7 +1,4 @@
 {
-  "compound": {
-    "comptroller": "0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B"
-  },
   "airdrop": "0xa40aedAac28F9574124D7c8EFf59732cC77f1DD4",
   "chainId": 1,
   "deployer": "0x8B64fA5Fd129df9c755eB82dB1e16D6D0Bdf5Bc3",
@@ -11,10 +8,8 @@
   "note": "0xCFEAead4947f0705A14ec42aC3D44129E1Ef3eD5",
   "notional": "0x1344A36A1B56144C3Bc62E7757377D288fDE0369",
   "tradingModule": "0x594734c7e06C3D483466ADBCe401C6Bd269746C8",
+  "treasuryManager": "0x53144559c0d4a3304e2dd9dafbd685247429216d",
   "startBlock": 13094883,
-  "staking": {
-    "sNoteProxy": "0x38de42f4ba8a35056b33a746a6b45be9b1c3b9d2",
-    "treasuryManager": "0x53144559c0d4a3304e2dd9dafbd685247429216d",
-    "exchangeV3": "0x61935cbdd02287b511119ddb11aeb42f1593b7ef"
-  }
+  "sNoteProxy": "0x38de42f4ba8a35056b33a746a6b45be9b1c3b9d2",
+  "pollingInterval": 1800
 }
