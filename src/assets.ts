@@ -103,3 +103,13 @@ export function handleDeployPrimeProxy(event: PrimeProxyDeployed): void {
   token.currencyId = currencyId;
   token.save();
 }
+
+export function initialize(block: ethereum.Block): void {
+  let network = dataSource.network();
+  let context = dataSource.context();
+  if (network == "mainnet" || network == "goerli") {
+    context.setString("version", "v2");
+  } else {
+    context.setString("version", "v3");
+  }
+}
