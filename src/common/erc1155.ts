@@ -1,5 +1,5 @@
 import { ethereum, BigInt, Bytes } from "@graphprotocol/graph-ts";
-import { Notional__decodeERC1155IdResult } from "../../generated/Assets/Notional";
+import { NotionalV3__decodeERC1155IdResult } from "../../generated/Assets/NotionalV3";
 import { Token } from "../../generated/schema";
 import {
   fCash,
@@ -18,7 +18,7 @@ const VAULT_SHARE_ASSET_TYPE = 9;
 const VAULT_DEBT_ASSET_TYPE = 10;
 const VAULT_CASH_ASSET_TYPE = 11;
 
-function _setAssetType(decodedId: Notional__decodeERC1155IdResult, token: Token): void {
+function _setAssetType(decodedId: NotionalV3__decodeERC1155IdResult, token: Token): void {
   let tokenType = decodedId.getAssetType().toI32();
   let maturity = decodedId.getMaturity().toString();
   let underlying = getUnderlying(decodedId.getCurrencyId());

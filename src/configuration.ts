@@ -26,7 +26,7 @@ import {
   VaultPauseStatus,
   VaultUpdated,
   VaultUpdateSecondaryBorrowCapacity,
-} from "../generated/Configuration/Notional";
+} from "../generated/Configuration/NotionalV3";
 import { PrimeCashHoldingsOracle } from "../generated/Configuration/PrimeCashHoldingsOracle";
 import { IStrategyVault } from "../generated/Configuration/IStrategyVault";
 import {

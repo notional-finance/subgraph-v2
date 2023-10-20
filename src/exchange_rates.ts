@@ -6,7 +6,7 @@ import {
   SetPrimeSettlementRate,
   DeployNToken,
   CurrencyRebalanced,
-} from "../generated/ExchangeRates/Notional";
+} from "../generated/ExchangeRates/NotionalV3";
 import { IStrategyVault } from "../generated/ExchangeRates/IStrategyVault";
 import { Aggregator } from "../generated/ExchangeRates/Aggregator";
 import { Token, ExchangeRate, Oracle } from "../generated/schema";
@@ -55,7 +55,7 @@ import { convertValueToUnderlying, getExpFactor } from "./common/transfers";
 import { readUnderlyingTokenFromNotional } from "./assets";
 import { getNTokenFeeBuffer } from "./balances";
 import { getCurrencyConfiguration } from "./configuration";
-import { Notional__getNTokenAccountResult } from "../generated/Assets/Notional";
+import { NotionalV3__getNTokenAccountResult } from "../generated/Assets/NotionalV3";
 
 function updateExchangeRate(
   oracle: Oracle,
@@ -304,7 +304,7 @@ function updateNTokenRates(
   currencyId: i32,
   base: Token,
   nToken: Token,
-  nTokenAccount: Notional__getNTokenAccountResult,
+  nTokenAccount: NotionalV3__getNTokenAccountResult,
   numerator: BigInt,
   denominator: BigInt,
   block: ethereum.Block,
