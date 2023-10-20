@@ -148,6 +148,7 @@ function updatefCashMarketWithSnapshot(
     fCashToken,
     block.timestamp
   );
+  // NOTE: this always returns zero in V2
   snapshot.totalfCashDebtOutstanding = getTotalfCashDebt(
     currencyId,
     BigInt.fromI32(market.maturity)
