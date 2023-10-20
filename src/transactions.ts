@@ -14,7 +14,7 @@ import {
 import { ProxyRenamed } from "../generated/Transactions/ERC4626";
 import { getTokenNameAndSymbol } from "./common/erc20";
 
-function _logTransfer(
+export function logTransfer(
   from: Address,
   to: Address,
   value: BigInt,
@@ -56,7 +56,7 @@ export function handleERC1155Transfer(event: TransferSingle): void {
   let token = getOrCreateERC1155Asset(event.params.id, event.block, event.transaction.hash);
   let transfer = createTransfer(event, 0);
   transfer.operator = event.params.operator.toHexString();
-  _logTransfer(event.params.from, event.params.to, event.params.value, event, transfer, token);
+  logTransfer(event.params.from, event.params.to, event.params.value, event, transfer, token);
 }
 
 export function handleERC1155BatchTransfer(event: TransferBatch): void {
@@ -65,21 +65,14 @@ export function handleERC1155BatchTransfer(event: TransferBatch): void {
     let transfer = createTransfer(event, i);
 
     transfer.operator = event.params.operator.toHexString();
-    _logTransfer(
-      event.params.from,
-      event.params.to,
-      event.params.values[i],
-      event,
-      transfer,
-      token
-    );
+    logTransfer(event.params.from, event.params.to, event.params.values[i], event, transfer, token);
   }
 }
 
 export function handleERC20Transfer(event: TransferEvent): void {
   let token = getAsset(event.address.toHexString());
   let transfer = createTransfer(event, 0);
-  _logTransfer(event.params.from, event.params.to, event.params.value, event, transfer, token);
+  logTransfer(event.params.from, event.params.to, event.params.value, event, transfer, token);
 }
 
 export function handleProxyRenamed(event: ProxyRenamed): void {

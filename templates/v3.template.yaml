@@ -286,8 +286,8 @@ dataSources:
       eventHandlers:
         - event: ReserveBalanceUpdated(indexed uint16,int256)
           handler: handleReserveBalanceUpdated
-        - event: ReserveFeeAccrued(indexed uint16,int256)
-          handler: handleReserveFeeAccrued
+        # - event: ReserveFeeAccrued(indexed uint16,int256)
+        #   handler: handleReserveFeeAccrued
         - event: AccountSettled(indexed address)
           handler: handleAccountSettled
         - event: LendBorrowTrade(indexed address,indexed uint16,uint40,int256,int256)
