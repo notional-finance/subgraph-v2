@@ -25,7 +25,7 @@ import {
 
 export function isV2(): boolean {
   let context = dataSource.context();
-  return context.getString("version") === "v2";
+  return context.getString("version") == "v2";
 }
 
 export function hasMigratedIncentives(): boolean {

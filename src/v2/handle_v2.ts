@@ -39,9 +39,9 @@ export function handleV2SettlementRate(event: SetSettlementRate): void {
   let positivefCashId = notional.encodeToId(
     event.params.currencyId.toI32(),
     event.params.maturity,
-    FCASH_ASSET_TYPE_ID
+    FCASH_ASSET_TYPE_ID.toI32()
   );
-  let currency = notional.getCurrency(event.params.currencyId);
+  let currency = notional.getCurrency(event.params.currencyId.toI32());
   let assetCash = getAsset(currency.getAssetToken().tokenAddress.toHexString());
 
   let positivefCash = getOrCreateERC1155Asset(positivefCashId, event.block, event.transaction.hash);
@@ -140,8 +140,12 @@ export function handleIncentivesMigrated(event: IncentivesMigrated): void {
   context.setBoolean("incentivesMigrated", true);
 }
 
-export function handleReserveBalanceUpdated(event: ReserveBalanceUpdated): void {}
-export function handleReserveFeeAccrued(event: ReserveFeeAccrued): void {}
+export function handleReserveBalanceUpdated(event: ReserveBalanceUpdated): void {
+  // burn asset cash from reserve
+}
+// export function handleReserveFeeAccrued(event: ReserveFeeAccrued): void {
+//   // transfer fee to ntoken?
+// }
 export function handleAccountSettled(event: AccountSettled): void {}
 export function handleLendBorrowTrade(event: LendBorrowTrade): void {}
 export function handleSettledCashDebt(event: SettledCashDebt): void {}
