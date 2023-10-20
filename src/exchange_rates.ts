@@ -48,8 +48,9 @@ import {
   getOracle,
   getOracleRegistry,
   getUnderlying,
+  isV2,
 } from "./common/entities";
-import { getOrCreateERC1155Asset } from "./common/erc1155";
+import { convertToNegativeFCashId, getOrCreateERC1155Asset } from "./common/erc1155";
 import { updatefCashMarket } from "./common/market";
 import { convertValueToUnderlying, getExpFactor } from "./common/transfers";
 import { readUnderlyingTokenFromNotional } from "./assets";
@@ -133,6 +134,8 @@ function updateVaultOracleMaturity(
 }
 
 export function updateVaultOracles(vaultAddress: Address, block: ethereum.Block): void {
+  if (isV2()) return;
+
   let notional = getNotional();
   let vaultConfig = notional.getVaultConfig(vaultAddress);
   let base = getUnderlying(vaultConfig.borrowCurrencyId);
@@ -204,21 +207,13 @@ export function updatefCashOraclesAndMarkets(
 
   for (let i = 0; i < activeMarkets.value.length; i++) {
     let a = activeMarkets.value[i];
-    let positivefCashId = notional.encode(
+    let positivefCashId = notional.encodeToId(
       currencyId,
       a.maturity,
-      FCASH_ASSET_TYPE_ID,
-      ZERO_ADDRESS,
-      false
+      FCASH_ASSET_TYPE_ID.toI32()
     ) as BigInt;
     let posFCash = getOrCreateERC1155Asset(positivefCashId, block, null);
-    let negativefCashId = notional.encode(
-      currencyId,
-      a.maturity,
-      FCASH_ASSET_TYPE_ID,
-      ZERO_ADDRESS,
-      true
-    ) as BigInt;
+    let negativefCashId = convertToNegativeFCashId(positivefCashId);
     let negFCash = getOrCreateERC1155Asset(negativefCashId, block, null);
 
     // prettier-ignore
@@ -594,6 +589,7 @@ export function handleRebalance(event: CurrencyRebalanced): void {
 }
 
 export function handleSettlementRate(event: SetPrimeSettlementRate): void {
+  // NOTE: This will only ever be called in V3
   // Token is positive and negative fCash to prime cash
   let notional = getNotional();
 

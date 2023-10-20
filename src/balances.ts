@@ -290,6 +290,7 @@ export function updateNTokenIncentives(currencyId: i32, event: ethereum.Event): 
 
 export function updateBalance(token: Token, transfer: Transfer, event: ethereum.Event): void {
   // Update the total supply figures on the assets first.
+  // NOTE: V2 asset cash total supply is not updated here
   if (token.tokenType == PrimeCash || token.tokenType == PrimeDebt || token.tokenType == nToken) {
     updateERC20ProxyTotalSupply(token);
     updatePrimeCashMarket(token.currencyId, event.block, event.transaction.hash.toHexString());
