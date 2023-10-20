@@ -28,6 +28,11 @@ export function isV2(): boolean {
   return context.getString("version") === "v2";
 }
 
+export function hasMigratedIncentives(): boolean {
+  let context = dataSource.context();
+  return context.getBoolean("incentivesMigrated");
+}
+
 export function getNotionalV2(): NotionalV2 {
   if (dataSource.network() == "mainnet") {
     return NotionalV2.bind(Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369"));

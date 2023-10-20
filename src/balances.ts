@@ -35,7 +35,9 @@ import {
   getAsset,
   getIncentives,
   getNotional,
+  getNotionalV2,
   getUnderlying,
+  hasMigratedIncentives,
   isV2,
 } from "./common/entities";
 import { updatePrimeCashMarket } from "./common/market";
@@ -277,7 +279,7 @@ export function updateNTokenIncentives(currencyId: i32, event: ethereum.Event): 
   let notional = getNotional();
   let nTokenAddress = notional.try_nTokenAddress(currencyId);
 
-  if (!nTokenAddress.reverted) {
+  if (!nTokenAddress.reverted && hasMigratedIncentives()) {
     incentives.accumulatedNOTEPerNToken = notional
       .getNTokenAccount(nTokenAddress.value)
       .getAccumulatedNOTEPerNToken();
@@ -334,10 +336,24 @@ function updateNToken(
   let snapshot = getBalanceSnapshot(balance, event);
 
   if (token.tokenType == fCash) {
-    snapshot.currentBalance = notional.balanceOf(
-      nTokenAddress,
-      BigInt.fromUnsignedBytes(Bytes.fromHexString(token.id).reverse() as ByteArray)
-    );
+    // V2: balanceOf won't work here, use the legacy methods here
+    if (token.isfCashDebt) {
+      let portfolio = notional.getNTokenPortfolio(nTokenAddress).getNetfCashAssets();
+      for (let i = 0; i < portfolio.length; i++) {
+        if (portfolio[i].maturity === token.maturity) {
+          snapshot.currentBalance = portfolio[i].notional;
+          break;
+        }
+      }
+    } else {
+      let markets = notional.getActiveMarkets(token.currencyId);
+      for (let i = 0; i < markets.length; i++) {
+        if (markets[i].maturity === token.maturity) {
+          snapshot.currentBalance = markets[i].totalfCash;
+          break;
+        }
+      }
+    }
 
     updatefCashOraclesAndMarkets(
       token.underlying as string,
@@ -522,8 +538,28 @@ function updateAccount(
   let accountAddress = Address.fromBytes(Address.fromHexString(account.id));
   let snapshot = getBalanceSnapshot(balance, event);
 
-  // updates account balances directly
-  if (token.tokenInterface == "ERC1155") {
+  // Updates account balances directly
+  if (isV2()) {
+    // V2 has different methods for getting the various balances.
+    let notionalV2 = getNotionalV2();
+    if (token.tokenType === "fCash") {
+      // This method will work even if the isfCashDebt flag is set because it is ignored.
+      snapshot.currentBalance = notionalV2
+        .signedBalanceOf(
+          accountAddress,
+          BigInt.fromUnsignedBytes(Bytes.fromHexString(token.id).reverse() as ByteArray)
+        )
+        .abs();
+    } else if (token.tokenType === "AssetCash") {
+      snapshot.currentBalance = notionalV2
+        .getAccountBalance(token.currencyId, accountAddress)
+        .getCashBalance();
+    } else if (token.tokenType === "nToken") {
+      snapshot.currentBalance = notionalV2
+        .getAccountBalance(token.currencyId, accountAddress)
+        .getNTokenBalance();
+    }
+  } else if (token.tokenInterface == "ERC1155") {
     // Use the ERC1155 balance of selector which gets the balance directly for fCash
     // and vault assets
     snapshot.currentBalance = notional.balanceOf(
