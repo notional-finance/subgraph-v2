@@ -31,6 +31,8 @@ export const VAULT_DEBT_ASSET_TYPE_ID = BigInt.fromI32(10);
 export const VAULT_CASH_ASSET_TYPE_ID = BigInt.fromI32(11);
 export const LEGACY_NTOKEN_ASSET_TYPE_ID = BigInt.fromI32(12);
 
+export const ASSET_RATE_DECIMAL_DIFFERENCE = BigInt.fromI32(10).pow(10);
+
 // Enum Values as Constants
 
 // Token Type
@@ -43,6 +45,7 @@ export const VaultShare = "VaultShare";
 export const VaultDebt = "VaultDebt";
 export const VaultCash = "VaultCash";
 export const NOTE = "NOTE";
+export const AssetCash = "AssetCash";
 
 // System Account
 export const None = "None";

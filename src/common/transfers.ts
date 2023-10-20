@@ -16,11 +16,14 @@ import {
   ZERO_ADDRESS,
   RATE_PRECISION,
   SECONDS_IN_YEAR,
+  AssetCash,
+  ASSET_RATE_DECIMAL_DIFFERENCE,
 } from "./constants";
 import {
   createTransferBundle,
   getAccount,
   getNotional,
+  getNotionalV2,
   getTransaction,
   getUnderlying,
 } from "./entities";
@@ -143,6 +146,19 @@ export function convertValueToUnderlying(
         return value.times(exchangeRate.value).div(underlying.precision);
       }
     }
+  } else if (token.tokenType == AssetCash) {
+    let notionalV2 = getNotionalV2();
+    let assetRate = notionalV2.try_getCurrencyAndRates(currencyId);
+    if (!assetRate.reverted) {
+      let underlying = getUnderlying(currencyId);
+      let rate = assetRate.value.getAssetRate().rate;
+      return value
+        .times(rate)
+        .div(ASSET_RATE_DECIMAL_DIFFERENCE)
+        .div(underlying.precision);
+    }
+
+    return null;
   } else {
     // Unknown token type
     return null;
