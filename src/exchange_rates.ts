@@ -575,10 +575,7 @@ export function handleSettlementRate(event: SetPrimeSettlementRate): void {
 /***** BLOCK HANDLER *********/
 
 export function handleBlockOracleUpdate(block: ethereum.Block): void {
-  /**** DISABLED DUE TO PERFORMANCE ISSUES ON ARBITRUM *****/
-  /*
   let registry = getOracleRegistry();
-  if (block.timestamp.toI32() - registry.lastRefreshTimestamp < ORACLE_REFRESH_SECONDS) return;
   registry.lastRefreshBlockNumber = block.number;
   registry.lastRefreshTimestamp = block.timestamp.toI32();
   registry.save();
@@ -596,5 +593,4 @@ export function handleBlockOracleUpdate(block: ethereum.Block): void {
   for (let i = 0; i < registry.fCashEnabled.length; i++) {
     updatefCashOraclesAndMarkets(registry.fCashEnabled[i], block, null);
   }
-  */
 }

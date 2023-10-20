@@ -1,4 +1,4 @@
-specVersion: 0.0.4
+specVersion: 0.0.8
 description: Notional V3 Subgraph
 repository: https://github.com/notional-finance/contracts-v2
 schema:
@@ -101,6 +101,12 @@ dataSources:
           handler: handleSettlementRate
         - event: CurrencyRebalanced(uint16,uint256,uint256)
           handler: handleRebalance
+      blockHandlers:
+        - handler: handleBlockOracleUpdate
+          filter:
+            kind: polling
+            # Currently set to approx 6 hours between blocks, although this is not precise
+            every: {{ pollingInterval }}
   - name: Configuration
     kind: ethereum/contract
     network: {{ networkName }}
@@ -185,6 +191,7 @@ dataSources:
           handler: handleVaultUpdateSecondaryBorrowCapacity
         - event: VaultBorrowCapacityChange(indexed address,indexed uint16,uint256)
           handler: handleVaultBorrowCapacityChange
+        # Account Context
         - event: AccountContextUpdate(indexed address)
           handler: handleAccountContextUpdate
   - name: TradingModule

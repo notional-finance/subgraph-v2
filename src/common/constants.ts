@@ -23,9 +23,6 @@ export const DOUBLE_SCALAR_PRECISION = BigInt.fromI32(10).pow(36);
 
 export const SECONDS_IN_YEAR = BigInt.fromI32(360 * 86400);
 
-// Refresh the oracle six hours
-export const ORACLE_REFRESH_SECONDS = 21600;
-
 export const FCASH_ASSET_TYPE_ID = BigInt.fromI32(1);
 export const VAULT_SHARE_ASSET_TYPE_ID = BigInt.fromI32(9);
 export const VAULT_DEBT_ASSET_TYPE_ID = BigInt.fromI32(10);
