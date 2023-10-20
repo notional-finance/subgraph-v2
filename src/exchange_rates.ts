@@ -31,7 +31,6 @@ import {
   RATE_PRECISION,
   SCALAR_DECIMALS,
   SCALAR_PRECISION,
-  SECONDS_IN_YEAR,
   VaultShareOracleRate,
   VAULT_SHARE_ASSET_TYPE_ID,
   ZERO_ADDRESS,
@@ -39,6 +38,9 @@ import {
   PrimeCashPremiumInterestRate,
   PrimeCashExternalLendingInterestRate,
   PRIME_CASH_VAULT_MATURITY,
+  nTokenBlendedInterestRate,
+  nTokenFeeRate,
+  nTokenIncentiveRate,
 } from "./common/constants";
 import {
   getAsset,
@@ -49,8 +51,11 @@ import {
 } from "./common/entities";
 import { getOrCreateERC1155Asset } from "./common/erc1155";
 import { updatefCashMarket } from "./common/market";
-import { getExpFactor } from "./common/transfers";
+import { convertValueToUnderlying, getExpFactor } from "./common/transfers";
 import { readUnderlyingTokenFromNotional } from "./assets";
+import { getNTokenFeeBuffer } from "./balances";
+import { getCurrencyConfiguration } from "./configuration";
+import { Notional__getNTokenAccountResult } from "../generated/Assets/Notional";
 
 function updateExchangeRate(
   oracle: Oracle,
@@ -145,6 +150,29 @@ export function updateVaultOracles(vaultAddress: Address, block: ethereum.Block)
   }
 }
 
+function updatefCashExchangeRate(
+  oracleName: string,
+  rate: BigInt,
+  base: Token,
+  notional: Address,
+  posFCash: Token,
+  negFCash: Token,
+  block: ethereum.Block,
+  txnHash: string | null
+): void {
+  let p = getOracle(base, posFCash, oracleName);
+  p.decimals = RATE_DECIMALS;
+  p.ratePrecision = RATE_PRECISION;
+  p.oracleAddress = notional;
+  updateExchangeRate(p, rate, block, txnHash);
+
+  let n = getOracle(base, negFCash, oracleName);
+  n.decimals = RATE_DECIMALS;
+  n.ratePrecision = RATE_PRECISION;
+  n.oracleAddress = notional;
+  updateExchangeRate(p, rate, block, txnHash);
+}
+
 export function updatefCashOraclesAndMarkets(
   underlyingId: string,
   block: ethereum.Block,
@@ -156,6 +184,24 @@ export function updatefCashOraclesAndMarkets(
   let activeMarkets = notional.try_getActiveMarkets(currencyId);
   if (activeMarkets.reverted) return;
 
+  let interestRates = notional.try_getPrimeInterestRate(currencyId);
+  let pCashAddress = notional.pCashAddress(currencyId);
+  let pCashAsset = getAsset(pCashAddress.toHexString());
+  let pCashSupplyRate = interestRates.reverted
+    ? BigInt.zero()
+    : interestRates.value.getAnnualSupplyRate();
+
+  let nToken = getAsset(notional.nTokenAddress(currencyId).toHexString());
+  let nTokenAccount = notional.getNTokenAccount(Address.fromBytes(nToken.tokenAddress));
+  let nTokenCash = convertValueToUnderlying(
+    nTokenAccount.getCashBalance(),
+    pCashAsset,
+    block.timestamp
+  );
+  if (nTokenCash === null) nTokenCash = BigInt.zero();
+  let nTokenBlendedInterestNumerator = nTokenCash.times(pCashSupplyRate);
+  let nTokenBlendedInterestDenominator = nTokenCash;
+
   for (let i = 0; i < activeMarkets.value.length; i++) {
     let a = activeMarkets.value[i];
     let positivefCashId = notional.encode(
@@ -166,29 +212,6 @@ export function updatefCashOraclesAndMarkets(
       false
     ) as BigInt;
     let posFCash = getOrCreateERC1155Asset(positivefCashId, block, null);
-    let posOracle = getOracle(base, posFCash, fCashOracleRate);
-    posOracle.decimals = RATE_DECIMALS;
-    posOracle.ratePrecision = RATE_PRECISION;
-    posOracle.oracleAddress = notional._address;
-    updateExchangeRate(posOracle, a.oracleRate, block, txnHash);
-
-    let posSpot = getOracle(base, posFCash, fCashSpotRate);
-    posSpot.decimals = RATE_DECIMALS;
-    posSpot.ratePrecision = RATE_PRECISION;
-    posSpot.oracleAddress = notional._address;
-    updateExchangeRate(posSpot, a.lastImpliedRate, block, txnHash);
-
-    let posExRate = getOracle(base, posFCash, fCashToUnderlyingExchangeRate);
-    posExRate.decimals = RATE_DECIMALS;
-    posExRate.ratePrecision = RATE_PRECISION;
-    posExRate.oracleAddress = notional._address;
-
-    let x: f64 = getExpFactor(a.lastImpliedRate, a.maturity.minus(block.timestamp));
-    let exchangeRate = BigInt.fromI64(
-      Math.floor(Math.exp(x) * (RATE_PRECISION.toI64() as f64)) as i64
-    );
-    updateExchangeRate(posExRate, exchangeRate, block, txnHash);
-
     let negativefCashId = notional.encode(
       currencyId,
       a.maturity,
@@ -197,41 +220,144 @@ export function updatefCashOraclesAndMarkets(
       true
     ) as BigInt;
     let negFCash = getOrCreateERC1155Asset(negativefCashId, block, null);
-    let negOracle = getOracle(base, negFCash, fCashOracleRate);
-    negOracle.decimals = RATE_DECIMALS;
-    negOracle.ratePrecision = RATE_PRECISION;
-    negOracle.oracleAddress = notional._address;
-    updateExchangeRate(negOracle, a.oracleRate, block, txnHash);
 
-    let negSpot = getOracle(base, negFCash, fCashSpotRate);
-    negSpot.decimals = RATE_DECIMALS;
-    negSpot.ratePrecision = RATE_PRECISION;
-    negSpot.oracleAddress = notional._address;
-    updateExchangeRate(negSpot, a.lastImpliedRate, block, txnHash);
+    // prettier-ignore
+    updatefCashExchangeRate(
+      fCashOracleRate,
+      a.oracleRate,
+      base, notional._address, posFCash, negFCash, block, txnHash
+    );
 
-    let negExRate = getOracle(base, negFCash, fCashToUnderlyingExchangeRate);
-    negExRate.decimals = RATE_DECIMALS;
-    negExRate.ratePrecision = RATE_PRECISION;
-    negExRate.oracleAddress = notional._address;
-    updateExchangeRate(negExRate, exchangeRate, block, txnHash);
+    // prettier-ignore
+    updatefCashExchangeRate(
+      fCashSpotRate,
+      a.lastImpliedRate,
+      base, notional._address, posFCash, negFCash, block, txnHash
+    );
+
+    let x: f64 = getExpFactor(a.lastImpliedRate, a.maturity.minus(block.timestamp));
+    let exchangeRate = BigInt.fromI64(
+      Math.floor(Math.exp(x) * (RATE_PRECISION.toI64() as f64)) as i64
+    );
+    // prettier-ignore
+    updatefCashExchangeRate(
+      fCashToUnderlyingExchangeRate,
+      exchangeRate,
+      base, notional._address, posFCash, negFCash, block, txnHash
+    );
 
     // Takes a snapshot of the fCash market
     updatefCashMarket(currencyId, a.maturity.toI32(), block, txnHash);
+
+    // Updates blended interest rate factors
+    let fCashPV = convertValueToUnderlying(
+      activeMarkets.value[i].totalfCash,
+      posFCash,
+      block.timestamp
+    );
+
+    let cashPV = convertValueToUnderlying(
+      activeMarkets.value[i].totalPrimeCash,
+      pCashAsset,
+      block.timestamp
+    );
+
+    if (fCashPV !== null && cashPV !== null) {
+      nTokenBlendedInterestNumerator = nTokenBlendedInterestNumerator
+        .plus(fCashPV.times(activeMarkets.value[i].oracleRate))
+        .plus(cashPV.times(pCashSupplyRate));
+      nTokenBlendedInterestDenominator = nTokenBlendedInterestDenominator
+        .plus(fCashPV)
+        .plus(cashPV);
+    }
   }
 
-  let nToken = getAsset(notional.nTokenAddress(currencyId).toHexString());
-  let nTokenExchangeRate = getOracle(base, nToken, nTokenToUnderlyingExchangeRate);
-  nTokenExchangeRate.decimals = RATE_DECIMALS;
-  nTokenExchangeRate.ratePrecision = RATE_PRECISION;
-  nTokenExchangeRate.oracleAddress = notional._address;
-  // 1 underlying buys x amount of nTokens
-  // nTokenPV in underlying * RATE_PRECISION / totalSupply
+  updateNTokenRates(
+    currencyId,
+    base,
+    nToken,
+    nTokenAccount,
+    nTokenBlendedInterestNumerator,
+    nTokenBlendedInterestDenominator,
+    block,
+    txnHash
+  );
+}
+
+function updateNTokenRate(
+  oracleName: string,
+  rate: BigInt,
+  base: Token,
+  nToken: Token,
+  notional: Address,
+  block: ethereum.Block,
+  txnHash: string | null
+): void {
+  let n = getOracle(base, nToken, oracleName);
+  n.decimals = RATE_DECIMALS;
+  n.ratePrecision = RATE_PRECISION;
+  n.oracleAddress = notional;
+  updateExchangeRate(n, rate, block, txnHash);
+}
+
+function updateNTokenRates(
+  currencyId: i32,
+  base: Token,
+  nToken: Token,
+  nTokenAccount: Notional__getNTokenAccountResult,
+  numerator: BigInt,
+  denominator: BigInt,
+  block: ethereum.Block,
+  txnHash: string | null
+): void {
+  let notional = getNotional();
   let nTokenUnderlyingPV = notional.nTokenPresentValueUnderlyingDenominated(currencyId);
-  let totalSupply = notional
-    .getNTokenAccount(Address.fromBytes(nToken.tokenAddress))
-    .getTotalSupply();
-  let nTokenRate = nTokenUnderlyingPV.times(RATE_PRECISION).div(totalSupply);
-  updateExchangeRate(nTokenExchangeRate, nTokenRate, block, txnHash);
+  let totalSupply = nTokenAccount.getTotalSupply();
+
+  let nTokenExRate = nTokenUnderlyingPV.times(RATE_PRECISION).div(totalSupply);
+  // prettier-ignore
+  updateNTokenRate(
+    nTokenToUnderlyingExchangeRate,
+    nTokenExRate,
+    base, nToken, notional._address, block, txnHash
+  );
+
+  let interestAPY = denominator.isZero()
+    ? BigInt.zero()
+    : numerator.times(RATE_PRECISION).div(denominator);
+  // prettier-ignore
+  updateNTokenRate(
+    nTokenBlendedInterestRate,
+    interestAPY,
+    base, nToken, notional._address, block, txnHash
+  );
+
+  let feeBuffer = getNTokenFeeBuffer(currencyId);
+  // NOTE: this is in pCash terms so need to convert to underlying
+  let feeAPY = feeBuffer.last30DayNTokenFees
+    // NOTE: this sets the value on an annualized basis
+    .times(BigInt.fromI32(12))
+    .times(RATE_PRECISION)
+    .div(nTokenUnderlyingPV);
+  // prettier-ignore
+  updateNTokenRate(
+    nTokenFeeRate,
+    feeAPY,
+    base, nToken, notional._address, block, txnHash
+  );
+
+  // incentiveAPY needs a NOTE token price / nTokenTVL
+  // noteToNTokenExRate * [(noteIncentives * RATE_PRECISION) / nTokenTVL]
+  let config = getCurrencyConfiguration(currencyId);
+  let noteAPYInNOTETerms = config.incentiveEmissionRate
+    ? (config.incentiveEmissionRate as BigInt).times(RATE_PRECISION).div(nTokenUnderlyingPV)
+    : BigInt.zero();
+  // prettier-ignore
+  updateNTokenRate(
+    nTokenIncentiveRate,
+    noteAPYInNOTETerms,
+    base, nToken, notional._address, block, txnHash
+  );
 }
 
 export function registerChainlinkOracle(
@@ -392,6 +518,7 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
       event.transaction.hash.toHexString()
     );
 
+    // Debt interest rate
     let pDebtSpotInterestRate = getOracle(base, pDebtAsset, PrimeDebtPremiumInterestRate);
     pDebtSpotInterestRate.decimals = SCALAR_DECIMALS;
     pDebtSpotInterestRate.ratePrecision = SCALAR_PRECISION;
@@ -407,6 +534,7 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
     );
   }
 
+  // Supply Rate
   let pCashSpotInterestRate = getOracle(base, pCashAsset, PrimeCashPremiumInterestRate);
   pCashSpotInterestRate.decimals = SCALAR_DECIMALS;
   pCashSpotInterestRate.ratePrecision = SCALAR_PRECISION;
