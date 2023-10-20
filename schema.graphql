@@ -9,7 +9,8 @@ enum TokenType {
   VaultDebt,
   VaultCash,
   NOTE,
-  Fiat
+  Fiat,
+  AssetCash
 }
 
 enum SystemAccount {
