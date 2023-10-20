@@ -1,6 +1,5 @@
 import { ethereum, BigInt, log } from "@graphprotocol/graph-ts";
 import {
-  Balance,
   BalanceSnapshot,
   ProfitLossLineItem,
   Token,
@@ -58,9 +57,17 @@ export function processProfitAndLoss(
     snapshot._accumulatedBalance = snapshot._accumulatedBalance.plus(item.tokenAmount);
     // This never gets reset to zero. Accumulated cost is a positive number. underlyingAmountRealized
     // is negative when purchasing tokens, positive when selling so we invert it here.
-    snapshot._accumulatedCostRealized = snapshot._accumulatedCostRealized.minus(
-      item.underlyingAmountRealized
-    );
+    if (item.tokenAmount.ge(BigInt.zero())) {
+      snapshot._accumulatedCostRealized = snapshot._accumulatedCostRealized.minus(
+        // Underlying amount realized is negative in this case
+        item.underlyingAmountRealized
+      );
+    } else {
+      snapshot._accumulatedCostRealized = snapshot._accumulatedCostRealized.minus(
+        // Token amount is negative here but this expression is a positive number
+        snapshot.adjustedCostBasis.times(item.tokenAmount.neg()).div(INTERNAL_TOKEN_PRECISION)
+      );
+    }
 
     // If the change in the snapshot balance is negligible from the previous snapshot then this
     // is a "transient" line item, such as depositing cash before lending fixed or minting nTokens.
