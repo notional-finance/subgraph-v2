@@ -260,6 +260,56 @@ dataSources:
         - event: VaultRewardReinvested(indexed address,indexed address,uint256,uint256)
           handler: handleVaultRewardReinvested
   # TODO: add snote balancer pool and snote
+  - name: NotionalV2Events
+    kind: ethereum/contract
+    network: {{ networkName }}
+    source:
+      address: '{{ notional }}'
+      abi: NotionalV2
+      startBlock: {{ startBlock }}
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/v2/handle_v2.ts
+      entities:
+        - Transfer
+      abis:
+        - name: NotionalV2
+          file: ./abi/NotionalV2.json
+        - name: NotionalV3
+          file: ./abi/NotionalV3.json
+        - name: ERC4626
+          file: ./abi/ERC4626.json
+        - name: ERC20
+          file: ./abi/ERC20.json
+      eventHandlers:
+        - event: ReserveBalanceUpdated(indexed uint16,int256)
+          handler: handleReserveBalanceUpdated
+        - event: ReserveFeeAccrued(indexed uint16,int256)
+          handler: handleReserveFeeAccrued
+        - event: AccountSettled(indexed address)
+          handler: handleAccountSettled
+        - event: LendBorrowTrade(indexed address,indexed uint16,uint40,int256,int256)
+          handler: handleLendBorrowTrade
+        - event: SettledCashDebt(indexed address,indexed uint16,indexed address,int256,int256)
+          handler: handleSettledCashDebt
+        - event: nTokenSupplyChange(indexed address,indexed uint16,int256)
+          handler: handleNTokenSupplyChange
+        - event: nTokenResidualPurchase(indexed uint16,indexed uint40,indexed address,int256,int256)
+          handler: handleNTokenResidualPurchase
+        - event: LiquidateLocalCurrency(indexed address,indexed address,uint16,int256)
+          handler: handleLiquidateLocalCurrency
+        - event: LiquidateCollateralCurrency(indexed address,indexed address,uint16,uint16,int256,int256,int256)
+          handler: handleLiquidateCollateralCurrency
+        - event: LiquidatefCashEvent(indexed address,indexed address,uint16,uint16,int256,uint256[],int256[])
+          handler: handleLiquidatefCashEvent
+        - event: CashBalanceChange(indexed address,indexed uint16,int256)
+          handler: handleCashBalanceChange
+        - event: IncentivesMigrated(uint16,uint256,uint256,uint256)
+          handler: handleIncentivesMigrated
+        - event: SetSettlementRate(indexed uint256,indexed uint256,uint128)
+          handler: handleV2SettlementRate
 templates:
   - name: ERC20Proxy
     kind: ethereum/contract

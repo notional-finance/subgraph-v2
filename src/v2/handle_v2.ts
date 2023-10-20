@@ -18,7 +18,21 @@ import {
   getUnderlying,
 } from "../common/entities";
 import { convertToNegativeFCashId, getOrCreateERC1155Asset } from "../common/erc1155";
-import { IncentivesMigrated, SetSettlementRate } from "../../generated/Assets/NotionalV2";
+import {
+  AccountSettled,
+  CashBalanceChange,
+  IncentivesMigrated,
+  LendBorrowTrade,
+  LiquidateCollateralCurrency,
+  LiquidateLocalCurrency,
+  LiquidatefCashEvent,
+  ReserveBalanceUpdated,
+  ReserveFeeAccrued,
+  SetSettlementRate,
+  SettledCashDebt,
+  nTokenResidualPurchase,
+  nTokenSupplyChange,
+} from "../../generated/Assets/NotionalV2";
 
 export function handleV2SettlementRate(event: SetSettlementRate): void {
   let notional = getNotionalV2();
@@ -125,3 +139,15 @@ export function handleIncentivesMigrated(event: IncentivesMigrated): void {
   let context = dataSource.context();
   context.setBoolean("incentivesMigrated", true);
 }
+
+export function handleReserveBalanceUpdated(event: ReserveBalanceUpdated): void {}
+export function handleReserveFeeAccrued(event: ReserveFeeAccrued): void {}
+export function handleAccountSettled(event: AccountSettled): void {}
+export function handleLendBorrowTrade(event: LendBorrowTrade): void {}
+export function handleSettledCashDebt(event: SettledCashDebt): void {}
+export function handleNTokenSupplyChange(event: nTokenSupplyChange): void {}
+export function handleNTokenResidualPurchase(event: nTokenResidualPurchase): void {}
+export function handleLiquidateLocalCurrency(event: LiquidateLocalCurrency): void {}
+export function handleLiquidateCollateralCurrency(event: LiquidateCollateralCurrency): void {}
+export function handleLiquidatefCashEvent(event: LiquidatefCashEvent): void {}
+export function handleCashBalanceChange(event: CashBalanceChange): void {}
