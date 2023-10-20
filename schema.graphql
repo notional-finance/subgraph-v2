@@ -218,6 +218,22 @@ enum OracleType {
   MoneyMarketToUnderlyingExchangeRate
   VaultShareOracleRate,
   nTokenToUnderlyingExchangeRate,
+  nTokenBlendedInterestRate,
+  nTokenFeeRate,
+  nTokenIncentiveRate,
+}
+
+type nTokenFeeBuffer @entity {
+  "Currency ID"
+  id: ID!
+  lastUpdateBlockNumber: BigInt!
+  lastUpdateTimestamp: Int!
+
+  "Circular buffer of transfers over the last 30 days, used for nToken fee APY calculation"
+  feeTransfers: [Transfer!]!
+  feeTransferAmount: [BigInt!]!
+  "Current sum of the nToken fees over the last 30 days"
+  last30DayNTokenFees: BigInt!
 }
 
 type OracleRegistry @entity {

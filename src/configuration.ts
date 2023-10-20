@@ -56,7 +56,7 @@ import { updateVaultOracles } from "./exchange_rates";
 import { updateNTokenIncentives } from "./balances";
 import { readUnderlyingTokenFromNotional } from "./assets";
 
-function getCurrencyConfiguration(currencyId: i32): CurrencyConfiguration {
+export function getCurrencyConfiguration(currencyId: i32): CurrencyConfiguration {
   let id = currencyId.toString();
   let entity = CurrencyConfiguration.load(id);
   if (entity == null) {

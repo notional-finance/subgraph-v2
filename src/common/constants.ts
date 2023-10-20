@@ -22,6 +22,8 @@ export const DOUBLE_SCALAR_DECIMALS = 36;
 export const DOUBLE_SCALAR_PRECISION = BigInt.fromI32(10).pow(36);
 
 export const SECONDS_IN_YEAR = BigInt.fromI32(360 * 86400);
+// 30 day window
+export const NTOKEN_FEE_BUFFER_WINDOW = BigInt.fromI32(30 * 86400);
 
 export const FCASH_ASSET_TYPE_ID = BigInt.fromI32(1);
 export const VAULT_SHARE_ASSET_TYPE_ID = BigInt.fromI32(9);
@@ -73,6 +75,9 @@ export const PrimeDebtToMoneyMarketExchangeRate = "PrimeDebtToMoneyMarketExchang
 export const MoneyMarketToUnderlyingExchangeRate = "MoneyMarketToUnderlyingExchangeRate";
 export const VaultShareOracleRate = "VaultShareOracleRate";
 export const nTokenToUnderlyingExchangeRate = "nTokenToUnderlyingExchangeRate";
+export const nTokenBlendedInterestRate = "nTokenBlendedInterestRate";
+export const nTokenFeeRate = "nTokenFeeRate";
+export const nTokenIncentiveRate = "nTokenIncentiveRate";
 
 // Whitelisted Capability
 export const GlobalTransferOperator = "GlobalTransferOperator";

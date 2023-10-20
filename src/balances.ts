@@ -1,5 +1,12 @@
 import { Address, ethereum, log, BigInt, Bytes, ByteArray } from "@graphprotocol/graph-ts";
-import { Account, Token, Balance, Transfer, BalanceSnapshot } from "../generated/schema";
+import {
+  Account,
+  Token,
+  Balance,
+  Transfer,
+  BalanceSnapshot,
+  nTokenFeeBuffer,
+} from "../generated/schema";
 import { ERC20 } from "../generated/templates/ERC20Proxy/ERC20";
 import { ERC4626 } from "../generated/Transactions/ERC4626";
 import {
@@ -21,10 +28,26 @@ import {
   INTERNAL_TOKEN_PRECISION,
   NOTE,
   Notional,
+  NTOKEN_FEE_BUFFER_WINDOW,
 } from "./common/constants";
 import { getAccount, getAsset, getIncentives, getNotional, getUnderlying } from "./common/entities";
 import { updatePrimeCashMarket } from "./common/market";
 import { updatefCashOraclesAndMarkets } from "./exchange_rates";
+import { getCurrencyConfiguration } from "./configuration";
+
+export function getNTokenFeeBuffer(currencyId: i32): nTokenFeeBuffer {
+  let feeBuffer = nTokenFeeBuffer.load(currencyId.toString());
+  if (feeBuffer === null) {
+    feeBuffer = new nTokenFeeBuffer(currencyId.toString());
+    feeBuffer.feeTransfers = new Array<string>();
+    // NOTE: we have to keep a separate fee transfer amount in the case that the
+    // fCashReserveFeeSharePercent changes, which would change historical values
+    // when we recalculate the 30 day rolling window.
+    feeBuffer.feeTransferAmount = new Array<BigInt>();
+  }
+
+  return feeBuffer;
+}
 
 function getAccountIncentiveDebt(token: Token, account: Address): BigInt {
   if (token.tokenType == "nToken") {
@@ -142,7 +165,7 @@ function _updateBalance(
   } else if (systemAccount == Vault) {
     updateVaultState(token, account, balance, transfer, event);
   } else if (systemAccount == FeeReserve || systemAccount == SettlementReserve) {
-    updateReserves(account, balance, transfer, event);
+    updateReserves(account, balance, transfer, event, token.currencyId);
   } else {
     updateAccount(token, account, balance, event);
   }
@@ -386,12 +409,58 @@ function updateVaultState(
   _saveBalance(balance, snapshot);
 }
 
+function updateNTokenFeeBuffer(currencyId: i32, transfer: Transfer, event: ethereum.Event): void {
+  let config = getCurrencyConfiguration(currencyId);
+  if (config === null) return;
+  let fCashReserveFeeSharePercent = config.fCashReserveFeeSharePercent;
+  let feeBuffer = getNTokenFeeBuffer(currencyId);
+
+  let minTransferTimestamp = event.block.timestamp.minus(NTOKEN_FEE_BUFFER_WINDOW).toI32();
+  let feeTransfers = feeBuffer.feeTransfers;
+  let feeTransferAmount = feeBuffer.feeTransferAmount;
+
+  // Remove any transfers that are before the min transfer timestamp
+  while (feeTransfers.length > 0) {
+    let transfer = Transfer.load(feeTransfers[0]);
+    if (transfer === null || transfer.timestamp < minTransferTimestamp) {
+      feeTransfers.shift();
+      feeTransferAmount.shift();
+    }
+    // Fee transfers should always be in chronological order so we can break once
+    // we stop shifting transfers.
+    break;
+  }
+
+  let transferAmount = transfer.valueInUnderlying
+    ? (transfer.valueInUnderlying as BigInt)
+        .times(BigInt.fromI32(100 - fCashReserveFeeSharePercent))
+        .div(BigInt.fromI32(100))
+    : BigInt.zero();
+  feeTransferAmount.push(transferAmount);
+  feeTransfers.push(transfer.id);
+
+  // Recalculate the last 30 day fees on the updated arrays
+  let last30DayNTokenFees = BigInt.zero();
+  for (let i = 0; i < feeTransferAmount.length; i++) {
+    last30DayNTokenFees = last30DayNTokenFees.plus(feeTransferAmount[i]);
+  }
+
+  feeBuffer.feeTransferAmount = feeTransferAmount;
+  feeBuffer.feeTransfers = feeTransfers;
+  feeBuffer.last30DayNTokenFees = last30DayNTokenFees;
+  feeBuffer.lastUpdateBlockNumber = event.block.number;
+  feeBuffer.lastUpdateTimestamp = event.block.timestamp.toI32();
+
+  feeBuffer.save();
+}
+
 // Includes fee reserve and settlement reserve
 function updateReserves(
   reserve: Account,
   balance: Balance,
   transfer: Transfer,
-  event: ethereum.Event
+  event: ethereum.Event,
+  currencyId: i32
 ): void {
   let prevSnapshot: BalanceSnapshot | null = null;
   if (balance.get("current") !== null) {
@@ -419,6 +488,10 @@ function updateReserves(
   }
 
   _saveBalance(balance, snapshot);
+
+  if (reserve.systemAccountType == FeeReserve) {
+    updateNTokenFeeBuffer(currencyId, transfer, event);
+  }
 }
 
 function updateAccount(
