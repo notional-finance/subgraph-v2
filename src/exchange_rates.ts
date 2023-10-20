@@ -324,9 +324,8 @@ function updateNTokenRates(
     base, nToken, notional._address, block, txnHash
   );
 
-  let interestAPY = denominator.isZero()
-    ? BigInt.zero()
-    : numerator.times(RATE_PRECISION).div(denominator);
+  // NOTE: no need to multiply by rate precision since numerator is already rate * value
+  let interestAPY = denominator.isZero() ? BigInt.zero() : numerator.div(denominator);
   // prettier-ignore
   updateNTokenRate(
     nTokenBlendedInterestRate,
@@ -336,12 +335,13 @@ function updateNTokenRates(
 
   if (nTokenUnderlyingPV.gt(BigInt.zero())) {
     let feeBuffer = getNTokenFeeBuffer(currencyId);
-    // NOTE: this is in pCash terms so need to convert to underlying
+    let underlying = getUnderlying(currencyId);
+    // NOTE: last 30 day fees is in underlying external precision
     let feeAPY = feeBuffer.last30DayNTokenFees
       // NOTE: this sets the value on an annualized basis
       .times(BigInt.fromI32(12))
       .times(RATE_PRECISION)
-      .div(nTokenUnderlyingPV);
+      .div(nTokenUnderlyingPV.times(underlying.precision).div(INTERNAL_TOKEN_PRECISION));
     // prettier-ignore
     updateNTokenRate(
     nTokenFeeRate,
@@ -353,7 +353,10 @@ function updateNTokenRates(
     // noteToNTokenExRate * [(noteIncentives * RATE_PRECISION) / nTokenTVL]
     let config = getCurrencyConfiguration(currencyId);
     let noteAPYInNOTETerms = config.incentiveEmissionRate
-      ? (config.incentiveEmissionRate as BigInt).times(RATE_PRECISION).div(nTokenUnderlyingPV)
+      ? (config.incentiveEmissionRate as BigInt)
+          .times(INTERNAL_TOKEN_PRECISION)
+          .times(RATE_PRECISION)
+          .div(nTokenUnderlyingPV)
       : BigInt.zero();
     // prettier-ignore
     updateNTokenRate(
