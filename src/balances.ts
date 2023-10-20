@@ -30,7 +30,14 @@ import {
   Notional,
   NTOKEN_FEE_BUFFER_WINDOW,
 } from "./common/constants";
-import { getAccount, getAsset, getIncentives, getNotional, getUnderlying } from "./common/entities";
+import {
+  getAccount,
+  getAsset,
+  getIncentives,
+  getNotional,
+  getUnderlying,
+  isV2,
+} from "./common/entities";
 import { updatePrimeCashMarket } from "./common/market";
 import { updatefCashOraclesAndMarkets } from "./exchange_rates";
 import { getCurrencyConfiguration } from "./configuration";
@@ -194,6 +201,9 @@ function updateVaultAssetTotalSupply(
   transfer: Transfer,
   event: ethereum.Event
 ): void {
+  // Do not keep any data for leveraged vaults in V2
+  if (isV2()) return;
+
   if (token.tokenType == VaultCash) {
     if (transfer.transferType == Mint) {
       token.totalSupply = (token.totalSupply as BigInt).plus(transfer.value);
@@ -243,6 +253,9 @@ function updateVaultAssetTotalSupply(
 }
 
 export function getTotalfCashDebt(currencyId: i32, maturity: BigInt): BigInt {
+  // NOTE: this method does not exist in V2
+  if (isV2()) return BigInt.zero();
+
   let notional = getNotional();
   // NOTE: the call signature changed from the original deployed version
   let totalDebt = notional.try_getTotalfCashDebtOutstanding1(currencyId, maturity);
@@ -350,6 +363,9 @@ function updateVaultState(
   transfer: Transfer,
   event: ethereum.Event
 ): void {
+  // NOTE: vault data is not captured in V2
+  if (isV2()) return;
+
   let prevSnapshot: BalanceSnapshot | null = null;
   if (balance.get("current") !== null) {
     prevSnapshot = BalanceSnapshot.load(balance.current);
