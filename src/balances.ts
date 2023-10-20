@@ -94,6 +94,7 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
         snapshot.previousNOTEIncentiveDebt = prevSnapshot.currentNOTEIncentiveDebt;
         snapshot.totalNOTEClaimed = prevSnapshot.totalNOTEClaimed;
         snapshot.adjustedNOTEClaimed = prevSnapshot.adjustedNOTEClaimed;
+        snapshot.adjustedCostBasis = prevSnapshot.adjustedCostBasis;
       }
     }
 
