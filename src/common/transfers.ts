@@ -67,6 +67,7 @@ export function convertValueToUnderlying(
   let underlyingExternal: ethereum.CallResult<BigInt>;
 
   if (token.tokenType == nToken) {
+    // v2: this probably doesnt exist before some point
     underlyingExternal = notional.try_convertNTokenToUnderlying(currencyId, value);
   } else if (
     token.tokenType == PrimeDebt ||
@@ -86,6 +87,7 @@ export function convertValueToUnderlying(
       (token.maturity as BigInt).notEqual(PRIME_CASH_VAULT_MATURITY))
   ) {
     if ((token.maturity as BigInt) <= blockTime) {
+      // v2: this probably doesnt exist before some point
       // If the fCash has matured then get the settled value
       underlyingExternal = notional.try_convertSettledfCash(
         currencyId,
@@ -113,6 +115,7 @@ export function convertValueToUnderlying(
         }
       }
 
+      // v2: this probably doesnt exist before some point
       // NOTE: if the search falls through to this point, use the oracle value b/c
       // the fCash is idiosyncratic
       underlyingExternal = notional.try_getPresentfCashValue(

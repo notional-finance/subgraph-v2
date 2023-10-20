@@ -123,6 +123,8 @@ export function handleDeployPrimeProxy(event: PrimeProxyDeployed): void {
 export function initialize(_block: ethereum.Block): void {
   let network = dataSource.network();
   let context = dataSource.context();
+  log.info("Initialize {}", [network]);
+
   if (network == "mainnet" || network == "goerli") {
     context.setString("version", "v2");
     context.setBoolean("incentivesMigrated", false);
