@@ -32,11 +32,8 @@ dataSources:
           handler: handleDeployPrimeProxy
         - event: DeployNToken(uint16,address)
           handler: handleDeployNToken
-      # This is called once to initialize the subgraph
-      blockHandlers:
-        - handler: initialize
-          filter:
-            kind: once
+        - event: Upgraded(indexed address)
+          handler: handleUpgrade
   - name: Transactions
     kind: ethereum/contract
     network: {{ networkName }}
