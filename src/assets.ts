@@ -4,8 +4,9 @@ import {
   DeployNToken,
   NotionalV3,
   PrimeProxyDeployed,
+  Upgraded,
 } from "../generated/Assets/NotionalV3";
-import { Token } from "../generated/schema";
+import { Token, VersionContext } from "../generated/schema";
 import {
   None,
   NOTE,
@@ -120,16 +121,24 @@ export function handleDeployPrimeProxy(event: PrimeProxyDeployed): void {
   token.save();
 }
 
-export function initialize(_block: ethereum.Block): void {
+export function handleUpgrade(event: Upgraded): void {
+  let versionContext = VersionContext.load("0");
   let network = dataSource.network();
-  let context = dataSource.context();
-  log.info("Initialize {}", [network]);
 
-  if (network == "mainnet" || network == "goerli") {
-    context.setString("version", "v2");
-    context.setBoolean("incentivesMigrated", false);
-  } else {
-    context.setString("version", "v3");
-    context.setBoolean("incentivesMigrated", true);
+  if (versionContext == null) {
+    versionContext = new VersionContext("0");
+    if (network == "mainnet" || network == "goerli") {
+      versionContext.version = "v2";
+      versionContext.didMigrateIncentives = false;
+    } else {
+      versionContext.version = "v3";
+      versionContext.didMigrateIncentives = true;
+    }
   }
+
+  versionContext.lastUpdateBlockNumber = event.block.number;
+  versionContext.lastUpdateTimestamp = event.block.timestamp.toI32();
+  versionContext.lastUpdateTransactionHash = event.transaction.hash;
+  versionContext.routerImplementation = event.params.implementation;
+  versionContext.save();
 }

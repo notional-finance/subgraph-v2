@@ -742,4 +742,17 @@ type Reinvestment @entity {
   underlyingAmountRealized: BigInt
 }
 
+type VersionContext @entity {
+  "ID is always 0"
+  id: ID!
+  lastUpdateBlockNumber: BigInt!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  "Identifier for the system version"
+  version: String!
+  routerImplementation: Bytes!
+  didMigrateIncentives: Boolean!
+}
+
 # Staked NOTE

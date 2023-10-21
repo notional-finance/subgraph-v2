@@ -11,6 +11,7 @@ import {
   Transaction,
   Transfer,
   TransferBundle,
+  VersionContext,
 } from "../../generated/schema";
 import {
   FeeReserve,
@@ -24,13 +25,23 @@ import {
 } from "./constants";
 
 export function isV2(): boolean {
-  let context = dataSource.context();
-  return context.getString("version") == "v2";
+  let versionContext = VersionContext.load("0");
+  if (versionContext) {
+    return versionContext.version == "v2";
+  }
+
+  log.critical("Version Context not found", []);
+  return false;
 }
 
 export function hasMigratedIncentives(): boolean {
-  let context = dataSource.context();
-  return context.getBoolean("incentivesMigrated");
+  let versionContext = VersionContext.load("0");
+  if (versionContext) {
+    return versionContext.didMigrateIncentives;
+  }
+
+  log.critical("Version Context not found", []);
+  return false;
 }
 
 export function getNotionalV2(): NotionalV2 {

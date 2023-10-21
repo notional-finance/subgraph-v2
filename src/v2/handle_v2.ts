@@ -33,6 +33,7 @@ import {
   nTokenResidualPurchase,
   nTokenSupplyChange,
 } from "../../generated/Assets/NotionalV2";
+import { VersionContext } from "../../generated/schema";
 
 export function handleV2SettlementRate(event: SetSettlementRate): void {
   let notional = getNotionalV2();
@@ -136,8 +137,11 @@ export function handleIncentivesMigrated(event: IncentivesMigrated): void {
   migration.finalIntegralTotalSupply = event.params.finalIntegralTotalSupply;
   migration.save();
 
-  let context = dataSource.context();
-  context.setBoolean("incentivesMigrated", true);
+  let versionContext = VersionContext.load("0");
+  if (versionContext) {
+    versionContext.didMigrateIncentives = true;
+    versionContext.save();
+  }
 }
 
 export function handleReserveBalanceUpdated(event: ReserveBalanceUpdated): void {
