@@ -22,7 +22,7 @@ const VAULT_CASH_ASSET_TYPE = 11;
 
 export function convertToNegativeFCashId(posFCashId: BigInt): BigInt {
   // Adds the isfCashDebt flag
-  return posFCashId.plus(BigInt.fromI32(1).leftShift(56));
+  return posFCashId.plus(BigInt.fromI32(1).leftShift(64));
 }
 
 function _setAssetType(decodedId: NotionalV3__decodeERC1155IdResult, token: Token): void {

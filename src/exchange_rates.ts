@@ -9,6 +9,7 @@ import {
 } from "../generated/ExchangeRates/NotionalV3";
 import { IStrategyVault } from "../generated/ExchangeRates/IStrategyVault";
 import { Aggregator } from "../generated/ExchangeRates/Aggregator";
+import { AssetRateAggregator } from "../generated/ExchangeRates/AssetRateAggregator";
 import { Token, ExchangeRate, Oracle } from "../generated/schema";
 import {
   Chainlink,
@@ -187,22 +188,29 @@ export function updatefCashOraclesAndMarkets(
   let activeMarkets = notional.try_getActiveMarkets(currencyId);
   if (activeMarkets.reverted) return;
 
-  let interestRates = notional.try_getPrimeInterestRate(currencyId);
-  let pCashAddress = notional.pCashAddress(currencyId);
-  let pCashAsset = getAsset(pCashAddress.toHexString());
-  let pCashSupplyRate = interestRates.reverted
-    ? BigInt.zero()
-    : interestRates.value.getAnnualSupplyRate();
+  let supplyRate: BigInt;
+  let cashAsset: Token;
+  if (isV2()) {
+    let currency = notional.getCurrencyAndRates(currencyId);
+    cashAsset = getAsset(currency.getAssetToken().tokenAddress.toHexString());
+    let aggregator = AssetRateAggregator.bind(currency.getAssetRate().rateOracle);
+    supplyRate = aggregator.getAnnualizedSupplyRate();
+  } else {
+    let interestRates = notional.try_getPrimeInterestRate(currencyId);
+    let pCashAddress = notional.pCashAddress(currencyId);
+    cashAsset = getAsset(pCashAddress.toHexString());
+    supplyRate = interestRates.reverted ? BigInt.zero() : interestRates.value.getAnnualSupplyRate();
+  }
 
   let nToken = getAsset(notional.nTokenAddress(currencyId).toHexString());
   let nTokenAccount = notional.getNTokenAccount(Address.fromBytes(nToken.tokenAddress));
   let nTokenCash = convertValueToUnderlying(
     nTokenAccount.getCashBalance(),
-    pCashAsset,
+    cashAsset,
     block.timestamp
   );
   if (nTokenCash === null) nTokenCash = BigInt.zero();
-  let nTokenBlendedInterestNumerator = nTokenCash.times(pCashSupplyRate);
+  let nTokenBlendedInterestNumerator = nTokenCash.times(supplyRate);
   let nTokenBlendedInterestDenominator = nTokenCash;
 
   for (let i = 0; i < activeMarkets.value.length; i++) {
@@ -253,14 +261,14 @@ export function updatefCashOraclesAndMarkets(
 
     let cashPV = convertValueToUnderlying(
       activeMarkets.value[i].totalPrimeCash,
-      pCashAsset,
+      cashAsset,
       block.timestamp
     );
 
     if (fCashPV !== null && cashPV !== null) {
       nTokenBlendedInterestNumerator = nTokenBlendedInterestNumerator
         .plus(fCashPV.times(activeMarkets.value[i].oracleRate))
-        .plus(cashPV.times(pCashSupplyRate));
+        .plus(cashPV.times(supplyRate));
       nTokenBlendedInterestDenominator = nTokenBlendedInterestDenominator
         .plus(fCashPV)
         .plus(cashPV);

@@ -53,6 +53,7 @@ export function getNTokenFeeBuffer(currencyId: i32): nTokenFeeBuffer {
     // fCashReserveFeeSharePercent changes, which would change historical values
     // when we recalculate the 30 day rolling window.
     feeBuffer.feeTransferAmount = new Array<BigInt>();
+    feeBuffer.last30DayNTokenFees = BigInt.zero();
   }
 
   return feeBuffer;

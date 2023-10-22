@@ -718,16 +718,25 @@ export function handleVaultBorrowCapacityChange(event: VaultBorrowCapacityChange
 }
 
 export function handleAccountContextUpdate(event: AccountContextUpdate): void {
-  let notional = getNotional();
   let account = getAccount(event.params.account.toHexString(), event);
-  let context = notional.getAccountContext(event.params.account);
 
-  // v2: this does not exist in v2, but maybe this will still work?
-  account.allowPrimeBorrow = context.allowPrimeBorrow;
-  account.nextSettleTime = context.nextSettleTime;
-  account.bitmapCurrencyId = context.bitmapCurrencyId;
+  let hasDebtHex: string;
+  if (isV2()) {
+    let notionalV2 = getNotionalV2();
+    let context = notionalV2.getAccountContext(event.params.account);
+    account.allowPrimeBorrow = false;
+    account.nextSettleTime = context.nextSettleTime;
+    account.bitmapCurrencyId = context.bitmapCurrencyId;
+    hasDebtHex = context.hasDebt.toHexString();
+  } else {
+    let notional = getNotional();
+    let context = notional.getAccountContext(event.params.account);
+    account.allowPrimeBorrow = context.allowPrimeBorrow;
+    account.nextSettleTime = context.nextSettleTime;
+    account.bitmapCurrencyId = context.bitmapCurrencyId;
+    hasDebtHex = context.hasDebt.toHexString();
+  }
 
-  let hasDebtHex = context.hasDebt.toHexString();
   if (hasDebtHex == "0x01" || hasDebtHex == "0x03") {
     account.hasPortfolioAssetDebt = true;
   } else {

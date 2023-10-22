@@ -6,9 +6,10 @@ import {
   fCashMarketSnapshot,
   PrimeCashMarket,
   PrimeCashMarketSnapshot,
+  Token,
 } from "../../generated/schema";
 import { FCASH_ASSET_TYPE_ID } from "./constants";
-import { getAsset, getNotional, getUnderlying } from "./entities";
+import { getAsset, getNotional, getUnderlying, isV2 } from "./entities";
 import { getOrCreateERC1155Asset } from "./erc1155";
 import { convertValueToUnderlying } from "./transfers";
 import { getTotalfCashDebt } from "../balances";
@@ -135,11 +136,17 @@ function updatefCashMarketWithSnapshot(
   snapshot.previousTradeTime = marketData.previousTradeTime.toI32();
 
   let notional = getNotional();
-  let pCashToken = getAsset(notional.pCashAddress(currencyId).toHexString());
+  let cashAsset: Token;
+  if (isV2()) {
+    let currency = notional.getCurrency(currencyId);
+    cashAsset = getAsset(currency.getAssetToken().tokenAddress.toHexString());
+  } else {
+    cashAsset = getAsset(notional.pCashAddress(currencyId).toHexString());
+  }
   let fCashToken = getAsset(market.fCash);
   snapshot.totalPrimeCashInUnderlying = convertValueToUnderlying(
     snapshot.totalPrimeCash,
-    pCashToken,
+    cashAsset,
     block.timestamp
   );
   snapshot.totalfCashPresentValue = convertValueToUnderlying(
@@ -261,8 +268,10 @@ export function setActiveMarkets(
   }
   activeMarkets.fCashMarkets = activeMarketIds;
 
-  let pCashMarket = updatePrimeCashMarket(currencyId, block, txnHash);
-  activeMarkets.pCashMarket = pCashMarket.id;
+  if (!isV2()) {
+    let pCashMarket = updatePrimeCashMarket(currencyId, block, txnHash);
+    activeMarkets.pCashMarket = pCashMarket.id;
+  }
 
   activeMarkets.save();
 }
