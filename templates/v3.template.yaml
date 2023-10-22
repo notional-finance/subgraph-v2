@@ -3,6 +3,11 @@ description: Notional V3 Subgraph
 repository: https://github.com/notional-finance/contracts-v2
 schema:
   file: ./schema.graphql
+# features:
+#   - grafting
+# graft:
+#   base: QmSS8WNCTsNQGgVtdRz9dKahd6QLw4PVfA5NVy64FSBbdk
+#   block: 13499570
 dataSources:
   - name: Assets
     kind: ethereum/contract
@@ -63,6 +68,8 @@ dataSources:
           file: ./abi/IStrategyVault.json
         - name: ERC4626
           file: ./abi/ERC4626.json
+        - name: AssetRateAggregator
+          file: ./abi/AssetRateAggregator.json
       eventHandlers:
         - event: TransferSingle(indexed address,indexed address,indexed address,uint256,uint256)
           handler: handleERC1155Transfer
@@ -92,6 +99,8 @@ dataSources:
           file: ./abi/NotionalV3.json
         - name: Aggregator
           file: ./abi/Aggregator.json
+        - name: AssetRateAggregator
+          file: ./abi/AssetRateAggregator.json
         - name: IStrategyVault
           file: ./abi/IStrategyVault.json
         - name: ERC4626
@@ -144,6 +153,8 @@ dataSources:
           file: ./abi/IStrategyVault.json
         - name: ERC4626
           file: ./abi/ERC4626.json
+        - name: AssetRateAggregator
+          file: ./abi/AssetRateAggregator.json
       eventHandlers:
         - event: ListCurrency(uint16)
           handler: handleListCurrency
@@ -280,6 +291,8 @@ dataSources:
           file: ./abi/ERC4626.json
         - name: ERC20
           file: ./abi/ERC20.json
+        - name: AssetRateAggregator
+          file: ./abi/AssetRateAggregator.json
       eventHandlers:
         - event: ReserveBalanceUpdated(indexed uint16,int256)
           handler: handleReserveBalanceUpdated
