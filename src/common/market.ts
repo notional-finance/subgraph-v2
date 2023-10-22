@@ -14,6 +14,7 @@ import { getOrCreateERC1155Asset } from "./erc1155";
 import { convertValueToUnderlying } from "./transfers";
 import { getTotalfCashDebt } from "../balances";
 import { readUnderlyingTokenFromNotional } from "../assets";
+import { getAssetToken } from "../v2/handle_v2";
 
 const DAY = 86400;
 const QUARTER = DAY * 90;
@@ -139,8 +140,7 @@ function updatefCashMarketWithSnapshot(
   let notional = getNotional();
   let cashAsset: Token;
   if (isV2()) {
-    let currency = notional.getCurrency(currencyId);
-    cashAsset = getAsset(currency.getAssetToken().tokenAddress.toHexString());
+    cashAsset = getAsset(getAssetToken(currencyId).toHexString());
   } else {
     cashAsset = getAsset(notional.pCashAddress(currencyId).toHexString());
   }
