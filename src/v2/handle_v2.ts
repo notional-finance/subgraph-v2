@@ -1,16 +1,19 @@
-import { BigInt, dataSource } from "@graphprotocol/graph-ts";
+import { Address, BigInt, dataSource } from "@graphprotocol/graph-ts";
 import {
   FCASH_ASSET_TYPE_ID,
+  FEE_RESERVE,
   RATE_DECIMALS,
   RATE_PRECISION,
   SCALAR_DECIMALS,
   SCALAR_PRECISION,
+  ZERO_ADDRESS,
   fCashOracleRate,
   fCashSettlementRate,
   fCashSpotRate,
   fCashToUnderlyingExchangeRate,
 } from "../common/constants";
 import {
+  createTransfer,
   getAsset,
   getIncentives,
   getNotionalV2,
@@ -34,6 +37,20 @@ import {
   nTokenSupplyChange,
 } from "../../generated/Assets/NotionalV2";
 import { VersionContext } from "../../generated/schema";
+import { logTransfer } from "../transactions";
+
+export function getAssetToken(currencyId: i32): Address {
+  let notional = getNotionalV2();
+  let currency = notional.getCurrency(currencyId);
+  let tokenAddress = currency.getAssetToken().tokenAddress;
+  if (tokenAddress.equals(Address.fromString("0xc11b1268c1a384e55c48c2391d8d480264a3a7f4"))) {
+    // There was a mistake during mainnet deployment where cWBTC1 was listed instead of cWBTC2, it was fixed
+    // but there was no event emitted so we will hardcode a patch here.
+    tokenAddress = Address.fromString("0xccf4429db6322d5c611ee964527d42e5d685dd6a");
+  }
+
+  return tokenAddress;
+}
 
 export function handleV2SettlementRate(event: SetSettlementRate): void {
   let notional = getNotionalV2();
@@ -145,17 +162,34 @@ export function handleIncentivesMigrated(event: IncentivesMigrated): void {
 }
 
 export function handleReserveBalanceUpdated(event: ReserveBalanceUpdated): void {
-  // burn asset cash from reserve
+  // // burn asset cash from reserve
+  // let transfer = createTransfer(event, 0);
+  // // TODO: does this get bundled as anything?
+  // logTransfer(
+  //   FEE_RESERVE,
+  //   ZERO_ADDRESS,
+  //   BigInt.zero(), // diff in reserve balance,
+  //   event,
+  //   transfer,
+  //   assetCash
+  // );
 }
-// export function handleReserveFeeAccrued(event: ReserveFeeAccrued): void {
-//   // transfer fee to ntoken?
-// }
+export function handleLendBorrowTrade(event: LendBorrowTrade): void {
+  // what if there is a cash balance change?
+  // need to properly emit deposits and withdraws here or pnl will look wrong.
+  // emit Buy fCash or Sell fCash
+  // emit Borrow fCash or Repay fCash based on portfolio before and after change
+}
+
+export function handleCashBalanceChange(event: CashBalanceChange): void {
+  // emit deposit or withdraw bundle only if there is no other corresponding
+  // account change
+}
+
 export function handleAccountSettled(event: AccountSettled): void {}
-export function handleLendBorrowTrade(event: LendBorrowTrade): void {}
 export function handleSettledCashDebt(event: SettledCashDebt): void {}
 export function handleNTokenSupplyChange(event: nTokenSupplyChange): void {}
 export function handleNTokenResidualPurchase(event: nTokenResidualPurchase): void {}
 export function handleLiquidateLocalCurrency(event: LiquidateLocalCurrency): void {}
 export function handleLiquidateCollateralCurrency(event: LiquidateCollateralCurrency): void {}
 export function handleLiquidatefCashEvent(event: LiquidatefCashEvent): void {}
-export function handleCashBalanceChange(event: CashBalanceChange): void {}

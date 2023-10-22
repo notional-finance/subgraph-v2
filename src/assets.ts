@@ -21,6 +21,7 @@ import {
 } from "./common/constants";
 import { getAccount, getNotional, getUnderlying, isV2 } from "./common/entities";
 import { createERC20ProxyAsset, createERC20TokenAsset } from "./common/erc20";
+import { getAssetToken } from "./v2/handle_v2";
 
 export function readUnderlyingTokenFromNotional(currencyId: i32): Address {
   let notional = getNotional();
@@ -69,8 +70,10 @@ export function handleListCurrency(event: ListCurrency): void {
 
   if (isV2()) {
     let assetToken = results.getAssetToken();
+    let tokenAddress = getAssetToken(id);
+
     let assetCash = createERC20TokenAsset(
-      assetToken.tokenAddress,
+      tokenAddress,
       assetToken.hasTransferFee,
       event,
       AssetCash

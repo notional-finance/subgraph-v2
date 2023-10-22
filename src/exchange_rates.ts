@@ -58,6 +58,7 @@ import { readUnderlyingTokenFromNotional } from "./assets";
 import { getNTokenFeeBuffer } from "./balances";
 import { getCurrencyConfiguration } from "./configuration";
 import { NotionalV3__getNTokenAccountResult } from "../generated/Assets/NotionalV3";
+import { getAssetToken } from "./v2/handle_v2";
 
 function updateExchangeRate(
   oracle: Oracle,
@@ -192,7 +193,7 @@ export function updatefCashOraclesAndMarkets(
   let cashAsset: Token;
   if (isV2()) {
     let currency = notional.getCurrencyAndRates(currencyId);
-    cashAsset = getAsset(currency.getAssetToken().tokenAddress.toHexString());
+    cashAsset = getAsset(getAssetToken(currencyId).toHexString());
     let aggregator = AssetRateAggregator.bind(currency.getAssetRate().rateOracle);
     supplyRate = aggregator.getAnnualizedSupplyRate();
   } else {
