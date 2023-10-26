@@ -3,11 +3,11 @@ description: Notional V3 Subgraph
 repository: https://github.com/notional-finance/contracts-v2
 schema:
   file: ./schema.graphql
-# features:
-#   - grafting
-# graft:
-#   base: QmSS8WNCTsNQGgVtdRz9dKahd6QLw4PVfA5NVy64FSBbdk
-#   block: 13499570
+features:
+  - grafting
+graft:
+  base: QmUkywuhe4FvhjX9CaxvL4fM9Y1TLeSNvZ9mA7FZSSPYiP
+  block: 16893660
 dataSources:
   - name: Assets
     kind: ethereum/contract
@@ -296,30 +296,33 @@ dataSources:
       eventHandlers:
         - event: ReserveBalanceUpdated(indexed uint16,int256)
           handler: handleReserveBalanceUpdated
-        # - event: ReserveFeeAccrued(indexed uint16,int256)
-        #   handler: handleReserveFeeAccrued
-        - event: AccountSettled(indexed address)
-          handler: handleAccountSettled
-        - event: LendBorrowTrade(indexed address,indexed uint16,uint40,int256,int256)
-          handler: handleLendBorrowTrade
-        - event: SettledCashDebt(indexed address,indexed uint16,indexed address,int256,int256)
-          handler: handleSettledCashDebt
-        - event: nTokenSupplyChange(indexed address,indexed uint16,int256)
-          handler: handleNTokenSupplyChange
-        - event: nTokenResidualPurchase(indexed uint16,indexed uint40,indexed address,int256,int256)
-          handler: handleNTokenResidualPurchase
-        - event: LiquidateLocalCurrency(indexed address,indexed address,uint16,int256)
-          handler: handleLiquidateLocalCurrency
-        - event: LiquidateCollateralCurrency(indexed address,indexed address,uint16,uint16,int256,int256,int256)
-          handler: handleLiquidateCollateralCurrency
-        - event: LiquidatefCashEvent(indexed address,indexed address,uint16,uint16,int256,uint256[],int256[])
-          handler: handleLiquidatefCashEvent
-        - event: CashBalanceChange(indexed address,indexed uint16,int256)
-          handler: handleCashBalanceChange
         - event: IncentivesMigrated(uint16,uint256,uint256,uint256)
           handler: handleIncentivesMigrated
         - event: SetSettlementRate(indexed uint256,indexed uint256,uint128)
           handler: handleV2SettlementRate
+        - event: AccountContextUpdate(indexed address)
+          handler: handleV2AccountContextUpdate
+          receipt: true
+        # - event: ReserveFeeAccrued(indexed uint16,int256)
+        #   handler: handleReserveFeeAccrued
+        # - event: AccountSettled(indexed address)
+        #   handler: handleAccountSettled
+        # - event: LendBorrowTrade(indexed address,indexed uint16,uint40,int256,int256)
+        #   handler: handleLendBorrowTrade
+        # - event: SettledCashDebt(indexed address,indexed uint16,indexed address,int256,int256)
+        #   handler: handleSettledCashDebt
+        # - event: nTokenSupplyChange(indexed address,indexed uint16,int256)
+        #   handler: handleNTokenSupplyChange
+        # - event: nTokenResidualPurchase(indexed uint16,indexed uint40,indexed address,int256,int256)
+        #   handler: handleNTokenResidualPurchase
+        # - event: LiquidateLocalCurrency(indexed address,indexed address,uint16,int256)
+        #   handler: handleLiquidateLocalCurrency
+        # - event: LiquidateCollateralCurrency(indexed address,indexed address,uint16,uint16,int256,int256,int256)
+        #   handler: handleLiquidateCollateralCurrency
+        # - event: LiquidatefCashEvent(indexed address,indexed address,uint16,uint16,int256,uint256[],int256[])
+        #   handler: handleLiquidatefCashEvent
+        # - event: CashBalanceChange(indexed address,indexed uint16,int256)
+        #   handler: handleCashBalanceChange
 templates:
   - name: ERC20Proxy
     kind: ethereum/contract
