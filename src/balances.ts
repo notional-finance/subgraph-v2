@@ -60,13 +60,25 @@ export function getNTokenFeeBuffer(currencyId: i32): nTokenFeeBuffer {
 }
 
 function getAccountIncentiveDebt(token: Token, account: Address): BigInt {
+  if (!hasMigratedIncentives()) return BigInt.zero();
+
   if (token.tokenType == "nToken") {
-    let notional = getNotional();
-    let b = notional.getAccount(account).getAccountBalances();
-    for (let i = 0; i < b.length; i++) {
-      if (b[i].currencyId == token.currencyId) return b[i].accountIncentiveDebt;
+    if (isV2()) {
+      // NOTE: the decoding for these values is slightly different between v2 and v3
+      let notional = getNotionalV2();
+      let b = notional.getAccount(account).getAccountBalances();
+      for (let i = 0; i < b.length; i++) {
+        if (b[i].currencyId == token.currencyId) return b[i].accountIncentiveDebt;
+      }
+    } else {
+      let notional = getNotional();
+      let b = notional.getAccount(account).getAccountBalances();
+      for (let i = 0; i < b.length; i++) {
+        if (b[i].currencyId == token.currencyId) return b[i].accountIncentiveDebt;
+      }
     }
   }
+
   return BigInt.zero();
 }
 
@@ -296,7 +308,9 @@ export function updateBalance(token: Token, transfer: Transfer, event: ethereum.
   // NOTE: V2 asset cash total supply is not updated here
   if (token.tokenType == PrimeCash || token.tokenType == PrimeDebt || token.tokenType == nToken) {
     updateERC20ProxyTotalSupply(token);
-    updatePrimeCashMarket(token.currencyId, event.block, event.transaction.hash.toHexString());
+    if (!isV2()) {
+      updatePrimeCashMarket(token.currencyId, event.block, event.transaction.hash.toHexString());
+    }
   } else if (token.tokenType == fCash) {
     updatefCashTotalDebtOutstanding(token);
   } else if (

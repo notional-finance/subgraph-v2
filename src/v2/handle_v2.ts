@@ -1,4 +1,4 @@
-import { Address, BigInt, dataSource } from "@graphprotocol/graph-ts";
+import { Address, BigInt, dataSource, ethereum, log } from "@graphprotocol/graph-ts";
 import {
   FCASH_ASSET_TYPE_ID,
   FEE_RESERVE,
@@ -19,9 +19,11 @@ import {
   getNotionalV2,
   getOracle,
   getUnderlying,
+  isV2,
 } from "../common/entities";
 import { convertToNegativeFCashId, getOrCreateERC1155Asset } from "../common/erc1155";
 import {
+  AccountContextUpdate,
   AccountSettled,
   CashBalanceChange,
   IncentivesMigrated,
@@ -29,6 +31,7 @@ import {
   LiquidateCollateralCurrency,
   LiquidateLocalCurrency,
   LiquidatefCashEvent,
+  NotionalV2,
   ReserveBalanceUpdated,
   ReserveFeeAccrued,
   SetSettlementRate,
@@ -52,13 +55,16 @@ export function getAssetToken(currencyId: i32): Address {
   return tokenAddress;
 }
 
+function encodeFCashID(currencyId: BigInt, maturity: BigInt): BigInt {
+  return BigInt.fromI32(1)
+    .plus(maturity.leftShift(8))
+    .plus(currencyId.leftShift(48));
+}
+
 export function handleV2SettlementRate(event: SetSettlementRate): void {
   let notional = getNotionalV2();
-  let positivefCashId = notional.encodeToId(
-    event.params.currencyId.toI32(),
-    event.params.maturity,
-    FCASH_ASSET_TYPE_ID.toI32()
-  );
+  // NOTE: need to encode manually because one time we shut off the contract on initialize markets
+  let positivefCashId = encodeFCashID(event.params.currencyId, event.params.maturity);
   let currency = notional.getCurrency(event.params.currencyId.toI32());
   let assetCash = getAsset(currency.getAssetToken().tokenAddress.toHexString());
 
@@ -174,22 +180,29 @@ export function handleReserveBalanceUpdated(event: ReserveBalanceUpdated): void 
   //   assetCash
   // );
 }
-export function handleLendBorrowTrade(event: LendBorrowTrade): void {
-  // what if there is a cash balance change?
-  // need to properly emit deposits and withdraws here or pnl will look wrong.
-  // emit Buy fCash or Sell fCash
-  // emit Borrow fCash or Repay fCash based on portfolio before and after change
+export function handleV2AccountContextUpdate(event: AccountContextUpdate): void {
+  // if (!isV2()) return;
+  // if (event.receipt == null) log.critical("Transaction Receipt not Found", []);
+  // let notional = getNotionalV2();
+  // let receipt = event.receipt as ethereum.TransactionReceipt;
+  // for (let i = 0; i < receipt.logs.length; i++) {
+  //   let log = receipt.logs[i];
+  //   if (log.address != notional._address) continue;
+  // How do I decode the `log` object here into something that looks like
+  // `ethereum.Event` if I know that the event is emitted from the `NotionalV2`
+  // ABI?
+  //}
 }
 
-export function handleCashBalanceChange(event: CashBalanceChange): void {
-  // emit deposit or withdraw bundle only if there is no other corresponding
-  // account change
-}
+// export function handleCashBalanceChange(event: CashBalanceChange): void {
+//   // emit deposit or withdraw bundle only if there is no other corresponding
+//   // account change
+// }
 
-export function handleAccountSettled(event: AccountSettled): void {}
-export function handleSettledCashDebt(event: SettledCashDebt): void {}
-export function handleNTokenSupplyChange(event: nTokenSupplyChange): void {}
-export function handleNTokenResidualPurchase(event: nTokenResidualPurchase): void {}
-export function handleLiquidateLocalCurrency(event: LiquidateLocalCurrency): void {}
-export function handleLiquidateCollateralCurrency(event: LiquidateCollateralCurrency): void {}
-export function handleLiquidatefCashEvent(event: LiquidatefCashEvent): void {}
+// export function handleAccountSettled(event: AccountSettled): void {}
+// export function handleSettledCashDebt(event: SettledCashDebt): void {}
+// export function handleNTokenSupplyChange(event: nTokenSupplyChange): void {}
+// export function handleNTokenResidualPurchase(event: nTokenResidualPurchase): void {}
+// export function handleLiquidateLocalCurrency(event: LiquidateLocalCurrency): void {}
+// export function handleLiquidateCollateralCurrency(event: LiquidateCollateralCurrency): void {}
+// export function handleLiquidatefCashEvent(event: LiquidatefCashEvent): void {}

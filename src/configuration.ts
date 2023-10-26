@@ -649,6 +649,8 @@ export function handleVaultUpdated(event: VaultUpdated): void {
 }
 
 export function handleVaultPauseStatus(event: VaultPauseStatus): void {
+  if (isV2()) return;
+
   let vault = getVaultConfiguration(event.params.vault);
   vault.enabled = event.params.enabled;
   vault.lastUpdateBlockNumber = event.block.number;
@@ -659,6 +661,8 @@ export function handleVaultPauseStatus(event: VaultPauseStatus): void {
 }
 
 export function handleVaultDeleverageStatus(event: VaultDeleverageStatus): void {
+  if (isV2()) return;
+
   let vault = getVaultConfiguration(event.params.vaultAddress);
   vault.deleverageDisabled = event.params.disableDeleverage;
   vault.lastUpdateBlockNumber = event.block.number;
@@ -671,6 +675,8 @@ export function handleVaultDeleverageStatus(event: VaultDeleverageStatus): void 
 export function handleVaultUpdateSecondaryBorrowCapacity(
   event: VaultUpdateSecondaryBorrowCapacity
 ): void {
+  if (isV2()) return;
+
   let vault = getVaultConfiguration(event.params.vault);
   let index = getSecondaryBorrowCurrencyIndex(vault, event.params.currencyId);
 
@@ -700,6 +706,8 @@ export function handleVaultUpdateSecondaryBorrowCapacity(
 }
 
 export function handleVaultBorrowCapacityChange(event: VaultBorrowCapacityChange): void {
+  if (isV2()) return;
+
   let currencyId = event.params.currencyId;
   let vault = getVaultConfiguration(event.params.vault);
   let primaryToken = getAsset(vault.primaryBorrowCurrency);
