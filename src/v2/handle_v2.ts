@@ -21,7 +21,11 @@ import {
   getUnderlying,
   isV2,
 } from "../common/entities";
-import { convertToNegativeFCashId, getOrCreateERC1155Asset } from "../common/erc1155";
+import {
+  convertToNegativeFCashId,
+  encodeFCashID,
+  getOrCreateERC1155Asset,
+} from "../common/erc1155";
 import {
   AccountContextUpdate,
   AccountSettled,
@@ -53,12 +57,6 @@ export function getAssetToken(currencyId: i32): Address {
   }
 
   return tokenAddress;
-}
-
-function encodeFCashID(currencyId: BigInt, maturity: BigInt): BigInt {
-  return BigInt.fromI32(1)
-    .plus(maturity.leftShift(8))
-    .plus(currencyId.leftShift(48));
 }
 
 export function handleV2SettlementRate(event: SetSettlementRate): void {
