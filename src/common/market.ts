@@ -8,9 +8,8 @@ import {
   PrimeCashMarketSnapshot,
   Token,
 } from "../../generated/schema";
-import { FCASH_ASSET_TYPE_ID } from "./constants";
 import { getAsset, getNotional, getUnderlying, isV2 } from "./entities";
-import { getOrCreateERC1155Asset } from "./erc1155";
+import { encodeFCashID, getOrCreateERC1155Asset } from "./erc1155";
 import { convertValueToUnderlying } from "./transfers";
 import { getTotalfCashDebt } from "../balances";
 import { readUnderlyingTokenFromNotional } from "../assets";
@@ -71,12 +70,7 @@ function getfCashMarket(
     market.marketIndex = getMarketIndex(maturity, settlementDate);
     market.marketMaturityLengthSeconds = getMarketMaturityLengthSeconds(market.marketIndex);
 
-    let notional = getNotional();
-    let fCashID = notional.encodeToId(
-      currencyId,
-      BigInt.fromI32(maturity),
-      FCASH_ASSET_TYPE_ID.toI32()
-    );
+    let fCashID = encodeFCashID(BigInt.fromI32(currencyId), BigInt.fromI32(maturity));
     let _txnHash: Bytes | null = null;
     if (txnHash !== null) _txnHash = ByteArray.fromHexString(txnHash) as Bytes;
     market.fCash = getOrCreateERC1155Asset(fCashID, block, _txnHash).id;

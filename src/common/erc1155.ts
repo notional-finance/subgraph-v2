@@ -20,6 +20,12 @@ const VAULT_SHARE_ASSET_TYPE = 9;
 const VAULT_DEBT_ASSET_TYPE = 10;
 const VAULT_CASH_ASSET_TYPE = 11;
 
+export function encodeFCashID(currencyId: BigInt, maturity: BigInt): BigInt {
+  return BigInt.fromI32(1)
+    .plus(maturity.leftShift(8))
+    .plus(currencyId.leftShift(48));
+}
+
 export function convertToNegativeFCashId(posFCashId: BigInt): BigInt {
   // Adds the isfCashDebt flag
   return posFCashId.plus(BigInt.fromI32(1).leftShift(64));

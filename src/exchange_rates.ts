@@ -51,7 +51,7 @@ import {
   getUnderlying,
   isV2,
 } from "./common/entities";
-import { convertToNegativeFCashId, getOrCreateERC1155Asset } from "./common/erc1155";
+import { convertToNegativeFCashId, encodeFCashID, getOrCreateERC1155Asset } from "./common/erc1155";
 import { updatefCashMarket } from "./common/market";
 import { convertValueToUnderlying, getExpFactor } from "./common/transfers";
 import { readUnderlyingTokenFromNotional } from "./assets";
@@ -216,11 +216,7 @@ export function updatefCashOraclesAndMarkets(
 
   for (let i = 0; i < activeMarkets.value.length; i++) {
     let a = activeMarkets.value[i];
-    let positivefCashId = notional.encodeToId(
-      currencyId,
-      a.maturity,
-      FCASH_ASSET_TYPE_ID.toI32()
-    ) as BigInt;
+    let positivefCashId = encodeFCashID(BigInt.fromI32(currencyId), a.maturity);
     let posFCash = getOrCreateERC1155Asset(positivefCashId, block, null);
     let negativefCashId = convertToNegativeFCashId(positivefCashId);
     let negFCash = getOrCreateERC1155Asset(negativefCashId, block, null);
