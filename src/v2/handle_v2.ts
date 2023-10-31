@@ -186,17 +186,20 @@ export function handleV2AccountContextUpdate(event: AccountContextUpdate): void 
   // for (let i = 0; i < receipt.logs.length; i++) {
   //   let log = receipt.logs[i];
   //   if (log.address != notional._address) continue;
-  // How do I decode the `log` object here into something that looks like
-  // `ethereum.Event` if I know that the event is emitted from the `NotionalV2`
-  // ABI?
-  //}
+  //   // NOTE: this will be the hash of the signature
+  //   let topic = log.topics[0];
+  //   // NOTE: decode data and indexed params accordingly
+  //   // Mint Asset Cash => look for cToken transfer
+  //   // Burn Asset Cash => look for cToken burn
+  //   // Borrow / Repay fCash => look at portfolio before and after
+  //   // Settlement => look at portfolio before and after
+  //   //  - NOTE: let the asset cash balance go negative (not allowed in v3)
+  //   // Liquidations => apply specific transfers based on events
+  // }
 }
+// NOTE: no need to check CashBalanceChange...
 
-// export function handleCashBalanceChange(event: CashBalanceChange): void {
-//   // emit deposit or withdraw bundle only if there is no other corresponding
-//   // account change
-// }
-
+// export function handleLendBorrowTrade(event: LendBorrowTrade): void {}
 // export function handleAccountSettled(event: AccountSettled): void {}
 // export function handleSettledCashDebt(event: SettledCashDebt): void {}
 // export function handleNTokenSupplyChange(event: nTokenSupplyChange): void {}
