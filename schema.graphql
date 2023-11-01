@@ -349,7 +349,7 @@ type CurrencyConfiguration @entity {
   "Discount on nToken PV given to liquidators"
   liquidationHaircutPercentage: Int
 
-  incentives: Incentive! @derivedFrom(field: "currencyConfiguration")
+  incentives: Incentive @derivedFrom(field: "currencyConfiguration")
 }
 
 type InterestRateCurve @entity {
