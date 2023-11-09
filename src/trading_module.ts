@@ -68,34 +68,24 @@ function getTradingModulePermissions(
 export function handleTokenPermissionsUpdate(event: TokenPermissionsUpdated): void {
   let permissions = getTradingModulePermissions(event.params.sender, event.params.token, event);
   permissions.allowSell = event.params.permissions.allowSell;
-  let dexFlagsString =
-    "0x" +
-    event.params.permissions.dexFlags
-      .toHexString()
-      .slice(2)
-      .padStart(12, "0");
-  let dexFlags = ByteArray.fromHexString(dexFlagsString);
+  let dexFlags = event.params.permissions.dexFlags.toI32();
   let dexes = new Array<string>();
-  if (dexFlags[0]) dexes.push("UNISWAP_V2");
-  if (dexFlags[1]) dexes.push("UNISWAP_V3");
-  if (dexFlags[2]) dexes.push("ZERO_EX");
-  if (dexFlags[3]) dexes.push("BALANCER_V2");
-  if (dexFlags[4]) dexes.push("CURVE");
-  if (dexFlags[5]) dexes.push("NOTIONAL_VAULT");
+  if ((dexFlags & 1) == 1) dexes.push("UNUSED");
+  if ((dexFlags & 2) == 2) dexes.push("UNISWAP_V2");
+  if ((dexFlags & 4) == 4) dexes.push("UNISWAP_V3");
+  if ((dexFlags & 8) == 8) dexes.push("ZERO_EX");
+  if ((dexFlags & 16) == 16) dexes.push("BALANCER_V2");
+  if ((dexFlags & 32) == 32) dexes.push("CURVE");
+  if ((dexFlags & 64) == 64) dexes.push("NOTIONAL_VAULT");
+  if ((dexFlags & 128) == 128) dexes.push("CURVE_V2");
   permissions.allowedDexes = dexes;
 
-  let tradeTypeFlagsString =
-    "0x" +
-    event.params.permissions.tradeTypeFlags
-      .toHexString()
-      .slice(2)
-      .padStart(8, "0");
-  let tradeTypeFlags = ByteArray.fromHexString(tradeTypeFlagsString);
+  let tradeTypeFlags = event.params.permissions.tradeTypeFlags.toI32();
   let tradeType = new Array<string>();
-  if (tradeTypeFlags[0]) tradeType.push("EXACT_IN_SINGLE");
-  if (tradeTypeFlags[1]) tradeType.push("EXACT_OUT_SINGLE");
-  if (tradeTypeFlags[2]) tradeType.push("EXACT_IN_BATCH");
-  if (tradeTypeFlags[3]) tradeType.push("EXACT_OUT_BATCH");
+  if ((tradeTypeFlags & 1) == 1) tradeType.push("EXACT_IN_SINGLE");
+  if ((tradeTypeFlags & 2) == 2) tradeType.push("EXACT_OUT_SINGLE");
+  if ((tradeTypeFlags & 4) == 4) tradeType.push("EXACT_IN_BATCH");
+  if ((tradeTypeFlags & 8) == 8) tradeType.push("EXACT_OUT_BATCH");
   permissions.allowedTradeTypes = tradeType;
 
   permissions.save();
