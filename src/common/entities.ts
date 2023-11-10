@@ -49,6 +49,8 @@ export function getNotionalV2(): NotionalV2 {
     return NotionalV2.bind(Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369"));
   } else if (dataSource.network() == "arbitrum-one") {
     return NotionalV2.bind(Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369"));
+  } else if (dataSource.network() == "goerli") {
+    return NotionalV2.bind(Address.fromString("0xD8229B55bD73c61D840d339491219ec6Fa667B0a"));
   }
 
   log.critical("Unsupported network {}", [dataSource.network()]);
@@ -61,6 +63,8 @@ export function getNotional(): NotionalV3 {
     return NotionalV3.bind(Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369"));
   } else if (dataSource.network() == "arbitrum-one") {
     return NotionalV3.bind(Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369"));
+  } else if (dataSource.network() == "goerli") {
+    return NotionalV3.bind(Address.fromString("0xD8229B55bD73c61D840d339491219ec6Fa667B0a"));
   }
 
   log.critical("Unsupported network {}", [dataSource.network()]);

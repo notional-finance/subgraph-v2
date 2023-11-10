@@ -82,7 +82,26 @@ export function createERC20TokenAsset(
   } else {
     let erc20 = ERC20.bind(tokenAddress);
     let symbolAndName = getTokenNameAndSymbol(erc20);
-    let decimals = erc20.decimals();
+    let _decimals = erc20.try_decimals();
+
+    // This won't actually get set to 18 by default due to the log.critical
+    // below but we set it to satisfy the type gods
+    let decimals = 18;
+    if (
+      _decimals.reverted &&
+      dataSource.network() == "goerli" &&
+      tokenAddress.toHexString().toLowerCase() == "0xc5e91b01f9b23952821410be7aa3c45b6429c670"
+    ) {
+      // This is here because of the botched NOTE token deployment on goerli
+      decimals = 8;
+      symbolAndName[0] = "Notional";
+      symbolAndName[1] = "NOTE";
+    } else if (!_decimals.reverted) {
+      decimals = _decimals.value;
+    } else {
+      log.critical("Decimals Failed", []);
+    }
+
     token.name = symbolAndName[0];
     token.symbol = symbolAndName[1];
     token.decimals = decimals;
