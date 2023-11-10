@@ -41,6 +41,11 @@ export function readUnderlyingTokenFromNotional(currencyId: i32): Address {
 
 function _initializeNOTEToken(notional: NotionalV3, event: ethereum.Event): void {
   let noteToken = notional.getNoteToken();
+  if (dataSource.network() == "goerli") {
+    // This is incorrect on the initial Goerli deployment
+    noteToken = Address.fromString("0xC5e91B01F9B23952821410Be7Aa3c45B6429C670");
+  }
+
   if (Token.load(noteToken.toHexString()) == null) {
     createERC20ProxyAsset(noteToken, NOTE, event);
   }
