@@ -113,12 +113,16 @@ export function handleUpdateETHRate(event: UpdateETHRate): void {
   configuration.lastUpdateTransactionHash = event.transaction.hash;
 
   let notional = getNotional();
-  let ethRate = notional.getCurrencyAndRates(event.params.currencyId).getEthRate();
-  configuration.collateralHaircut = ethRate.haircut.toI32();
-  configuration.debtBuffer = ethRate.buffer.toI32();
-  configuration.liquidationDiscount = ethRate.liquidationDiscount.toI32();
+  let r = notional.try_getCurrencyAndRates(event.params.currencyId);
+  if (!r.reverted) {
+    // This failed one time on goerli
+    let ethRate = notional.getCurrencyAndRates(event.params.currencyId).getEthRate();
+    configuration.collateralHaircut = ethRate.haircut.toI32();
+    configuration.debtBuffer = ethRate.buffer.toI32();
+    configuration.liquidationDiscount = ethRate.liquidationDiscount.toI32();
 
-  configuration.save();
+    configuration.save();
+  }
 }
 
 export function handleListCurrency(event: ListCurrency): void {

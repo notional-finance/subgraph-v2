@@ -1,4 +1,4 @@
-import { Address, BigInt, dataSource, ethereum, log } from "@graphprotocol/graph-ts";
+import { Address, BigInt, Bytes, dataSource, ethereum, log } from "@graphprotocol/graph-ts";
 import {
   FCASH_ASSET_TYPE_ID,
   FEE_RESERVE,
@@ -43,7 +43,8 @@ import {
   nTokenResidualPurchase,
   nTokenSupplyChange,
 } from "../../generated/Assets/NotionalV2";
-import { VersionContext } from "../../generated/schema";
+import { Transfer as TransferEvent } from "../../generated/Assets/ERC20";
+import { Token, Transfer, VersionContext } from "../../generated/schema";
 import { logTransfer } from "../transactions";
 
 export function getAssetToken(currencyId: i32): Address {
@@ -178,32 +179,286 @@ export function handleReserveBalanceUpdated(event: ReserveBalanceUpdated): void 
   //   assetCash
   // );
 }
-export function handleV2AccountContextUpdate(event: AccountContextUpdate): void {
-  // if (!isV2()) return;
-  // if (event.receipt == null) log.critical("Transaction Receipt not Found", []);
-  // let notional = getNotionalV2();
-  // let receipt = event.receipt as ethereum.TransactionReceipt;
-  // for (let i = 0; i < receipt.logs.length; i++) {
-  //   let log = receipt.logs[i];
-  //   if (log.address != notional._address) continue;
-  //   // NOTE: this will be the hash of the signature
-  //   let topic = log.topics[0];
-  //   // NOTE: decode data and indexed params accordingly
-  //   // Mint Asset Cash => look for cToken transfer
-  //   // Burn Asset Cash => look for cToken burn
-  //   // Borrow / Repay fCash => look at portfolio before and after
-  //   // Settlement => look at portfolio before and after
-  //   //  - NOTE: let the asset cash balance go negative (not allowed in v3)
-  //   // Liquidations => apply specific transfers based on events
-  // }
-}
-// NOTE: no need to check CashBalanceChange...
 
-// export function handleLendBorrowTrade(event: LendBorrowTrade): void {}
-// export function handleAccountSettled(event: AccountSettled): void {}
-// export function handleSettledCashDebt(event: SettledCashDebt): void {}
-// export function handleNTokenSupplyChange(event: nTokenSupplyChange): void {}
-// export function handleNTokenResidualPurchase(event: nTokenResidualPurchase): void {}
-// export function handleLiquidateLocalCurrency(event: LiquidateLocalCurrency): void {}
-// export function handleLiquidateCollateralCurrency(event: LiquidateCollateralCurrency): void {}
-// export function handleLiquidatefCashEvent(event: LiquidatefCashEvent): void {}
+export function handleV2AccountContextUpdate(event: AccountContextUpdate): void {
+  if (!isV2()) return;
+  if (event.receipt == null) log.critical("Transaction Receipt not Found", []);
+  let notional = getNotionalV2();
+  let receipt = event.receipt as ethereum.TransactionReceipt;
+  let transfers: LoggedTransfer[] = new Array<LoggedTransfer>();
+
+  for (let i = 0; i < receipt.logs.length; i++) {
+    let _log = receipt.logs[i];
+    if (_log.address != notional._address) continue;
+    // NOTE: this will be the hash of the signature of the event
+    let topic = _log.topics[0].toHexString();
+    for (let i = 0; i < EventsConfig.length; i++) {
+      let e = EventsConfig[i];
+      if (topic != e.topicHash) continue;
+      let t = e.parseLog(_log, event);
+      log.debug("Parsed {}", [e.name]);
+    }
+  }
+
+  // TODO: these need to look at before and after events
+  // Borrow / Repay fCash => look at portfolio before and after
+  // Settlement => look at portfolio before and after
+
+  // Finally sort this into some expected ordering...
+}
+
+class LoggedTransfer {
+  from: Address;
+  to: Address;
+  value: BigInt;
+  event: ethereum.Event;
+  token: Token;
+  eventType: string;
+  transfer: Transfer;
+
+  constructor(
+    from: Address,
+    to: Address,
+    value: BigInt,
+    event: ethereum.Event,
+    eventType: string,
+    index: i32,
+    token: Token
+  ) {
+    this.from = from;
+    this.to = to;
+    this.value = value;
+    this.event = event;
+    this.transfer = createTransfer(event, index);
+    this.token = token;
+    this.eventType = eventType;
+  }
+}
+
+class TopicConfig {
+  topicHash: string;
+  indexedNames: string[];
+  indexedTypes: string[];
+  dataResolver: (data: Bytes) => ethereum.EventParam[];
+  name: string;
+
+  constructor(
+    name: string,
+    topicHash: string,
+    indexedNames: string[],
+    indexedTypes: string[],
+    dataResolver: (data: Bytes) => ethereum.EventParam[]
+  ) {
+    this.name = name;
+    this.topicHash = topicHash;
+    this.dataResolver = dataResolver;
+    this.indexedNames = indexedNames;
+    this.indexedTypes = indexedTypes;
+  }
+
+  parseLog(log: ethereum.Log, event: ethereum.Event): ethereum.Event {
+    let parameters = new Array<ethereum.EventParam>();
+
+    for (let i = 0; i < this.indexedNames.length; i++) {
+      if (log.topics.length < i + 1) continue;
+
+      let topic = log.topics[i + 1];
+      if (this.indexedTypes[i] == "address") {
+        parameters.push(
+          new ethereum.EventParam(
+            this.indexedNames[i],
+            ethereum.Value.fromAddress(Address.fromBytes(topic))
+          )
+        );
+      } else if (this.indexedTypes[i] == "i32") {
+        parameters.push(
+          new ethereum.EventParam(
+            this.indexedNames[i],
+            ethereum.Value.fromI32(BigInt.fromUnsignedBytes(topic).toI32())
+          )
+        );
+      }
+    }
+
+    // Decode the remaining data params
+    let dataParams = this.dataResolver(log.data);
+    parameters.concat(dataParams);
+
+    return new ethereum.Event(
+      log.address,
+      log.logIndex,
+      log.transactionLogIndex,
+      log.logType,
+      event.block,
+      event.transaction,
+      parameters,
+      null
+    );
+  }
+}
+
+let EventsConfig = [
+  new TopicConfig(
+    "Transfer",
+    "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+    ["from", "to"],
+    ["address", "address"],
+    (data: Bytes): ethereum.EventParam[] => {
+      let value = ethereum.decode("uint256", data);
+      return [new ethereum.EventParam("value", value!)];
+      // let e = new Array<ethereum.EventParam>()
+      // e.push(new ethereum.EventParam("value", value!))
+      // return e;
+    }
+  ),
+  new TopicConfig(
+    "LendBorrowTrade",
+    "0xc53d733b6fdfac3f892b49bf468cd1cae7773ab553e440dc689ed6b09bb646b1",
+    ["account", "currencyId"],
+    ["address", "i32"],
+    (data: Bytes): ethereum.EventParam[] => {
+      let values = ethereum.decode("(uint40,int256,int256)", data)!.toTuple();
+      return [
+        new ethereum.EventParam("maturity", values[0]),
+        new ethereum.EventParam("netAssetCash", values[1]),
+        new ethereum.EventParam("netfCash", values[2]),
+      ];
+    }
+  ),
+  new TopicConfig(
+    "AccountSettled",
+    "0xe8fafb2a45bb3c597b46894e13460ced12d06a721cf3b1f3a70f6d9465cf9d28",
+    ["account"],
+    ["address"],
+    (_data: Bytes): ethereum.EventParam[] => {
+      return [];
+    }
+  ),
+  new TopicConfig(
+    "SettledCashDebt",
+    "0xc76e4e38ccd25a7b0a39cdaa81a20efa0c2127e74c448b7b05aef1c427d5732b",
+    ["account", "currencyId", "settler"],
+    ["address", "i32", "address"],
+    (data: Bytes): ethereum.EventParam[] => {
+      let values = ethereum.decode("(int256,int256)", data)!.toTuple();
+      return [
+        new ethereum.EventParam("amountToSettleAsset", values[0]),
+        new ethereum.EventParam("fCashAmount", values[1]),
+      ];
+    }
+  ),
+  new TopicConfig(
+    "nTokenSupplyChange",
+    "0x412bc13d202a2ea5119e55fec9c5e420dddb18faf186373ad9795ad4f4545aa9",
+    ["account", "currencyId"],
+    ["address", "i32"],
+    (data: Bytes): ethereum.EventParam[] => {
+      let values = ethereum.decode("int256", data)!;
+      return [new ethereum.EventParam("tokenSupplyChange", values)];
+    }
+  ),
+  new TopicConfig(
+    "nTokenResidualPurchase",
+    "0xe85dd6c9c85c29a2f4d4cb74e31514bfc478c8c5a50da255ea565123d8793352",
+    ["currencyId", "maturity", "purchaser"],
+    ["i32", "i32", "address"],
+    (data: Bytes): ethereum.EventParam[] => {
+      let values = ethereum.decode("(int256,int256)", data)!.toTuple();
+      return [
+        new ethereum.EventParam("fCashAmountToPurchase", values[0]),
+        new ethereum.EventParam("netAssetCashNToken", values[1]),
+      ];
+    }
+  ),
+  new TopicConfig(
+    "LiquidateLocalCurrency",
+    "0x4596c3b6545e97eb42b719442dd0afa8eb7680f3ff72c762763d4b292ee26ea7",
+    ["liquidated", "liquidator"],
+    ["address", "address"],
+    (data: Bytes): ethereum.EventParam[] => {
+      let values = ethereum.decode("(uint16,int256)", data)!.toTuple();
+      return [
+        new ethereum.EventParam("localCurrencyId", values[0]),
+        new ethereum.EventParam("netLocalFromLiquidator", values[1]),
+      ];
+    }
+  ),
+  new TopicConfig(
+    "LiquidateCollateralCurrency",
+    "0x88fff2f00941b1272999212de454ee8d15f54d132723b35e3423ef742109861c",
+    ["liquidated", "liquidator"],
+    ["address", "address"],
+    (data: Bytes): ethereum.EventParam[] => {
+      let values = ethereum.decode("(uint16,uint16,int256,int256,int256)", data)!.toTuple();
+      return [
+        new ethereum.EventParam("localCurrencyId", values[0]),
+        new ethereum.EventParam("collateralCurrencyId", values[1]),
+        new ethereum.EventParam("netLocalFromLiquidator", values[2]),
+        new ethereum.EventParam("netCollateralFromLiquidator", values[3]),
+        new ethereum.EventParam("netNTokenTransfer", values[4]),
+      ];
+    }
+  ),
+  new TopicConfig(
+    "LiquidatefCashEvent",
+    "0x1f20e4ccba6c78861ee4c638fecd0b6a53b1232adb96ca3a0065b9bb12d6214d",
+    ["liquidated", "liquidator"],
+    ["address", "address"],
+    (data: Bytes): ethereum.EventParam[] => {
+      let values = ethereum.decode("(uint16,uint16,int256,uint256[],int256[])", data)!.toTuple();
+      return [
+        new ethereum.EventParam("localCurrencyId", values[0]),
+        new ethereum.EventParam("fCashCurrencyId", values[1]),
+        new ethereum.EventParam("netLocalFromLiquidator", values[2]),
+        new ethereum.EventParam("fCashMaturities", values[3]),
+        new ethereum.EventParam("fCashNotionalTransfer", values[4]),
+      ];
+    }
+  ),
+];
+
+// let Topics = [
+//   "Transfer",
+//   "LendBorrowTrade",
+//   "AccountSettled",
+//   "SettledCashDebt",
+//   "nTokenSupplyChange",
+//   "nTokenResidualPurchase",
+//   "LiquidateLocalCurrency",
+//   "LiquidateCollateralCurrency",
+//   "LiquidatefCashEvent",
+// ];
+
+// let TopicsFull = [
+//   // (indexed from, indexed to, value)
+//   "Transfer(address,address,uint256)",
+//   // (indexed account, indexed currencyId, maturity, netAssetCash, netfCash)
+//   "LendBorrowTrade(address,uint16,uint40,int256,int256)",
+//   // (indexed account)
+//   "AccountSettled(address)",
+//   // (indexed account, indexed currencyId, indexed settler, amountToSettleAsset, fCashAmount)
+//   "SettledCashDebt(address,uint16,address,int256,int256)",
+//   // (indexed account, indexed currencyId, tokenSupplyChange)
+//   "nTokenSupplyChange(address,uint16,int256)",
+//   // (indexed currencyId, indexed maturity, indexed purchaser, fCashAmountToPurchase, netAssetCashNToken)
+//   "nTokenResidualPurchase(uint16,uint40,address,int256,int256)",
+//   // (indexed liquidated, indexed liquidator, localCurrencyId, netLocalFromLiquidator)
+//   "LiquidateLocalCurrency(address,address,uint16,int256)",
+//   // (indexed liquidated, indexed liquidator, localCurrencyId, collateralCurrency, netLocalFromLiquidator, netCollateralTransfer, netNTokenTransfer)
+//   "LiquidateCollateralCurrency(address,address,uint16,uint16,int256,int256,int256)",
+//   // (indexed liquidated, indexed liquidator, localCurrencyId, fCashCurrency, netLocalFromLiquidator, fCashMaturities, fCashNotionalTransfer)
+//   "LiquidatefCashEvent(address,address,uint16,uint16,int256,uint256[],int256[])",
+// ];
+
+// // Check these here: https://openchain.xyz/signatures
+// let TopicsHashed = [
+//   "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+//   "0xc53d733b6fdfac3f892b49bf468cd1cae7773ab553e440dc689ed6b09bb646b1",
+//   "0xe8fafb2a45bb3c597b46894e13460ced12d06a721cf3b1f3a70f6d9465cf9d28",
+//   "0xc76e4e38ccd25a7b0a39cdaa81a20efa0c2127e74c448b7b05aef1c427d5732b",
+//   "0x412bc13d202a2ea5119e55fec9c5e420dddb18faf186373ad9795ad4f4545aa9",
+//   "0xe85dd6c9c85c29a2f4d4cb74e31514bfc478c8c5a50da255ea565123d8793352",
+//   "0x4596c3b6545e97eb42b719442dd0afa8eb7680f3ff72c762763d4b292ee26ea7",
+//   "0x88fff2f00941b1272999212de454ee8d15f54d132723b35e3423ef742109861c",
+//   "0x1f20e4ccba6c78861ee4c638fecd0b6a53b1232adb96ca3a0065b9bb12d6214d",
+// ];
