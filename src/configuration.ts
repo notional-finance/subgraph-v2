@@ -57,6 +57,7 @@ import { setActiveMarkets } from "./common/market";
 import { updateVaultOracles } from "./exchange_rates";
 import { updateNTokenIncentives } from "./balances";
 import { readUnderlyingTokenFromNotional } from "./assets";
+import { handleV2AccountContextUpdate } from "./v2/handle_v2";
 
 export function getCurrencyConfiguration(currencyId: i32): CurrencyConfiguration {
   let id = currencyId.toString();
@@ -753,6 +754,7 @@ export function handleAccountContextUpdate(event: AccountContextUpdate): void {
     account.allowPrimeBorrow = false;
     account.nextSettleTime = context.nextSettleTime;
     account.bitmapCurrencyId = context.bitmapCurrencyId;
+    account.activeCurrencies = context.activeCurrencies;
     hasDebtHex = context.hasDebt.toHexString();
   } else {
     let notional = getNotional();
@@ -760,6 +762,7 @@ export function handleAccountContextUpdate(event: AccountContextUpdate): void {
     account.allowPrimeBorrow = context.allowPrimeBorrow;
     account.nextSettleTime = context.nextSettleTime;
     account.bitmapCurrencyId = context.bitmapCurrencyId;
+    account.activeCurrencies = context.activeCurrencies;
     hasDebtHex = context.hasDebt.toHexString();
   }
 
@@ -776,4 +779,7 @@ export function handleAccountContextUpdate(event: AccountContextUpdate): void {
   }
 
   account.save();
+
+  // This handles all the v2 transfer events
+  if (isV2()) handleV2AccountContextUpdate(event);
 }
