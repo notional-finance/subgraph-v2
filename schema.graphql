@@ -191,6 +191,7 @@ type Account @entity {
   hasPortfolioAssetDebt: Boolean
   hasCashDebt: Boolean
   bitmapCurrencyId: Int
+  activeCurrencies: Bytes
 
   "All current balances linked to this account"
   balances: [Balance!] @derivedFrom(field: "account")

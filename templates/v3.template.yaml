@@ -3,11 +3,11 @@ description: Notional V3 Subgraph
 repository: https://github.com/notional-finance/contracts-v2
 schema:
   file: ./schema.graphql
-# features:
-#   - grafting
-# graft:
-#   base: QmUkywuhe4FvhjX9CaxvL4fM9Y1TLeSNvZ9mA7FZSSPYiP
-#   block: 16893660
+features:
+  - grafting
+graft:
+  base: QmPn3fK1eZ26axAj7ropqRdJYziNiPh9LDM2ppsxbYXfWa
+  block: 6907898
 dataSources:
   - name: Assets
     kind: ethereum/contract
@@ -215,6 +215,7 @@ dataSources:
         # Account Context
         - event: AccountContextUpdate(indexed address)
           handler: handleAccountContextUpdate
+          receipt: true
   - name: TradingModule
     kind: ethereum/contract
     network: {{ networkName }}
@@ -300,9 +301,6 @@ dataSources:
           handler: handleIncentivesMigrated
         - event: SetSettlementRate(indexed uint256,indexed uint256,uint128)
           handler: handleV2SettlementRate
-        - event: AccountContextUpdate(indexed address)
-          handler: handleV2AccountContextUpdate
-          receipt: true
         # - event: ReserveFeeAccrued(indexed uint16,int256)
         #   handler: handleReserveFeeAccrued
         # - event: AccountSettled(indexed address)

@@ -1,4 +1,12 @@
-import { Address, BigInt, Bytes, dataSource, ethereum, log } from "@graphprotocol/graph-ts";
+import {
+  Address,
+  BigInt,
+  ByteArray,
+  Bytes,
+  dataSource,
+  ethereum,
+  log,
+} from "@graphprotocol/graph-ts";
 import {
   FCASH_ASSET_TYPE_ID,
   FEE_RESERVE,
@@ -27,7 +35,6 @@ import {
   getOrCreateERC1155Asset,
 } from "../common/erc1155";
 import {
-  AccountContextUpdate,
   AccountSettled,
   CashBalanceChange,
   IncentivesMigrated,
@@ -43,6 +50,7 @@ import {
   nTokenResidualPurchase,
   nTokenSupplyChange,
 } from "../../generated/Assets/NotionalV2";
+import { AccountContextUpdate } from "../../generated/Configuration/NotionalV3";
 import { Transfer as TransferEvent } from "../../generated/Assets/ERC20";
 import { Token, Transfer, VersionContext } from "../../generated/schema";
 import { logTransfer } from "../transactions";
@@ -185,8 +193,12 @@ export function handleV2AccountContextUpdate(event: AccountContextUpdate): void 
   if (event.receipt == null) log.critical("Transaction Receipt not Found", []);
   let notional = getNotionalV2();
   let receipt = event.receipt as ethereum.TransactionReceipt;
-  let transfers: LoggedTransfer[] = new Array<LoggedTransfer>();
+  let eventType: string[] = new Array<string>();
+  let events: ethereum.Event[] = new Array<ethereum.Event>();
 
+  // Update all balances before and after
+
+  // Parse all the relevant events in the receipt
   for (let i = 0; i < receipt.logs.length; i++) {
     let _log = receipt.logs[i];
     if (_log.address != notional._address) continue;
@@ -195,10 +207,14 @@ export function handleV2AccountContextUpdate(event: AccountContextUpdate): void 
     for (let i = 0; i < EventsConfig.length; i++) {
       let e = EventsConfig[i];
       if (topic != e.topicHash) continue;
-      let t = e.parseLog(_log, event);
+      eventType.push(e.name);
+      events.push(e.parseLog(_log, event));
       log.debug("Parsed {}", [e.name]);
     }
   }
+
+  let transfers: LoggedTransfer[] = new Array<LoggedTransfer>();
+  // Convert the events list into a set of logged transfers...
 
   // TODO: these need to look at before and after events
   // Borrow / Repay fCash => look at portfolio before and after
@@ -251,9 +267,9 @@ class TopicConfig {
   ) {
     this.name = name;
     this.topicHash = topicHash;
-    this.dataResolver = dataResolver;
     this.indexedNames = indexedNames;
     this.indexedTypes = indexedTypes;
+    this.dataResolver = dataResolver;
   }
 
   parseLog(log: ethereum.Log, event: ethereum.Event): ethereum.Event {
@@ -264,19 +280,14 @@ class TopicConfig {
 
       let topic = log.topics[i + 1];
       if (this.indexedTypes[i] == "address") {
-        parameters.push(
-          new ethereum.EventParam(
-            this.indexedNames[i],
-            ethereum.Value.fromAddress(Address.fromBytes(topic))
-          )
-        );
-      } else if (this.indexedTypes[i] == "i32") {
-        parameters.push(
-          new ethereum.EventParam(
-            this.indexedNames[i],
-            ethereum.Value.fromI32(BigInt.fromUnsignedBytes(topic).toI32())
-          )
-        );
+        let address = ethereum.decode("address", topic)!;
+        parameters.push(new ethereum.EventParam(this.indexedNames[i], address));
+      } else if (this.indexedTypes[i] == "uint16") {
+        let num = ethereum.decode("uint16", topic)!;
+        parameters.push(new ethereum.EventParam(this.indexedNames[i], num));
+      } else if (this.indexedTypes[i] == "uint40") {
+        let num = ethereum.decode("uint40", topic)!;
+        parameters.push(new ethereum.EventParam(this.indexedNames[i], num));
       }
     }
 
@@ -306,16 +317,20 @@ let EventsConfig = [
     (data: Bytes): ethereum.EventParam[] => {
       let value = ethereum.decode("uint256", data);
       return [new ethereum.EventParam("value", value!)];
-      // let e = new Array<ethereum.EventParam>()
-      // e.push(new ethereum.EventParam("value", value!))
-      // return e;
     }
+    // filter for transfers to / from Notional
+    // if underlying, convert to asset cash denomination
+    // if asset cash, it's just 1-1
+    // if to notional:
+    // Transfer(AssetCash)(address(0), from, valueInAssetCash)
+    // if from notional:
+    // Transfer(AssetCash)(to, address(0), valueInAssetCash)
   ),
   new TopicConfig(
     "LendBorrowTrade",
     "0xc53d733b6fdfac3f892b49bf468cd1cae7773ab553e440dc689ed6b09bb646b1",
     ["account", "currencyId"],
-    ["address", "i32"],
+    ["address", "uint16"],
     (data: Bytes): ethereum.EventParam[] => {
       let values = ethereum.decode("(uint40,int256,int256)", data)!.toTuple();
       return [
@@ -324,6 +339,12 @@ let EventsConfig = [
         new ethereum.EventParam("netfCash", values[2]),
       ];
     }
+    // if netfCash > 0
+    // TransferSingle(nToken, account, id, netfCash)
+    // Transfer(AssetCash)(account, nToken, netAssetCash.neg())
+    // if netfCash < 0
+    // TransferSingle(account, nToken, id, netfCash.neg())
+    // Transfer(AssetCash)(nToken, account, netAssetCash)
   ),
   new TopicConfig(
     "AccountSettled",
@@ -333,35 +354,46 @@ let EventsConfig = [
     (_data: Bytes): ethereum.EventParam[] => {
       return [];
     }
+    // look at balances before and after and find matured fCash
+    // TransferSingle(account, address(0), id, fCash.abs())
+    // NOTE: this may be negative
+    // Transfer(AssetCash)(SettlementReserve, account, fCash * settlementRate)
   ),
   new TopicConfig(
     "SettledCashDebt",
     "0xc76e4e38ccd25a7b0a39cdaa81a20efa0c2127e74c448b7b05aef1c427d5732b",
     ["account", "currencyId", "settler"],
-    ["address", "i32", "address"],
+    ["address", "uint16", "address"],
     (data: Bytes): ethereum.EventParam[] => {
       let values = ethereum.decode("(int256,int256)", data)!.toTuple();
       return [
         new ethereum.EventParam("amountToSettleAsset", values[0]),
         new ethereum.EventParam("fCashAmount", values[1]),
       ];
+      // Borrow fCash on settled
+      // Transfer Positive Side to Settler
+      // Settler Transfers Asset Cash
     }
   ),
   new TopicConfig(
     "nTokenSupplyChange",
     "0x412bc13d202a2ea5119e55fec9c5e420dddb18faf186373ad9795ad4f4545aa9",
     ["account", "currencyId"],
-    ["address", "i32"],
+    ["address", "uint16"],
     (data: Bytes): ethereum.EventParam[] => {
       let values = ethereum.decode("int256", data)!;
       return [new ethereum.EventParam("tokenSupplyChange", values)];
     }
+    // if tokenSupplyChange > 0
+    // Transfer(nToken)(address(0), account, tokenSupplyChange)
+    // if tokenSupplyChange < 0
+    // Transfer(nToken)(account, address(0), tokenSupplyChange)
   ),
   new TopicConfig(
     "nTokenResidualPurchase",
     "0xe85dd6c9c85c29a2f4d4cb74e31514bfc478c8c5a50da255ea565123d8793352",
     ["currencyId", "maturity", "purchaser"],
-    ["i32", "i32", "address"],
+    ["uint16", "uint40", "address"],
     (data: Bytes): ethereum.EventParam[] => {
       let values = ethereum.decode("(int256,int256)", data)!.toTuple();
       return [
@@ -405,6 +437,7 @@ let EventsConfig = [
     ["liquidated", "liquidator"],
     ["address", "address"],
     (data: Bytes): ethereum.EventParam[] => {
+      log.debug("BYTES {}", [data.toString()]);
       let values = ethereum.decode("(uint16,uint16,int256,uint256[],int256[])", data)!.toTuple();
       return [
         new ethereum.EventParam("localCurrencyId", values[0]),
@@ -462,3 +495,5 @@ let EventsConfig = [
 //   "0x88fff2f00941b1272999212de454ee8d15f54d132723b35e3423ef742109861c",
 //   "0x1f20e4ccba6c78861ee4c638fecd0b6a53b1232adb96ca3a0065b9bb12d6214d",
 // ];
+
+// 000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000120af200000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000632f9a0000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000003e603f1
