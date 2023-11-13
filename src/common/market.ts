@@ -15,7 +15,7 @@ import { getTotalfCashDebt } from "../balances";
 import { getAssetToken } from "../v2/handle_v2";
 
 const DAY = 86400;
-const QUARTER = DAY * 90;
+export const QUARTER = DAY * 90;
 const YEAR = QUARTER * 4;
 
 function getCurrentSettlementDate(blockTime: BigInt): i32 {
@@ -36,7 +36,7 @@ function getMarketIndex(maturity: i32, settlementDate: i32): i32 {
   return 0;
 }
 
-function getTimeRef(timestamp: i32): i32 {
+export function getTimeRef(timestamp: i32): i32 {
   return timestamp - (timestamp % QUARTER);
 }
 
