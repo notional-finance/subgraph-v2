@@ -224,7 +224,6 @@ export function handleV2AccountContextUpdate(event: AccountContextUpdate): void 
   for (let i = 0; i < transferBundles.length; i++) {
     // TODO: sort these somehow....
     bundleArray.push(transferBundles[i].id);
-    transferBundles[i].save();
   }
 
   /*
@@ -416,7 +415,7 @@ let EventsConfig = [
       ];
     },
     (event: ethereum.Event): TransferBundle[] | null => {
-      let l = event as LendBorrowTrade;
+      let l = changetype<LendBorrowTrade>(event);
       let assetCash = getAssetCash(l.params.currencyId);
       let nToken = getNToken(l.params.currencyId);
 
@@ -495,7 +494,7 @@ let EventsConfig = [
       ];
     },
     (event: ethereum.Event, account: Address): TransferBundle[] | null => {
-      let t = event as SettledCashDebt;
+      let t = changetype<SettledCashDebt>(event);
       if (t.params.settler !== account) return null;
 
       let fCash = getOrCreateERC1155Asset(
@@ -541,7 +540,7 @@ let EventsConfig = [
       return [new ethereum.EventParam("tokenSupplyChange", values)];
     },
     (event: ethereum.Event): TransferBundle[] | null => {
-      let t = event as nTokenSupplyChange;
+      let t = changetype<nTokenSupplyChange>(event);
       let nToken = getNToken(t.params.currencyId);
       let assetCash = getAssetCash(t.params.currencyId);
 
@@ -594,7 +593,7 @@ let EventsConfig = [
       ];
     },
     (event: ethereum.Event): TransferBundle[] | null => {
-      let t = event as nTokenResidualPurchase;
+      let t = changetype<nTokenResidualPurchase>(event);
       let fCash = getOrCreateERC1155Asset(
         encodeFCashID(BigInt.fromI32(t.params.currencyId), t.params.maturity),
         event.block,
@@ -662,7 +661,7 @@ let EventsConfig = [
       ];
     },
     (event: ethereum.Event, account: Address): TransferBundle[] | null => {
-      let t = event as LiquidateLocalCurrency;
+      let t = changetype<LiquidateLocalCurrency>(event);
       if (t.params.liquidator !== account) return null;
       let assetCash = getAssetCash(t.params.localCurrencyId);
       let nToken = getNToken(t.params.localCurrencyId);
@@ -705,7 +704,7 @@ let EventsConfig = [
       ];
     },
     (event: ethereum.Event, account: Address): TransferBundle[] | null => {
-      let t = event as LiquidateCollateralCurrency;
+      let t = changetype<LiquidateCollateralCurrency>(event);
       if (t.params.liquidator !== account) return null;
       let localCash = getAssetCash(t.params.localCurrencyId);
       let collateralCash = getAssetCash(t.params.collateralCurrencyId);
@@ -761,7 +760,7 @@ let EventsConfig = [
       ];
     },
     (event: ethereum.Event, account: Address): TransferBundle[] | null => {
-      let t = event as LiquidatefCashEvent;
+      let t = changetype<LiquidatefCashEvent>(event);
       if (t.params.liquidator !== account) return null;
       let localCash = getAssetCash(t.params.localCurrencyId);
       let transferBundles: TransferBundle[] = new Array<TransferBundle>();
