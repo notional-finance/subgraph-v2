@@ -52,7 +52,7 @@ import {
 } from "../../generated/Assets/NotionalV2";
 import { AccountContextUpdate } from "../../generated/Configuration/NotionalV3";
 import { Transfer as TransferEvent } from "../../generated/Assets/ERC20";
-import { Token, Transfer, VersionContext } from "../../generated/schema";
+import { Token, Transfer, TransferBundle, VersionContext } from "../../generated/schema";
 import { logTransfer } from "../transactions";
 
 export function getAssetToken(currencyId: i32): Address {
@@ -196,7 +196,8 @@ export function handleV2AccountContextUpdate(event: AccountContextUpdate): void 
   let eventType: string[] = new Array<string>();
   let events: ethereum.Event[] = new Array<ethereum.Event>();
 
-  // Update all balances before and after
+  // TODO: Update all balances before and after and also detect
+  // settlements and borrow / repays for fCash
 
   // Parse all the relevant events in the receipt
   for (let i = 0; i < receipt.logs.length; i++) {
@@ -213,42 +214,23 @@ export function handleV2AccountContextUpdate(event: AccountContextUpdate): void 
     }
   }
 
-  let transfers: LoggedTransfer[] = new Array<LoggedTransfer>();
-  // Convert the events list into a set of logged transfers...
+  // NOTE: we should only create bundles for the "primary" actor in the
+  // action. So exclude these updates for liquidated or settled accounts
+  // to avoid duplications.
+  // Also in the case for liquidations there are multiple account context
+  // updates and we should avoid that as well.
+  let transfers: Transfer[] = new Array<Transfer>();
+  let transferBundles: TransferBundle[] = new Array<TransferBundle>();
+  let bundleArray: string[] = new Array<string>();
+
+  // Convert the events list into a set of bundles and transfers
+  // inside those bundles
 
   // TODO: these need to look at before and after events
   // Borrow / Repay fCash => look at portfolio before and after
   // Settlement => look at portfolio before and after
 
   // Finally sort this into some expected ordering...
-}
-
-class LoggedTransfer {
-  from: Address;
-  to: Address;
-  value: BigInt;
-  event: ethereum.Event;
-  token: Token;
-  eventType: string;
-  transfer: Transfer;
-
-  constructor(
-    from: Address,
-    to: Address,
-    value: BigInt,
-    event: ethereum.Event,
-    eventType: string,
-    index: i32,
-    token: Token
-  ) {
-    this.from = from;
-    this.to = to;
-    this.value = value;
-    this.event = event;
-    this.transfer = createTransfer(event, index);
-    this.token = token;
-    this.eventType = eventType;
-  }
 }
 
 class TopicConfig {
@@ -272,13 +254,13 @@ class TopicConfig {
     this.dataResolver = dataResolver;
   }
 
-  parseLog(log: ethereum.Log, event: ethereum.Event): ethereum.Event {
+  parseLog(_log: ethereum.Log, event: ethereum.Event): ethereum.Event {
     let parameters = new Array<ethereum.EventParam>();
 
     for (let i = 0; i < this.indexedNames.length; i++) {
-      if (log.topics.length < i + 1) continue;
+      if (_log.topics.length < i + 1) continue;
 
-      let topic = log.topics[i + 1];
+      let topic = _log.topics[i + 1];
       if (this.indexedTypes[i] == "address") {
         let address = ethereum.decode("address", topic)!;
         parameters.push(new ethereum.EventParam(this.indexedNames[i], address));
@@ -292,14 +274,14 @@ class TopicConfig {
     }
 
     // Decode the remaining data params
-    let dataParams = this.dataResolver(log.data);
+    let dataParams = this.dataResolver(_log.data);
     parameters.concat(dataParams);
 
     return new ethereum.Event(
-      log.address,
-      log.logIndex,
-      log.transactionLogIndex,
-      log.logType,
+      _log.address,
+      _log.logIndex,
+      _log.transactionLogIndex,
+      _log.logType,
       event.block,
       event.transaction,
       parameters,
@@ -318,13 +300,23 @@ let EventsConfig = [
       let value = ethereum.decode("uint256", data);
       return [new ethereum.EventParam("value", value!)];
     }
-    // filter for transfers to / from Notional
-    // if underlying, convert to asset cash denomination
-    // if asset cash, it's just 1-1
-    // if to notional:
-    // Transfer(AssetCash)(address(0), from, valueInAssetCash)
-    // if from notional:
-    // Transfer(AssetCash)(to, address(0), valueInAssetCash)
+    /**
+     * Filter for transfers to / from Notional
+     * If underlying, convert to asset cash denomination
+     * If asset cash, it's just 1-1
+     * NOTE: this won't work for ETH transfers, maybe i should look for transfers
+     * from notional to cTokens? But then I don't see the address, but that is the
+     * AccountUpdateContext except in special situations...
+     * There's also cToken Mint and Redeem where the address is Notional...
+     *
+     * If transfer to Notional
+     * Bundle =>
+     *    Deposit [ Mint Asset Cash (tokens) ]
+     *
+     * If transfer from Notional
+     * Bundle =>
+     *    Withdraw [ Burn Asset Cash (tokens) ]
+     */
   ),
   new TopicConfig(
     "LendBorrowTrade",
@@ -339,12 +331,24 @@ let EventsConfig = [
         new ethereum.EventParam("netfCash", values[2]),
       ];
     }
-    // if netfCash > 0
-    // TransferSingle(nToken, account, id, netfCash)
-    // Transfer(AssetCash)(account, nToken, netAssetCash.neg())
-    // if netfCash < 0
-    // TransferSingle(account, nToken, id, netfCash.neg())
-    // Transfer(AssetCash)(nToken, account, netAssetCash)
+    /**
+     *
+     * if netfCash > 0
+     * Bundle =>
+     *   Buy fCash [
+     *     TransferSingle fCash nToken to Account netfCash
+     *     Transfer Asset Cash account to feeReserve ?
+     *     Transfer Asset Cash account to nToken netAssetCash.neg()
+     *   ]
+     * if netfCash < 0
+     * Bundle =>
+     *   Sell fCash [
+     *     TransferSingle fCash account to nToken netfCash
+     *     ReserveFeeAccrued /// it is between these....
+     *     Transfer Asset Cash account to feeReserve ?
+     *     Transfer Asset Cash nToken to account netAssetCash
+     *   ]
+     */
   ),
   new TopicConfig(
     "AccountSettled",
@@ -354,10 +358,9 @@ let EventsConfig = [
     (_data: Bytes): ethereum.EventParam[] => {
       return [];
     }
-    // look at balances before and after and find matured fCash
-    // TransferSingle(account, address(0), id, fCash.abs())
-    // NOTE: this may be negative
-    // Transfer(AssetCash)(SettlementReserve, account, fCash * settlementRate)
+    // Look at balances before and after and find matured fCash
+    // Bundle => Settle fCash [ Burn Transfer Single fCash fCashNotional.abs()]
+    // Bundle => Settle Cash [ Transfer Asset Cash SettlementReserve to account CashAmount]
   ),
   new TopicConfig(
     "SettledCashDebt",
@@ -370,9 +373,10 @@ let EventsConfig = [
         new ethereum.EventParam("amountToSettleAsset", values[0]),
         new ethereum.EventParam("fCashAmount", values[1]),
       ];
-      // Borrow fCash on settled
-      // Transfer Positive Side to Settler
-      // Settler Transfers Asset Cash
+      // TODO: Borrow fCash on settled but requires detection....
+      // TODO: the PnL line item will not properly create this PnL here...
+      // Bundle => Transfer Asset [ Transfer fCash settled to settler ]
+      // Bundle => Transfer Asset [ Transfer Asset Cash settler to settled ]
     }
   ),
   new TopicConfig(
@@ -385,9 +389,15 @@ let EventsConfig = [
       return [new ethereum.EventParam("tokenSupplyChange", values)];
     }
     // if tokenSupplyChange > 0
-    // Transfer(nToken)(address(0), account, tokenSupplyChange)
+    // Bundle => Mint nToken [
+    //   Transfer Asset Cash from account to nToken at current PV
+    //   Mint nToken to account
+    // ]
     // if tokenSupplyChange < 0
-    // Transfer(nToken)(account, address(0), tokenSupplyChange)
+    // Bundle => Mint nToken [
+    //   Transfer Asset Cash from nToken to account at current PV
+    //   Burn nToken from account
+    // ]
   ),
   new TopicConfig(
     "nTokenResidualPurchase",
@@ -401,6 +411,8 @@ let EventsConfig = [
         new ethereum.EventParam("netAssetCashNToken", values[1]),
       ];
     }
+    // Bundle => Transfer Asset [ Transfer fCash from nToken to account ]
+    // Bundle => Transfer Asset Cash [ Transfer Asset Cash from account to nToken ]
   ),
   new TopicConfig(
     "LiquidateLocalCurrency",
@@ -414,6 +426,9 @@ let EventsConfig = [
         new ethereum.EventParam("netLocalFromLiquidator", values[1]),
       ];
     }
+    // Bundle => Transfer Asset [ Transfer Asset Cash from liquidator to liquidated ]
+    // TODO: not clear how much is transferred here...
+    // Bundle => Transfer nToken [ Transfer nToken from liquidated to liquidator ]
   ),
   new TopicConfig(
     "LiquidateCollateralCurrency",
@@ -429,6 +444,9 @@ let EventsConfig = [
         new ethereum.EventParam("netCollateralFromLiquidator", values[3]),
         new ethereum.EventParam("netNTokenTransfer", values[4]),
       ];
+      // Bundle => Transfer Asset [ Transfer Asset Cash from liquidator to liquidated ]
+      // Bundle => Transfer Asset [ Transfer Asset Cash from liquidated to liquidator ]
+      // Bundle => Transfer Asset [ Transfer nToken from liquidated to liquidator ]
     }
   ),
   new TopicConfig(
@@ -437,8 +455,10 @@ let EventsConfig = [
     ["liquidated", "liquidator"],
     ["address", "address"],
     (data: Bytes): ethereum.EventParam[] => {
-      log.debug("BYTES {}", [data.toString()]);
-      let values = ethereum.decode("(uint16,uint16,int256,uint256[],int256[])", data)!.toTuple();
+      let _values = ethereum.decode("(uint16,uint16,int256,uint256[],int256[])", data);
+      if (_values === null) return [];
+      let values = _values.toTuple();
+
       return [
         new ethereum.EventParam("localCurrencyId", values[0]),
         new ethereum.EventParam("fCashCurrencyId", values[1]),
@@ -446,6 +466,9 @@ let EventsConfig = [
         new ethereum.EventParam("fCashMaturities", values[3]),
         new ethereum.EventParam("fCashNotionalTransfer", values[4]),
       ];
+      // Bundle => Transfer Asset [ Transfer Asset Cash from liquidator to liquidated ]
+      // Bundle => Transfer Asset [ Transfer Asset Cash from liquidated to liquidator ]
+      // Bundle => Transfer Asset [ Transfer nToken from liquidated to liquidator ]
     }
   ),
 ];

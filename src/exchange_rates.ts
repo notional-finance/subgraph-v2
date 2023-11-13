@@ -195,7 +195,9 @@ export function updatefCashOraclesAndMarkets(
     let currency = notional.getCurrencyAndRates(currencyId);
     cashAsset = getAsset(getAssetToken(currencyId).toHexString());
     let aggregator = AssetRateAggregator.bind(currency.getAssetRate().rateOracle);
-    supplyRate = aggregator.getAnnualizedSupplyRate();
+    let r = aggregator.try_getAnnualizedSupplyRate();
+    if (r.reverted) supplyRate = BigInt.zero();
+    else supplyRate = r.value;
   } else {
     let interestRates = notional.try_getPrimeInterestRate(currencyId);
     let pCashAddress = notional.pCashAddress(currencyId);
@@ -203,7 +205,11 @@ export function updatefCashOraclesAndMarkets(
     supplyRate = interestRates.reverted ? BigInt.zero() : interestRates.value.getAnnualSupplyRate();
   }
 
-  let nToken = getAsset(notional.nTokenAddress(currencyId).toHexString());
+  // This reverts sometimes in Goerli
+  let nTokenAddress = notional.try_nTokenAddress(currencyId);
+  if (nTokenAddress.reverted) return;
+  let nToken = getAsset(nTokenAddress.value.toHexString());
+
   let nTokenAccount = notional.getNTokenAccount(Address.fromBytes(nToken.tokenAddress));
   let nTokenCash = convertValueToUnderlying(
     nTokenAccount.getCashBalance(),
