@@ -285,7 +285,7 @@ class TopicConfig {
 
     // Decode the remaining data params
     let dataParams = this.dataResolver(_log.data);
-    parameters.concat(dataParams);
+    parameters = parameters.concat(dataParams);
 
     return new ethereum.Event(
       _log.address,
@@ -311,6 +311,12 @@ function createBundle(
     event.transactionLogIndex.toI32(),
     event.transactionLogIndex.toI32()
   );
+  bundle.blockNumber = event.block.number;
+  bundle.timestamp = event.block.timestamp.toI32();
+  bundle.transactionHash = event.transaction.hash.toHexString();
+  bundle.bundleName = bundleName;
+  bundle.startLogIndex = event.transactionLogIndex.toI32();
+  bundle.endLogIndex = event.transactionLogIndex.toI32();
 
   let transferArray = new Array<string>();
   for (let i = 0; i < transfers.length; i++) {
@@ -428,16 +434,22 @@ let EventsConfig = [
         return [
           createBundle("Buy fCash", event, [
             makeTransfer(
-              nToken.tokenAddress as Address,
+              changetype<Address>(nToken.tokenAddress),
               l.params.account,
               fCash,
               l.params.netfCash,
               event
             ),
-            makeTransfer(l.params.account, FEE_RESERVE as Address, assetCash, BigInt.zero(), event),
             makeTransfer(
               l.params.account,
-              nToken.tokenAddress as Address,
+              changetype<Address>(FEE_RESERVE),
+              assetCash,
+              BigInt.zero(),
+              event
+            ),
+            makeTransfer(
+              l.params.account,
+              changetype<Address>(nToken.tokenAddress),
               assetCash,
               l.params.netAssetCash.neg(),
               event
@@ -449,14 +461,20 @@ let EventsConfig = [
           createBundle("Sell fCash", event, [
             makeTransfer(
               l.params.account,
-              nToken.tokenAddress as Address,
+              changetype<Address>(nToken.tokenAddress),
               fCash,
               l.params.netfCash.neg(),
               event
             ),
-            makeTransfer(l.params.account, FEE_RESERVE as Address, assetCash, BigInt.zero(), event),
             makeTransfer(
-              nToken.tokenAddress as Address,
+              l.params.account,
+              changetype<Address>(FEE_RESERVE),
+              assetCash,
+              BigInt.zero(),
+              event
+            ),
+            makeTransfer(
+              changetype<Address>(nToken.tokenAddress),
               l.params.account,
               assetCash,
               l.params.netAssetCash,
@@ -554,7 +572,7 @@ let EventsConfig = [
           createBundle("Mint nToken", event, [
             makeTransfer(
               t.params.account,
-              nToken.tokenAddress as Address,
+              changetype<Address>(nToken.tokenAddress),
               assetCash,
               nTokenPV,
               event
@@ -566,7 +584,7 @@ let EventsConfig = [
         return [
           createBundle("Redeem nToken", event, [
             makeTransfer(
-              nToken.tokenAddress as Address,
+              changetype<Address>(nToken.tokenAddress),
               t.params.account,
               assetCash,
               nTokenPV,
@@ -607,7 +625,7 @@ let EventsConfig = [
         return [
           createBundle("Transfer Asset", event, [
             makeTransfer(
-              nToken.tokenAddress as Address,
+              changetype<Address>(nToken.tokenAddress),
               t.params.purchaser,
               fCash,
               t.params.fCashAmountToPurchase,
@@ -617,7 +635,7 @@ let EventsConfig = [
           createBundle("Transfer Asset", event, [
             makeTransfer(
               t.params.purchaser,
-              nToken.tokenAddress as Address,
+              changetype<Address>(nToken.tokenAddress),
               assetCash,
               t.params.netAssetCashNToken.neg(),
               event
@@ -629,7 +647,7 @@ let EventsConfig = [
           createBundle("Transfer Asset", event, [
             makeTransfer(
               t.params.purchaser,
-              nToken.tokenAddress as Address,
+              changetype<Address>(nToken.tokenAddress),
               fCash,
               t.params.fCashAmountToPurchase.neg(),
               event
