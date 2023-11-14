@@ -542,12 +542,12 @@ function updateReserves(
   }
 }
 
-function updateAccount(
+export function updateAccount(
   token: Token,
   account: Account,
   balance: Balance,
   event: ethereum.Event
-): void {
+): BalanceSnapshot {
   // updates vault account balances directly
   let notional = getNotional();
   let accountAddress = Address.fromBytes(Address.fromHexString(account.id));
@@ -559,12 +559,19 @@ function updateAccount(
     let notionalV2 = getNotionalV2();
     if (token.tokenType === "fCash") {
       // This method will work even if the isfCashDebt flag is set because it is ignored.
-      snapshot.currentBalance = notionalV2
-        .signedBalanceOf(
-          accountAddress,
-          BigInt.fromUnsignedBytes(Bytes.fromHexString(token.id).reverse() as ByteArray)
-        )
-        .abs();
+      let signedBalance = notionalV2.signedBalanceOf(
+        accountAddress,
+        BigInt.fromUnsignedBytes(Bytes.fromHexString(token.id).reverse() as ByteArray)
+      );
+
+      // fCash debt and positive fCash are stored in separate balance snapshots
+      if (token.isfCashDebt && signedBalance.lt(BigInt.zero())) {
+        snapshot.currentBalance = signedBalance.abs();
+      } else if (!token.isfCashDebt && signedBalance.ge(BigInt.zero())) {
+        snapshot.currentBalance = signedBalance;
+      } else {
+        snapshot.currentBalance = BigInt.zero();
+      }
     } else if (token.tokenType === "AssetCash") {
       snapshot.currentBalance = notionalV2
         .getAccountBalance(token.currencyId, accountAddress)
@@ -587,4 +594,6 @@ function updateAccount(
   }
 
   _saveBalance(balance, snapshot);
+
+  return snapshot;
 }

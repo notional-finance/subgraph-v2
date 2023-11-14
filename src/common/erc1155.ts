@@ -31,6 +31,11 @@ export function convertToNegativeFCashId(posFCashId: BigInt): BigInt {
   return posFCashId.plus(BigInt.fromI32(1).leftShift(64));
 }
 
+export function convertToPositiveFCashId(negFCashId: BigInt): BigInt {
+  // Removes the isfCashDebt flag
+  return negFCashId.minus(BigInt.fromI32(1).leftShift(64));
+}
+
 function _setAssetType(decodedId: NotionalV3__decodeERC1155IdResult, token: Token): void {
   let tokenType = decodedId.getAssetType().toI32();
   let maturity = decodedId.getMaturity().toString();
