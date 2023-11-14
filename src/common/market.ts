@@ -244,7 +244,8 @@ export function setActiveMarkets(
   let activeMarkets = ActiveMarket.load(currencyId.toString());
   if (activeMarkets == null) {
     activeMarkets = new ActiveMarket(currencyId.toString());
-    activeMarkets.underlying = currencyId.toString();
+    let underlying = getUnderlying(currencyId);
+    activeMarkets.underlying = underlying.id;
   }
 
   activeMarkets.lastUpdateBlockNumber = block.number;

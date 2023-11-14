@@ -57,7 +57,9 @@ export function processProfitAndLoss(
     snapshot._accumulatedBalance = snapshot._accumulatedBalance.plus(item.tokenAmount);
     // This never gets reset to zero. Accumulated cost is a positive number. underlyingAmountRealized
     // is negative when purchasing tokens, positive when selling so we invert it here.
-    if (item.tokenAmount.ge(BigInt.zero())) {
+    if (item.tokenAmount.isZero()) {
+      // Do nothing
+    } else if (item.tokenAmount.gt(BigInt.zero())) {
       snapshot._accumulatedCostRealized = snapshot._accumulatedCostRealized.minus(
         // Underlying amount realized is negative in this case
         item.underlyingAmountRealized
