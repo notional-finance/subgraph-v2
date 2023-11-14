@@ -273,6 +273,7 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
   for (let i = 0; i < prevfCashIds.length; i++) {
     // This is stored as the positive or negative fCash id
     let fCash = getAsset(prevfCashIds[i]);
+    let fCashIdInt = encodeFCashID(BigInt.fromI32(fCash.currencyId), fCash.maturity!);
 
     let balance = getBalance(account, fCash, event);
     let snapshot = updateAccount(fCash, account, balance, event);
@@ -294,7 +295,7 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
       );
     } else if (fCash.isfCashDebt && snapshot.currentBalance.lt(snapshot.previousBalance)) {
       let repayAmount = snapshot.previousBalance.minus(snapshot.currentBalance);
-      let posfCash = getPositivefCash(fCash.id, event);
+      let posfCash = getPositivefCash(fCashIdInt, event);
 
       transferBundles.push(
         createBundle("Repay fCash", event, [
@@ -304,7 +305,7 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
       );
     } else if (fCash.isfCashDebt && snapshot.currentBalance.gt(snapshot.previousBalance)) {
       let borrowAmount = snapshot.currentBalance.minus(snapshot.previousBalance);
-      let posfCash = getPositivefCash(fCash.id, event);
+      let posfCash = getPositivefCash(fCashIdInt, event);
 
       transferBundles.push(
         createBundle("Borrow fCash", event, [
@@ -335,7 +336,7 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
 
       if (portfolio[i].notional.lt(BigInt.zero())) {
         let borrowAmount = portfolio[i].notional.neg();
-        let posfCash = getPositivefCash(fCash.id, event);
+        let posfCash = getPositivefCash(fCashId, event);
 
         transferBundles.push(
           createBundle("Borrow fCash", event, [
@@ -351,8 +352,8 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
   return transferBundles;
 }
 
-function getPositivefCash(fCashId: string, event: ethereum.Event): Token {
-  let fCashIdInt = convertToPositiveFCashId(BigInt.fromByteArray(ByteArray.fromHexString(fCashId)));
+function getPositivefCash(fCashId: BigInt, event: ethereum.Event): Token {
+  let fCashIdInt = convertToPositiveFCashId(fCashId);
   return getOrCreateERC1155Asset(fCashIdInt, event.block, event.transaction.hash);
 }
 
