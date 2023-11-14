@@ -1,4 +1,12 @@
-import { Address, BigInt, Bytes, ethereum, log } from "@graphprotocol/graph-ts";
+import {
+  Address,
+  BigInt,
+  ByteArray,
+  Bytes,
+  dataSource,
+  ethereum,
+  log,
+} from "@graphprotocol/graph-ts";
 import {
   FEE_RESERVE,
   RATE_DECIMALS,
@@ -14,6 +22,7 @@ import {
 import {
   createTransfer,
   createTransferBundle,
+  getAccount,
   getAsset,
   getIncentives,
   getNotionalV2,
@@ -23,6 +32,7 @@ import {
 } from "../common/entities";
 import {
   convertToNegativeFCashId,
+  convertToPositiveFCashId,
   encodeFCashID,
   getOrCreateERC1155Asset,
 } from "../common/erc1155";
@@ -48,6 +58,7 @@ import {
 } from "../common/transfers";
 import { processProfitAndLoss } from "../common/profit_loss";
 import { QUARTER, getTimeRef } from "../common/market";
+import { getBalance, updateAccount } from "../balances";
 
 export function getAssetToken(currencyId: i32): Address {
   let notional = getNotionalV2();
@@ -179,12 +190,8 @@ export function handleV2AccountContextUpdate(event: AccountContextUpdate): void 
   let events: ethereum.Event[] = new Array<ethereum.Event>();
   let account = event.params.account;
 
-  // TODO: Update all balances before and after and also detect
-  // settlements and borrow / repays for fCash
-  // TODO: these need to look at before and after events, handle this stuff
-  // here first, regardless of what happens in the loop.
-  // Settlement => look at portfolio before and after
-  // Borrow / Repay fCash => look at portfolio before and after
+  // Returns any settled balances, fCash repays and borrows
+  let transferBundles = updateV2AccountBalances(account, event);
 
   // Parse all the relevant events in the receipt
   for (let i = 0; i < receipt.logs.length; i++) {
@@ -197,11 +204,9 @@ export function handleV2AccountContextUpdate(event: AccountContextUpdate): void 
       if (topic != e.topicHash) continue;
       eventType.push(e.name);
       events.push(e.parseLog(_log, event));
-      log.debug("Parsed {}", [e.name]);
     }
   }
 
-  let transferBundles: TransferBundle[] = new Array<TransferBundle>();
   for (let i = 0; i < events.length; i++) {
     let eventName = eventType[i];
     // If the account context being updated is not the primary actor in the
@@ -238,6 +243,117 @@ export function handleV2AccountContextUpdate(event: AccountContextUpdate): void 
     processProfitAndLoss(transferBundles[i], transfers, bundleArray, event);
   }
   */
+}
+
+function updateV2AccountBalances(acct: Address, event: ethereum.Event): TransferBundle[] {
+  let account = getAccount(acct.toHexString(), event);
+  for (let currencyId = 1; currencyId <= 4; currencyId++) {
+    let assetCash = getAssetCash(currencyId);
+    let cashBalance = getBalance(account, assetCash, event);
+    updateAccount(assetCash, account, cashBalance, event);
+
+    let nToken = getNToken(currencyId);
+    let nTokenBalance = getBalance(account, nToken, event);
+    updateAccount(nToken, account, nTokenBalance, event);
+  }
+
+  let notional = getNotionalV2();
+  let portfolio = notional.getAccountPortfolio(acct);
+
+  let context = dataSource.context();
+  let _f = context.get(acct.toHexString());
+  let prevfCashIds: Array<string>;
+  if (_f == null) {
+    prevfCashIds = new Array<string>();
+  } else {
+    prevfCashIds = _f.toString().split(":");
+  }
+
+  let transferBundles: TransferBundle[] = new Array<TransferBundle>();
+  for (let i = 0; i < prevfCashIds.length; i++) {
+    // This is stored as the positive or negative fCash id
+    let fCash = getAsset(prevfCashIds[i]);
+
+    let balance = getBalance(account, fCash, event);
+    let snapshot = updateAccount(fCash, account, balance, event);
+
+    if (fCash.maturity!.le(event.block.timestamp)) {
+      // Return a settle fCash and cash bundle pair
+      let assetCash = getAssetCash(fCash.currencyId);
+      transferBundles.push(
+        createBundle("Settle fCash", event, [
+          burnToken(acct, fCash, snapshot.previousBalance, event),
+        ])
+      );
+
+      transferBundles.push(
+        createBundle("Settle Cash", event, [
+          // TODO: need to convert settlement rate here...
+          mintToken(acct, assetCash, snapshot.previousBalance, event),
+        ])
+      );
+    } else if (fCash.isfCashDebt && snapshot.currentBalance.lt(snapshot.previousBalance)) {
+      let repayAmount = snapshot.previousBalance.minus(snapshot.currentBalance);
+      let posfCash = getPositivefCash(fCash.id, event);
+
+      transferBundles.push(
+        createBundle("Repay fCash", event, [
+          burnToken(acct, posfCash, repayAmount, event),
+          burnToken(acct, fCash, repayAmount, event),
+        ])
+      );
+    } else if (fCash.isfCashDebt && snapshot.currentBalance.gt(snapshot.previousBalance)) {
+      let borrowAmount = snapshot.currentBalance.minus(snapshot.previousBalance);
+      let posfCash = getPositivefCash(fCash.id, event);
+
+      transferBundles.push(
+        createBundle("Borrow fCash", event, [
+          burnToken(acct, posfCash, borrowAmount, event),
+          burnToken(acct, fCash, borrowAmount, event),
+        ])
+      );
+    }
+  }
+
+  let newfCashIds = new Array<string>();
+  for (let i = 0; i < portfolio.length; i++) {
+    if (portfolio[i].currencyId.equals(BigInt.zero())) continue;
+    let fCashId = encodeFCashID(portfolio[i].currencyId, portfolio[i].maturity);
+
+    if (portfolio[i].notional.lt(BigInt.zero())) {
+      fCashId = convertToNegativeFCashId(fCashId);
+    }
+
+    let idString = fCashId.toHexString();
+    newfCashIds.push(idString);
+
+    // Don't re-update existing fCash ids
+    if (!prevfCashIds.includes(idString)) {
+      let fCash = getOrCreateERC1155Asset(fCashId, event.block, event.transaction.hash);
+      let balance = getBalance(account, fCash, event);
+      updateAccount(fCash, account, balance, event);
+
+      if (portfolio[i].notional.lt(BigInt.zero())) {
+        let borrowAmount = portfolio[i].notional.neg();
+        let posfCash = getPositivefCash(fCash.id, event);
+
+        transferBundles.push(
+          createBundle("Borrow fCash", event, [
+            burnToken(acct, posfCash, borrowAmount, event),
+            burnToken(acct, fCash, borrowAmount, event),
+          ])
+        );
+      }
+    }
+  }
+
+  context.setString(acct.toHexString(), newfCashIds.join(":"));
+  return transferBundles;
+}
+
+function getPositivefCash(fCashId: string, event: ethereum.Event): Token {
+  let fCashIdInt = convertToPositiveFCashId(BigInt.fromByteArray(ByteArray.fromHexString(fCashId)));
+  return getOrCreateERC1155Asset(fCashIdInt, event.block, event.transaction.hash);
 }
 
 class TopicConfig {
@@ -374,6 +490,56 @@ function getNToken(currencyId: i32): Token {
 
 let EventsConfig = [
   new TopicConfig(
+    "MintCToken",
+    "0x4c209b5fc8ad50758f13e2e1088ba56a560dff690a1c6fef26394f4c03821c4f",
+    [],
+    [],
+    (data: Bytes): ethereum.EventParam[] => {
+      let values = ethereum.decode("(address,uint256,uint256)", data)!.toTuple();
+      return [
+        new ethereum.EventParam("minter", values[0]),
+        new ethereum.EventParam("mintAmount", values[1]),
+        new ethereum.EventParam("mintTokens", values[2]),
+      ];
+    },
+    (event: ethereum.Event, account: Address): TransferBundle[] | null => {
+      // This returns underlying to asset cash deposits
+      let minter = event.parameters[0].value.toAddress();
+      let notional = getNotionalV2();
+      if (minter !== notional._address) return null;
+      let assetCash = getAsset(event.address.toHexString());
+      let mintAmount = event.parameters[2].value.toBigInt();
+
+      return [createBundle("Deposit", event, [mintToken(account, assetCash, mintAmount, event)])];
+    }
+  ),
+  new TopicConfig(
+    "RedeemCToken",
+    "0xe5b754fb1abb7f01b499791d0b820ae3b6af3424ac1c59768edb53f4ec31a929",
+    [],
+    [],
+    (data: Bytes): ethereum.EventParam[] => {
+      let values = ethereum.decode("(address,uint256,uint256)", data)!.toTuple();
+      return [
+        new ethereum.EventParam("redeemer", values[0]),
+        new ethereum.EventParam("redeemAmount", values[1]),
+        new ethereum.EventParam("redeemTokens", values[2]),
+      ];
+    },
+    (event: ethereum.Event, account: Address): TransferBundle[] | null => {
+      // This returns asset cash to underlying withdraws
+      let redeemer = event.parameters[0].value.toAddress();
+      let notional = getNotionalV2();
+      if (redeemer !== notional._address) return null;
+      let assetCash = getAsset(event.address.toHexString());
+      let redeemAmount = event.parameters[2].value.toBigInt();
+
+      return [
+        createBundle("Withdraw", event, [burnToken(account, assetCash, redeemAmount, event)]),
+      ];
+    }
+  ),
+  new TopicConfig(
     "Transfer",
     "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
     ["from", "to"],
@@ -383,26 +549,25 @@ let EventsConfig = [
       return [new ethereum.EventParam("value", value!)];
     },
     (event: ethereum.Event): TransferBundle[] | null => {
-      // let t = event as TransferEvent;
-      // let notional = getNotionalV2();
-      // /**
-      //  * If underlying, convert to asset cash denomination
-      //  * If asset cash, it's just 1-1
-      //  * NOTE: this won't work for ETH transfers, maybe i should look for transfers
-      //  * from notional to cTokens? But then I don't see the address, but that is the
-      //  * AccountUpdateContext except in special situations...
-      //  * There's also cToken Mint and Redeem where the address is Notional...
-      //  */
-      // let token: Token;
-      // if (t.params.from === notional._address) {
-      //   return [
-      //     createBundle("Withdraw", event, [burnToken(t.params.to, token, t.params.value, event)]),
-      //   ];
-      // } else if (t.params.to === notional._address) {
-      //   return [
-      //     createBundle("Deposit", event, [mintToken(t.params.from, token, t.params.value, event)]),
-      //   ];
-      // }
+      // This returns asset cash direct transfers
+      let t = changetype<TransferEvent>(event);
+      let notional = getNotionalV2();
+      let currency = notional.try_getCurrencyId(t.address);
+      if (currency.reverted) return null;
+      let assetCash = getAssetCash(currency.value);
+      if (t.params.from === notional._address) {
+        return [
+          createBundle("Withdraw", event, [
+            burnToken(t.params.to, assetCash, t.params.value, event),
+          ]),
+        ];
+      } else if (t.params.to === notional._address) {
+        return [
+          createBundle("Deposit", event, [
+            mintToken(t.params.from, assetCash, t.params.value, event),
+          ]),
+        ];
+      }
 
       return null;
     }
@@ -818,6 +983,7 @@ let EventsConfig = [
     }
   ),
 ];
+
 function getNTokenTransferForLocalLiquidation(hash: string): BigInt {
   if (hash == "0x682028d3bf0463e19e9a8a2670b3547414ea5eb73daadfb6a7a90a16b3759e43") {
     return BigInt.fromString("1843739875817310");
