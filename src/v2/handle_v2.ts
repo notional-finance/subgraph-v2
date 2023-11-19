@@ -59,6 +59,7 @@ import {
 import { processProfitAndLoss } from "../common/profit_loss";
 import { QUARTER, getTimeRef } from "../common/market";
 import { getBalance, updateAccount } from "../balances";
+import { calculateSettledfCashValue } from "./v2_utils";
 
 export function getAssetToken(currencyId: i32): Address {
   let notional = getNotionalV2();
@@ -75,6 +76,7 @@ export function getAssetToken(currencyId: i32): Address {
 
 export function handleV2SettlementRate(event: SetSettlementRate): void {
   let notional = getNotionalV2();
+  let underlying = getUnderlying(event.params.currencyId.toI32());
   // NOTE: need to encode manually because one time we shut off the contract on initialize markets
   let positivefCashId = encodeFCashID(event.params.currencyId, event.params.maturity);
   let currency = notional.getCurrency(event.params.currencyId.toI32());
@@ -86,9 +88,8 @@ export function handleV2SettlementRate(event: SetSettlementRate): void {
 
   let posOracle = getOracle(positivefCash, assetCash, fCashSettlementRate);
   posOracle.oracleAddress = notional._address;
-  // TODO: what precision are these oracle rates?
-  posOracle.decimals = SCALAR_DECIMALS;
-  posOracle.ratePrecision = SCALAR_PRECISION;
+  posOracle.decimals = SCALAR_DECIMALS + underlying.decimals;
+  posOracle.ratePrecision = BigInt.fromI32(10).pow(posOracle.decimals as u8);
   posOracle.latestRate = event.params.rate;
   posOracle.lastUpdateBlockNumber = event.block.number;
   posOracle.lastUpdateTimestamp = event.block.timestamp.toI32();
@@ -140,9 +141,8 @@ export function handleV2SettlementRate(event: SetSettlementRate): void {
   {
     let negOracle = getOracle(negativefCash, assetCash, fCashSettlementRate);
     negOracle.oracleAddress = notional._address;
-    // TODO: what precision are these oracle rates?
-    negOracle.decimals = SCALAR_DECIMALS;
-    negOracle.ratePrecision = SCALAR_PRECISION;
+    negOracle.decimals = SCALAR_DECIMALS + underlying.decimals;
+    negOracle.ratePrecision = BigInt.fromI32(10).pow(posOracle.decimals as u8);
     negOracle.latestRate = event.params.rate;
     negOracle.lastUpdateBlockNumber = event.block.number;
     negOracle.lastUpdateTimestamp = event.block.timestamp.toI32();
@@ -228,10 +228,14 @@ export function handleV2AccountContextUpdate(event: AccountContextUpdate): void 
   let bundleArray: string[] = new Array<string>();
   for (let i = 0; i < transferBundles.length; i++) {
     // TODO: sort these somehow....
+    // Settlement
+    // Deposit
+    // Everything else...
+    // Repay / Borrow fCash
+    // Withdraw
     bundleArray.push(transferBundles[i].id);
   }
 
-  /*
   for (let i = 0; i < transferBundles.length; i++) {
     let transfers: Transfer[] = transferBundles[i].transfers.map<Transfer>((id: string) => {
       // The transfer must always be found at this point
@@ -242,7 +246,6 @@ export function handleV2AccountContextUpdate(event: AccountContextUpdate): void 
 
     processProfitAndLoss(transferBundles[i], transfers, bundleArray, event);
   }
-  */
 }
 
 function updateV2AccountBalances(acct: Address, event: ethereum.Event): TransferBundle[] {
@@ -289,8 +292,12 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
 
       transferBundles.push(
         createBundle("Settle Cash", event, [
-          // TODO: need to convert settlement rate here...
-          mintToken(acct, assetCash, snapshot.previousBalance, event),
+          mintToken(
+            acct,
+            assetCash,
+            calculateSettledfCashValue(fCash.currencyId, fCash, snapshot.previousBalance),
+            event
+          ),
         ])
       );
     } else if (fCash.isfCashDebt && snapshot.currentBalance.lt(snapshot.previousBalance)) {

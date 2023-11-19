@@ -1,4 +1,8 @@
-import { ByteArray, Bytes, BigInt } from "@graphprotocol/graph-ts";
+import { ByteArray, Bytes, BigInt, Address } from "@graphprotocol/graph-ts";
+import { getNotionalV2, getUnderlying } from "../common/entities";
+import { Token } from "../../generated/schema";
+import { INTERNAL_TOKEN_PRECISION } from "../common/constants";
+import { NotionalV3__getActiveMarketsResultValue0Struct } from "../../generated/Assets/NotionalV3";
 
 export function decodeERC1155Id(id: BigInt): BigInt[] {
   let idHex = id.toHexString();
@@ -31,4 +35,40 @@ export function decodeERC1155Id(id: BigInt): BigInt[] {
     BigInt.fromI32(currencyId),
     BigInt.fromI32(isfCashDebt),
   ];
+}
+
+export function calculateNTokenValue(currencyId: i32, token: Token, value: BigInt): BigInt {
+  let notional = getNotionalV2();
+  let nTokenPV = notional.nTokenPresentValueUnderlyingDenominated(currencyId);
+  let totalSupply = notional
+    .getNTokenAccount(Address.fromBytes(token.tokenAddress))
+    .getTotalSupply();
+  let underlying = getUnderlying(currencyId);
+
+  return value
+    .times(nTokenPV)
+    .times(underlying.precision)
+    .div(totalSupply)
+    .div(INTERNAL_TOKEN_PRECISION);
+}
+
+export function calculateSettledfCashValue(currencyId: i32, token: Token, value: BigInt): BigInt {
+  let notional = getNotionalV2();
+  let underlying = getUnderlying(currencyId);
+  let settlementRate = notional.getSettlementRate(currencyId, token.maturity!).rate;
+
+  return value
+    .times(BigInt.fromI32(10).pow(10))
+    .times(underlying.precision)
+    .div(settlementRate);
+}
+
+export function calculateifCashPresentValue(
+  currencyId: i32,
+  token: Token,
+  value: BigInt,
+  activeMarkets: NotionalV3__getActiveMarketsResultValue0Struct[]
+): BigInt {
+  // TODO: not sure if this ever actually happens so just use a zero here..
+  return BigInt.zero();
 }

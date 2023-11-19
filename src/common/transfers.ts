@@ -26,9 +26,15 @@ import {
   getNotionalV2,
   getTransaction,
   getUnderlying,
+  isV2,
 } from "./entities";
 import { BundleCriteria } from "./bundles";
 import { processProfitAndLoss } from "./profit_loss";
+import {
+  calculateNTokenValue,
+  calculateSettledfCashValue,
+  calculateifCashPresentValue,
+} from "../v2/v2_utils";
 
 export function getExpFactor(rateInRatePrecision: BigInt, timeToMaturity: BigInt): f64 {
   return (
@@ -67,8 +73,12 @@ export function convertValueToUnderlying(
   let underlyingExternal: ethereum.CallResult<BigInt>;
 
   if (token.tokenType == nToken) {
-    // v2: this probably doesnt exist before some point
     underlyingExternal = notional.try_convertNTokenToUnderlying(currencyId, value);
+
+    if (underlyingExternal.reverted && isV2()) {
+      // Convert nToken to Underlying does not exist in V3
+      return calculateNTokenValue(currencyId, token, value);
+    }
   } else if (
     token.tokenType == PrimeDebt ||
     (token.tokenType == VaultDebt &&
@@ -87,7 +97,6 @@ export function convertValueToUnderlying(
       (token.maturity as BigInt).notEqual(PRIME_CASH_VAULT_MATURITY))
   ) {
     if ((token.maturity as BigInt) <= blockTime) {
-      // v2: this probably doesnt exist before some point
       // If the fCash has matured then get the settled value
       underlyingExternal = notional.try_convertSettledfCash(
         currencyId,
@@ -95,6 +104,10 @@ export function convertValueToUnderlying(
         value,
         blockTime
       );
+
+      if (underlyingExternal.reverted && isV2()) {
+        return calculateSettledfCashValue(currencyId, token, value);
+      }
     } else {
       let activeMarkets = notional.getActiveMarkets(currencyId);
       for (let i = 0; i < activeMarkets.length; i++) {
@@ -115,7 +128,6 @@ export function convertValueToUnderlying(
         }
       }
 
-      // v2: this probably doesnt exist before some point
       // NOTE: if the search falls through to this point, use the oracle value b/c
       // the fCash is idiosyncratic
       underlyingExternal = notional.try_getPresentfCashValue(
@@ -125,6 +137,10 @@ export function convertValueToUnderlying(
         blockTime,
         false
       );
+
+      if (underlyingExternal.reverted && isV2()) {
+        return calculateifCashPresentValue(currencyId, token, value, activeMarkets);
+      }
     }
 
     if (!underlyingExternal.reverted) {
@@ -161,7 +177,8 @@ export function convertValueToUnderlying(
         .div(underlying.precision);
     }
 
-    return null;
+    // Some times getCurrencyAndRates reverts
+    return BigInt.zero();
   } else {
     // Unknown token type
     return null;

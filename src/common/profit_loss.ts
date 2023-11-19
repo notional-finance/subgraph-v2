@@ -200,6 +200,7 @@ function createLineItem(
   underlyingAmountSpot: BigInt,
   ratio: BigInt | null = null
 ): void {
+  log.debug("CREATE LINE ITEM {} {}", [bundle.bundleName, tokenTransfer.token]);
   let item = new ProfitLossLineItem(bundle.id + ":" + lineItems.length.toString());
   item.bundle = bundle.id;
   item.blockNumber = bundle.blockNumber;
@@ -219,6 +220,7 @@ function createLineItem(
     item.underlyingAmountRealized = underlyingAmountRealized;
     item.underlyingAmountSpot = underlyingAmountSpot;
   } else {
+    // TODO: what to do here...?
     log.critical("Unknown transfer type {}", [transferType]);
   }
 
@@ -314,7 +316,6 @@ function extractProfitLossLineItem(
   event: ethereum.Event
 ): ProfitLossLineItem[] {
   let lineItems = new Array<ProfitLossLineItem>();
-  log.debug("INSIDE BUNDLE {}", [bundle.bundleName]);
   /** Deposits and Withdraws */
   if (bundle.bundleName == "Deposit" || bundle.bundleName == "Withdraw") {
     if (transfers[0].valueInUnderlying !== null) {
