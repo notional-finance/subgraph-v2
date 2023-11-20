@@ -142,21 +142,29 @@ export function processProfitAndLoss(
           snapshot._accumulatedCostRealized
         );
 
-        // Both underlyingAmountSpot and underlyingAmountRealized are negative numbers. Spot prices
-        // are higher than realized prices so ILandFees is positive here.
-        let ILandFees = item.underlyingAmountRealized.minus(item.underlyingAmountSpot);
-        if (ILandFees.ge(BigInt.zero())) {
-          snapshot.totalILAndFeesAtSnapshot = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
-        } else if (snapshot._accumulatedBalance.minus(item.tokenAmount) != BigInt.zero()) {
-          let total = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
-          let ratio = total
-            .times(item.tokenAmount)
-            .div(snapshot._accumulatedBalance.minus(item.tokenAmount));
+        // // Both underlyingAmountSpot and underlyingAmountRealized are negative numbers. Spot prices
+        // // are higher than realized prices so ILandFees is positive here.
+        // let ILandFees = item.underlyingAmountRealized.minus(item.underlyingAmountSpot);
+        // if (ILandFees.ge(BigInt.zero())) {
+        //   snapshot.totalILAndFeesAtSnapshot = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
+        // } else if (
+        //   snapshot._accumulatedBalance
+        //     .minus(item.tokenAmount)
+        //     .abs()
+        //     .gt(TRANSIENT_DUST) &&
+        //   // NOTE: for nToken residuals this will not compute IL and fees properly
+        //   !item.tokenAmount.isZero()
+        // ) {
+        //   let total = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
+        //   // NOTE: this is in underlying precision
+        //   let ratio = total
+        //     .times(item.tokenAmount)
+        //     .div(snapshot._accumulatedBalance.minus(item.tokenAmount));
 
-          snapshot.totalILAndFeesAtSnapshot = total.plus(
-            total.times(ratio).div(underlying.precision)
-          );
-        }
+        //   snapshot.totalILAndFeesAtSnapshot = total.plus(
+        //     total.times(ratio).div(underlying.precision)
+        //   );
+        // }
 
         snapshot.totalInterestAccrualAtSnapshot = snapshot.currentProfitAndLossAtSnapshot.minus(
           snapshot.totalILAndFeesAtSnapshot

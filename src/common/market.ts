@@ -12,6 +12,7 @@ import { getAsset, getNotional, getUnderlying } from "./entities";
 import { getOrCreateERC1155Asset } from "./erc1155";
 import { convertValueToUnderlying } from "./transfers";
 import { getTotalfCashDebt } from "../balances";
+import { readUnderlyingTokenFromNotional } from "../assets";
 
 const DAY = 86400;
 const QUARTER = DAY * 90;
@@ -95,7 +96,7 @@ function getPrimeCashMarket(
   if (market == null) {
     market = new PrimeCashMarket(id);
     let notional = getNotional();
-    market.underlying = getUnderlying(currencyId).id;
+    market.underlying = readUnderlyingTokenFromNotional(currencyId).toHexString();
     market.primeCash = notional.pCashAddress(currencyId).toHexString();
     market.primeDebt = notional.pDebtAddress(currencyId).toHexString();
   }
@@ -239,27 +240,32 @@ export function updatePrimeCashMarket(
 export function setActiveMarkets(
   currencyId: i32,
   block: ethereum.Block,
-  txnHash: string | null
+  txnHash: string | null,
+  skipfCashMarkets: boolean
 ): void {
   let activeMarkets = ActiveMarket.load(currencyId.toString());
   if (activeMarkets == null) {
     activeMarkets = new ActiveMarket(currencyId.toString());
-    let underlying = getUnderlying(currencyId);
-    activeMarkets.underlying = underlying.id;
+    activeMarkets.underlying = readUnderlyingTokenFromNotional(currencyId).toHexString();
   }
 
   activeMarkets.lastUpdateBlockNumber = block.number;
   activeMarkets.lastUpdateTimestamp = block.timestamp.toI32();
   activeMarkets.lastUpdateTransaction = txnHash;
 
-  let notional = getNotional();
-  let _activeMarkets = notional.getActiveMarkets(currencyId);
-  let activeMarketIds = new Array<string>();
-  for (let i = 0; i < _activeMarkets.length; i++) {
-    let id = updatefCashMarketWithSnapshot(currencyId, block, txnHash, _activeMarkets[i]);
-    activeMarketIds.push(id);
+  // Skips fCash markets on first listing because markets are not yet initialized.
+  if (skipfCashMarkets) {
+    activeMarkets.fCashMarkets = new Array<string>();
+  } else {
+    let notional = getNotional();
+    let _activeMarkets = notional.getActiveMarkets(currencyId);
+    let activeMarketIds = new Array<string>();
+    for (let i = 0; i < _activeMarkets.length; i++) {
+      let id = updatefCashMarketWithSnapshot(currencyId, block, txnHash, _activeMarkets[i]);
+      activeMarketIds.push(id);
+    }
+    activeMarkets.fCashMarkets = activeMarketIds;
   }
-  activeMarkets.fCashMarkets = activeMarketIds;
 
   let pCashMarket = updatePrimeCashMarket(currencyId, block, txnHash);
   activeMarkets.pCashMarket = pCashMarket.id;

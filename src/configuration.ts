@@ -135,6 +135,14 @@ export function handleListCurrency(event: ListCurrency): void {
   if (pDebtAddress != ZERO_ADDRESS) {
     configuration.pDebt = pDebtAddress.toHexString();
     configuration.primeDebtAllowed = true;
+
+    // Initializes prime cash markets
+    setActiveMarkets(
+      event.params.newCurrencyId,
+      event.block,
+      event.transaction.hash.toHexString(),
+      true // skip fCash markets, this gets set on init markets
+    );
   }
 
   let factors = notional.getPrimeFactors(event.params.newCurrencyId, event.block.timestamp);
@@ -397,7 +405,12 @@ export function handleMarketsInitialized(event: MarketsInitialized): void {
   configuration.save();
 
   // Updates and sets the currently active markets
-  setActiveMarkets(event.params.currencyId, event.block, event.transaction.hash.toHexString());
+  setActiveMarkets(
+    event.params.currencyId,
+    event.block,
+    event.transaction.hash.toHexString(),
+    false // do not skip fCash markets
+  );
 
   // Updates any vault oracles that have a primary borrow in this currency
   let registry = getOracleRegistry();
