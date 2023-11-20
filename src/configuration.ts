@@ -178,7 +178,6 @@ export function handleListCurrency(event: ListCurrency): void {
     curve.save();
 
     configuration.primeCashCurve = curve.id;
->>>>>>> 428d9e2 (fix: v2 configuration)
   }
 
   configuration.save();
