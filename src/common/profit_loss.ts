@@ -1,4 +1,4 @@
-import { ethereum, BigInt, log } from "@graphprotocol/graph-ts";
+import { ethereum, BigInt, log, dataSource } from "@graphprotocol/graph-ts";
 import {
   BalanceSnapshot,
   ProfitLossLineItem,
@@ -200,7 +200,7 @@ function createLineItem(
   underlyingAmountSpot: BigInt,
   ratio: BigInt | null = null
 ): void {
-  log.debug("CREATE LINE ITEM {} {}", [bundle.bundleName, tokenTransfer.token]);
+  log.debug("CREATE LINE ITEM {} {} {}", [bundle.bundleName, tokenTransfer.token, transferType]);
   let item = new ProfitLossLineItem(bundle.id + ":" + lineItems.length.toString());
   item.bundle = bundle.id;
   item.blockNumber = bundle.blockNumber;
@@ -220,7 +220,8 @@ function createLineItem(
     item.underlyingAmountRealized = underlyingAmountRealized;
     item.underlyingAmountSpot = underlyingAmountSpot;
   } else {
-    // TODO: what to do here...?
+    // TODO: not sure what this is
+    if (dataSource.network() === "goerli") return;
     log.critical("Unknown transfer type {}", [transferType]);
   }
 
