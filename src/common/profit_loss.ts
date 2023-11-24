@@ -132,7 +132,6 @@ export function processProfitAndLoss(
       );
 
       if (accumulatedBalanceValueAtSpot !== null) {
-        let underlying = getAsset(token.underlying as string);
         snapshot.currentProfitAndLossAtSnapshot = accumulatedBalanceValueAtSpot.minus(
           snapshot.adjustedCostBasis
             .times(snapshot._accumulatedBalance)
@@ -142,29 +141,29 @@ export function processProfitAndLoss(
           snapshot._accumulatedCostRealized
         );
 
-        // // Both underlyingAmountSpot and underlyingAmountRealized are negative numbers. Spot prices
-        // // are higher than realized prices so ILandFees is positive here.
-        // let ILandFees = item.underlyingAmountRealized.minus(item.underlyingAmountSpot);
-        // if (ILandFees.ge(BigInt.zero())) {
-        //   snapshot.totalILAndFeesAtSnapshot = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
-        // } else if (
-        //   snapshot._accumulatedBalance
-        //     .minus(item.tokenAmount)
-        //     .abs()
-        //     .gt(TRANSIENT_DUST) &&
-        //   // NOTE: for nToken residuals this will not compute IL and fees properly
-        //   !item.tokenAmount.isZero()
-        // ) {
-        //   let total = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
-        //   // NOTE: this is in underlying precision
-        //   let ratio = total
-        //     .times(item.tokenAmount)
-        //     .div(snapshot._accumulatedBalance.minus(item.tokenAmount));
+        // Both underlyingAmountSpot and underlyingAmountRealized are negative numbers. Spot prices
+        // are higher than realized prices so ILandFees is positive here.
+        let ILandFees = item.underlyingAmountRealized.minus(item.underlyingAmountSpot);
+        if (ILandFees.ge(BigInt.zero())) {
+          snapshot.totalILAndFeesAtSnapshot = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
+        } else if (
+          snapshot._accumulatedBalance
+            .minus(item.tokenAmount)
+            .abs()
+            .gt(TRANSIENT_DUST) &&
+          // NOTE: for nToken residuals this will not compute IL and fees properly
+          !item.tokenAmount.isZero()
+        ) {
+          // Equation here should be:
+          // newTotal = totalILAndFeesAtSnapshot * (1 + tokenAmount / accumulatedBalance)
+          // or
+          // newTotal = totalILAndFeesAtSnapshot + (totalILAndFeesAtSnapshot * tokenAmount / accumulatedBalance)
+          let total = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
 
-        //   snapshot.totalILAndFeesAtSnapshot = total.plus(
-        //     total.times(ratio).div(underlying.precision)
-        //   );
-        // }
+          snapshot.totalILAndFeesAtSnapshot = total.plus(
+            total.times(item.tokenAmount).div(snapshot._accumulatedBalance)
+          );
+        }
 
         snapshot.totalInterestAccrualAtSnapshot = snapshot.currentProfitAndLossAtSnapshot.minus(
           snapshot.totalILAndFeesAtSnapshot

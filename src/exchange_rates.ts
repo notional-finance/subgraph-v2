@@ -170,7 +170,7 @@ function updatefCashExchangeRate(
   n.decimals = RATE_DECIMALS;
   n.ratePrecision = RATE_PRECISION;
   n.oracleAddress = notional;
-  updateExchangeRate(p, rate, block, txnHash);
+  updateExchangeRate(n, rate, block, txnHash);
 }
 
 export function updatefCashOraclesAndMarkets(
