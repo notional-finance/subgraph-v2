@@ -1,18 +1,9 @@
-import {
-  Address,
-  BigInt,
-  ByteArray,
-  Bytes,
-  dataSource,
-  ethereum,
-  log,
-} from "@graphprotocol/graph-ts";
+import { Address, BigInt, Bytes, dataSource, ethereum, log } from "@graphprotocol/graph-ts";
 import {
   FEE_RESERVE,
   RATE_DECIMALS,
   RATE_PRECISION,
   SCALAR_DECIMALS,
-  SCALAR_PRECISION,
   ZERO_ADDRESS,
   fCashOracleRate,
   fCashSettlementRate,
@@ -224,27 +215,66 @@ export function handleV2AccountContextUpdate(event: AccountContextUpdate): void 
     }
   }
 
-  // Finally sort this into some expected ordering and call profitLossLineItem
-  let bundleArray: string[] = new Array<string>();
+  // Sort the bundles into the ordering:
+  //  Settlement => Deposits => Everything Else => Repay / Borrow fCash => Withdraw
+  let orderedBundles: TransferBundle[] = new Array<TransferBundle>();
   for (let i = 0; i < transferBundles.length; i++) {
-    // TODO: sort these somehow....
-    // Settlement
-    // Deposit
-    // Everything else...
-    // Repay / Borrow fCash
-    // Withdraw
-    bundleArray.push(transferBundles[i].id);
+    if (
+      transferBundles[i].bundleName === "Settle fCash" ||
+      transferBundles[i].bundleName === "Settle Cash"
+    ) {
+      orderedBundles.push(transferBundles[i]);
+    }
   }
 
   for (let i = 0; i < transferBundles.length; i++) {
-    let transfers: Transfer[] = transferBundles[i].transfers.map<Transfer>((id: string) => {
+    if (transferBundles[i].bundleName === "Deposit") {
+      orderedBundles.push(transferBundles[i]);
+    }
+  }
+
+  for (let i = 0; i < transferBundles.length; i++) {
+    if (
+      transferBundles[i].bundleName != "Repay fCash" ||
+      transferBundles[i].bundleName != "Borrow fCash" ||
+      transferBundles[i].bundleName != "Withdraw"
+    ) {
+      orderedBundles.push(transferBundles[i]);
+    }
+  }
+
+  for (let i = 0; i < transferBundles.length; i++) {
+    if (
+      transferBundles[i].bundleName == "Repay fCash" ||
+      transferBundles[i].bundleName == "Borrow fCash"
+    ) {
+      orderedBundles.push(transferBundles[i]);
+    }
+  }
+
+  for (let i = 0; i < transferBundles.length; i++) {
+    if (transferBundles[i].bundleName === "Withdraw") {
+      orderedBundles.push(transferBundles[i]);
+    }
+  }
+  for (let i = 0; i < transferBundles.length; i++) {
+    if (transferBundles[i].bundleName === "Deposit") {
+      orderedBundles.push(transferBundles[i]);
+    }
+  }
+
+  let bundleArray: string[] = new Array<string>();
+  for (let i = 0; i < orderedBundles.length; i++) bundleArray.push(transferBundles[i].id);
+
+  for (let i = 0; i < orderedBundles.length; i++) {
+    let transfers: Transfer[] = orderedBundles[i].transfers.map<Transfer>((id: string) => {
       // The transfer must always be found at this point
       let t = Transfer.load(id);
       if (t == null) log.critical("{} transfer id not found", [id]);
       return t as Transfer;
     });
 
-    processProfitAndLoss(transferBundles[i], transfers, bundleArray, event);
+    processProfitAndLoss(orderedBundles[i], transfers, bundleArray, event);
   }
 }
 
