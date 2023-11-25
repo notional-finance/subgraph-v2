@@ -161,7 +161,7 @@ export function processProfitAndLoss(
           let total = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
 
           snapshot.totalILAndFeesAtSnapshot = total.plus(
-            total.times(item.tokenAmount).div(snapshot._accumulatedBalance)
+            total.times(item.tokenAmount).div(snapshot._accumulatedBalance.minus(item.tokenAmount))
           );
         }
 
