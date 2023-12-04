@@ -220,9 +220,10 @@ function createLineItem(
     item.underlyingAmountRealized = underlyingAmountRealized;
     item.underlyingAmountSpot = underlyingAmountSpot;
   } else {
-    // TODO: not sure what this is
-    if (dataSource.network() === "goerli") return;
-    log.critical("Unknown transfer type {}", [transferType]);
+    return;
+    // // TODO: not sure what this is
+    // if (dataSource.network() === "goerli") return;
+    // log.critical("Unknown transfer type {}", [transferType]);
   }
 
   // This ratio is used to split fCash transfers between the positive and negative portions
