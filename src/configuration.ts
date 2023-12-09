@@ -38,8 +38,10 @@ import {
 import {
   AuthorizedCallbackContract,
   BASIS_POINT,
+  DetachedSecondaryIncentiveRewarder,
   GlobalTransferOperator,
   RATE_PRECISION,
+  SecondaryIncentiveRewarder,
   Vault,
   ZERO_ADDRESS,
 } from "./common/constants";
@@ -76,8 +78,8 @@ function getVaultConfiguration(vaultAddress: Address): VaultConfiguration {
   return entity as VaultConfiguration;
 }
 
-function getWhitelistedContract(address: Address): WhitelistedContract {
-  let id = address.toHexString();
+export function getWhitelistedContract(address: string): WhitelistedContract {
+  let id = address;
   let entity = WhitelistedContract.load(id);
   if (entity == null) {
     entity = new WhitelistedContract(id);
@@ -456,7 +458,46 @@ export function handleUpdateSecondaryIncentiveRewarder(
   configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
   configuration.lastUpdateTransactionHash = event.transaction.hash;
 
-  configuration.secondaryIncentiveRewarder = event.params.rewarder;
+  let previousRewarder = configuration.secondaryIncentiveRewarder;
+  if (event.params.rewarder == ZERO_ADDRESS) {
+    configuration.secondaryIncentiveRewarder = null;
+  } else {
+    configuration.secondaryIncentiveRewarder = event.params.rewarder;
+  }
+
+  if (previousRewarder !== null && previousRewarder.toHexString() != ZERO_ADDRESS.toHexString()) {
+    // Remove the capability
+    let o = getWhitelistedContract(previousRewarder.toHexString());
+    let capability = new Array<string>();
+    capability.push(DetachedSecondaryIncentiveRewarder);
+    o.capability = capability;
+    o.lastUpdateBlockNumber = event.block.number;
+    o.lastUpdateTimestamp = event.block.timestamp.toI32();
+    o.lastUpdateTransactionHash = event.transaction.hash;
+    o.save();
+  }
+
+  if (event.params.rewarder != ZERO_ADDRESS) {
+    // Add the capability to the new rewarder
+    let o = getWhitelistedContract(event.params.rewarder.toHexString());
+    let capability = new Array<string>();
+    capability.push(SecondaryIncentiveRewarder);
+    o.capability = capability;
+    o.lastUpdateBlockNumber = event.block.number;
+    o.lastUpdateTimestamp = event.block.timestamp.toI32();
+    o.lastUpdateTransactionHash = event.transaction.hash;
+    o.currency = configuration.id;
+
+    let op = IStrategyVault.bind(event.params.rewarder);
+    let name = op.try_name();
+    if (!name.reverted) {
+      o.name = name.value;
+    } else {
+      o.name = "unknown";
+    }
+    o.save();
+  }
+
   configuration.save();
 }
 
@@ -471,11 +512,12 @@ export function handleReserveBufferUpdate(event: ReserveBufferUpdated): void {
 }
 
 export function handleUpdateGlobalTransferOperator(event: UpdateGlobalTransferOperator): void {
-  let operator = getWhitelistedContract(event.params.operator);
+  let operator = getWhitelistedContract(event.params.operator.toHexString());
   operator.lastUpdateBlockNumber = event.block.number;
   operator.lastUpdateTimestamp = event.block.timestamp.toI32();
   operator.lastUpdateTransactionHash = event.transaction.hash;
   let capability = operator.capability;
+  operator.name = "Global Transfer Operator";
 
   if (event.params.approved) {
     if (!capability.includes(GlobalTransferOperator)) capability.push(GlobalTransferOperator);
@@ -490,7 +532,7 @@ export function handleUpdateGlobalTransferOperator(event: UpdateGlobalTransferOp
 export function handleUpdateAuthorizedCallbackContract(
   event: UpdateAuthorizedCallbackContract
 ): void {
-  let operator = getWhitelistedContract(event.params.operator);
+  let operator = getWhitelistedContract(event.params.operator.toHexString());
   operator.lastUpdateBlockNumber = event.block.number;
   operator.lastUpdateTimestamp = event.block.timestamp.toI32();
   operator.lastUpdateTransactionHash = event.transaction.hash;

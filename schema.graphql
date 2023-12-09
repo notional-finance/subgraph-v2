@@ -456,6 +456,8 @@ type VaultConfiguration @entity {
 enum WhitelistedCapability {
   GlobalTransferOperator,
   AuthorizedCallbackContract
+  SecondaryIncentiveRewarder,
+  DetachedSecondaryIncentiveRewarder
 }
 
 type WhitelistedContract @entity {
@@ -465,6 +467,9 @@ type WhitelistedContract @entity {
   lastUpdateTransactionHash: Bytes!
   capability: [WhitelistedCapability!]!
   name: String!
+
+  # If this whitelisted contract is linked to a specific contract
+  currency: CurrencyConfiguration
 }
 
 ### Balances ###

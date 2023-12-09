@@ -1,4 +1,4 @@
-import { ethereum, BigInt, log } from "@graphprotocol/graph-ts";
+import { ethereum, BigInt, log, Address } from "@graphprotocol/graph-ts";
 import {
   BalanceSnapshot,
   ProfitLossLineItem,
@@ -20,6 +20,7 @@ import {
   nToken,
 } from "./constants";
 import { convertValueToUnderlying } from "./transfers";
+import { getWhitelistedContract } from "../configuration";
 
 const TRANSIENT_DUST = BigInt.fromI32(5000);
 const DUST = BigInt.fromI32(100);
@@ -364,6 +365,23 @@ function extractProfitLossLineItem(
         transfers[1].valueInUnderlying as BigInt,
         transfers[1].valueInUnderlying as BigInt
       );
+    }
+  } else if (bundle.bundleName == "Transfer Secondary Incentive") {
+    const secondaryRewarder = getWhitelistedContract(transfers[0].from);
+    let notional = getNotional();
+    if (secondaryRewarder.currency != null) {
+      let nTokenAddress = notional.try_nTokenAddress(
+        Number.parseInt(secondaryRewarder.currency as string) as i32
+      );
+      if (nTokenAddress.reverted) {
+        createIncentiveLineItem(
+          bundle,
+          transfers[0],
+          transfers[0].value,
+          nTokenAddress.value.toHexString(),
+          lineItems
+        );
+      }
     }
   } else if (bundle.bundleName == "Transfer Incentive") {
     // Due to the nature of this update it cannot run twice for a given transaction
