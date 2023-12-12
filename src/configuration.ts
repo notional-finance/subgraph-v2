@@ -496,6 +496,8 @@ export function handleUpdateSecondaryIncentiveRewarder(
       o.name = "unknown";
     }
     o.save();
+
+    createSecondaryRewarderContext()
   }
 
   configuration.save();

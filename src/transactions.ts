@@ -14,7 +14,7 @@ import {
 import { ProxyRenamed } from "../generated/Transactions/ERC4626";
 import { getTokenNameAndSymbol } from "./common/erc20";
 
-function _logTransfer(
+export function _logTransfer(
   from: Address,
   to: Address,
   value: BigInt,

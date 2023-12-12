@@ -274,3 +274,23 @@ templates:
           handler: handleERC20Transfer
         - event: ProxyRenamed()
           handler: handleProxyRenamed
+  - name: SecondaryRewarder
+    kind: ethereum/contract
+    network: {{ networkName }}
+    source:
+      abi: ISecondaryRewarder
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/rewarder.ts
+      entities:
+        - Transfer
+      abis:
+        - name: ERC20
+          file: ./abi/ERC20.json
+        - name: ERC4626
+          file: ./abi/ERC4626.json
+      eventHandlers:
+        - event: SecondaryRewardTransfer(indexed address,uint256)
+          handler: handleSecondaryRewardTransfer
