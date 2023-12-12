@@ -1,5 +1,5 @@
 import { Address, ethereum, BigInt, log, Bytes, store } from "@graphprotocol/graph-ts";
-import { Token, Transfer } from "../../generated/schema";
+import { ProfitLossLineItem, Token, Transfer } from "../../generated/schema";
 import { IStrategyVault } from "../../generated/Transactions/IStrategyVault";
 import { ERC4626 } from "../../generated/Transactions/ERC4626";
 import {
@@ -224,7 +224,21 @@ function scanTransferBundle(
 
       if (criteria.rewrite) {
         let oldBundle = bundleArray.pop();
-        if (oldBundle) store.remove("TransferBundle", oldBundle);
+        if (oldBundle) {
+          store.remove("TransferBundle", oldBundle);
+
+          // Remove any linked profit loss line items
+          let lineItem = 0;
+          while (lineItem < 256) {
+            let id = oldBundle + ":" + lineItem.toString();
+            let item = ProfitLossLineItem.load(id);
+            if (item) {
+              store.remove("ProfitLossLineItem", id);
+            } else {
+              break;
+            }
+          }
+        }
       }
 
       bundleArray.push(bundle.id);
