@@ -170,11 +170,12 @@ export function handleIncentivesMigrated(event: IncentivesMigrated): void {
   }
 }
 
-// // TODO
+// TODO
 export function handleReserveBalanceUpdated(event: ReserveBalanceUpdated): void {}
 
-// // TODO
+// TODO: this triggers during migrate prime cash
 // export function handleMigrateToV3(event: ReserveBalanceUpdated): void {}
+// TODO: this is called via the transfer event for pcash rewrites and ignores fCash updates
 // export function handleAccountV3Events(event: ReserveBalanceUpdated): void {}
 
 export function handleV2AccountContextUpdate(event: AccountContextUpdate): void {
@@ -325,7 +326,7 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
       let assetCash = getAssetCash(fCash.currencyId);
       transferBundles.push(
         createBundle("Settle fCash", event, [
-          burnToken(acct, fCash, snapshot.previousBalance, event),
+          burnToken(acct, fCash, snapshot.previousBalance, event, 0),
         ])
       );
 
@@ -335,7 +336,8 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
             acct,
             assetCash,
             calculateSettledfCashValue(fCash.currencyId, fCash, snapshot.previousBalance),
-            event
+            event,
+            0
           ),
         ])
       );
@@ -343,16 +345,16 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
       let repayAmount = snapshot.previousBalance.minus(snapshot.currentBalance);
       let posfCash = getPositivefCash(fCashIdInt, event);
       let transfers = new Array<Transfer>();
-      transfers.push(burnToken(acct, posfCash, repayAmount, event));
-      transfers.push(burnToken(acct, fCash, repayAmount, event));
+      transfers.push(burnToken(acct, posfCash, repayAmount, event, 0));
+      transfers.push(burnToken(acct, fCash, repayAmount, event, 1));
 
       transferBundles.push(createBundle("Repay fCash", event, transfers));
     } else if (fCash.isfCashDebt && snapshot.currentBalance.gt(snapshot.previousBalance)) {
       let borrowAmount = snapshot.currentBalance.minus(snapshot.previousBalance);
       let posfCash = getPositivefCash(fCashIdInt, event);
       let transfers = new Array<Transfer>();
-      transfers.push(mintToken(acct, posfCash, borrowAmount, event));
-      transfers.push(mintToken(acct, fCash, borrowAmount, event));
+      transfers.push(mintToken(acct, posfCash, borrowAmount, event, 0));
+      transfers.push(mintToken(acct, fCash, borrowAmount, event, 1));
 
       transferBundles.push(createBundle("Borrow fCash", event, transfers));
     }
@@ -380,8 +382,8 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
         let borrowAmount = portfolio[i].notional.neg();
         let posfCash = getPositivefCash(fCashId, event);
         let transfers = new Array<Transfer>();
-        transfers.push(burnToken(acct, posfCash, borrowAmount, event));
-        transfers.push(burnToken(acct, fCash, borrowAmount, event));
+        transfers.push(burnToken(acct, posfCash, borrowAmount, event, 0));
+        transfers.push(burnToken(acct, fCash, borrowAmount, event, 1));
 
         transferBundles.push(createBundle("Borrow fCash", event, transfers));
       }
@@ -491,9 +493,10 @@ function makeTransfer(
   to: Address,
   token: Token,
   value: BigInt,
-  event: ethereum.Event
+  event: ethereum.Event,
+  index: i32
 ): Transfer {
-  let transfer = createTransfer(event, 0);
+  let transfer = createTransfer(event, index);
   transfer.from = from.toHexString();
   transfer.to = to.toHexString();
   transfer.token = token.id;
@@ -510,12 +513,24 @@ function makeTransfer(
   return transfer;
 }
 
-function burnToken(from: Address, token: Token, value: BigInt, event: ethereum.Event): Transfer {
-  return makeTransfer(from, ZERO_ADDRESS, token, value, event);
+function burnToken(
+  from: Address,
+  token: Token,
+  value: BigInt,
+  event: ethereum.Event,
+  index: i32
+): Transfer {
+  return makeTransfer(from, ZERO_ADDRESS, token, value, event, index);
 }
 
-function mintToken(to: Address, token: Token, value: BigInt, event: ethereum.Event): Transfer {
-  return makeTransfer(to, ZERO_ADDRESS, token, value, event);
+function mintToken(
+  to: Address,
+  token: Token,
+  value: BigInt,
+  event: ethereum.Event,
+  index: i32
+): Transfer {
+  return makeTransfer(to, ZERO_ADDRESS, token, value, event, index);
 }
 
 function getAssetCash(currencyId: i32): Token {
@@ -552,7 +567,9 @@ let EventsConfig = [
       let mintAmount = event.parameters[2].value.toBigInt();
 
       // TODO: this does not work...
-      return [createBundle("Deposit", event, [mintToken(account, assetCash, mintAmount, event)])];
+      return [
+        createBundle("Deposit", event, [mintToken(account, assetCash, mintAmount, event, 0)]),
+      ];
     }
   ),
   new TopicConfig(
@@ -578,7 +595,7 @@ let EventsConfig = [
 
       // TODO: this does not work....
       return [
-        createBundle("Withdraw", event, [burnToken(account, assetCash, redeemAmount, event)]),
+        createBundle("Withdraw", event, [burnToken(account, assetCash, redeemAmount, event, 0)]),
       ];
     }
   ),
@@ -601,13 +618,13 @@ let EventsConfig = [
       if (t.params.from === notional._address) {
         return [
           createBundle("Withdraw", event, [
-            burnToken(t.params.to, assetCash, t.params.value, event),
+            burnToken(t.params.to, assetCash, t.params.value, event, 0),
           ]),
         ];
       } else if (t.params.to === notional._address) {
         return [
           createBundle("Deposit", event, [
-            mintToken(t.params.from, assetCash, t.params.value, event),
+            mintToken(t.params.from, assetCash, t.params.value, event, 0),
           ]),
         ];
       }
@@ -645,7 +662,8 @@ let EventsConfig = [
             changetype<Address>(nToken.tokenAddress),
             assetCash,
             l.params.netAssetCash.neg(),
-            event
+            event,
+            0
           )
         );
         transfers.push(
@@ -654,7 +672,8 @@ let EventsConfig = [
             changetype<Address>(FEE_RESERVE),
             assetCash,
             BigInt.zero(),
-            event
+            event,
+            1
           )
         );
         transfers.push(
@@ -663,7 +682,8 @@ let EventsConfig = [
             l.params.account,
             fCash,
             l.params.netfCash,
-            event
+            event,
+            2
           )
         );
         return [createBundle("Buy fCash", event, transfers)];
@@ -674,7 +694,8 @@ let EventsConfig = [
             l.params.account,
             assetCash,
             l.params.netAssetCash,
-            event
+            event,
+            0
           )
         );
         transfers.push(
@@ -683,7 +704,8 @@ let EventsConfig = [
             changetype<Address>(FEE_RESERVE),
             assetCash,
             BigInt.zero(),
-            event
+            event,
+            1
           )
         );
         transfers.push(
@@ -692,7 +714,8 @@ let EventsConfig = [
             changetype<Address>(nToken.tokenAddress),
             fCash,
             l.params.netfCash.neg(),
-            event
+            event,
+            2
           )
         );
         return [createBundle("Sell fCash", event, transfers)];
@@ -747,7 +770,8 @@ let EventsConfig = [
             t.params.settler,
             fCash,
             t.params.fCashAmount,
-            event
+            event,
+            0
           ),
         ])
       );
@@ -758,7 +782,8 @@ let EventsConfig = [
             t.params.settledAccount,
             assetCash,
             t.params.amountToSettleAsset,
-            event
+            event,
+            0
           ),
         ])
       );
@@ -793,10 +818,11 @@ let EventsConfig = [
             changetype<Address>(nToken.tokenAddress),
             assetCash,
             nTokenPV,
-            event
+            event,
+            0
           )
         );
-        transfers.push(mintToken(t.params.account, nToken, t.params.tokenSupplyChange, event));
+        transfers.push(mintToken(t.params.account, nToken, t.params.tokenSupplyChange, event, 1));
         return [createBundle("Mint nToken", event, transfers)];
       } else if (nTokenPV !== null) {
         transfers.push(
@@ -805,11 +831,12 @@ let EventsConfig = [
             t.params.account,
             assetCash,
             nTokenPV,
-            event
+            event,
+            0
           )
         );
         transfers.push(
-          burnToken(t.params.account, nToken, t.params.tokenSupplyChange.neg(), event)
+          burnToken(t.params.account, nToken, t.params.tokenSupplyChange.neg(), event, 1)
         );
 
         return [createBundle("Redeem nToken", event, transfers)];
@@ -850,7 +877,8 @@ let EventsConfig = [
               t.params.purchaser,
               fCash,
               t.params.fCashAmountToPurchase,
-              event
+              event,
+              0
             ),
           ])
         );
@@ -861,7 +889,8 @@ let EventsConfig = [
               changetype<Address>(nToken.tokenAddress),
               assetCash,
               t.params.netAssetCashNToken.neg(),
-              event
+              event,
+              0
             ),
           ])
         );
@@ -873,7 +902,8 @@ let EventsConfig = [
               changetype<Address>(nToken.tokenAddress),
               fCash,
               t.params.fCashAmountToPurchase.neg(),
-              event
+              event,
+              0
             ),
           ])
         );
@@ -885,7 +915,8 @@ let EventsConfig = [
               t.params.purchaser,
               assetCash,
               t.params.netAssetCashNToken,
-              event
+              event,
+              0
             ),
           ])
         );
@@ -920,7 +951,8 @@ let EventsConfig = [
             t.params.liquidated,
             assetCash,
             t.params.netLocalFromLiquidator,
-            event
+            event,
+            0
           ),
         ])
       );
@@ -932,7 +964,8 @@ let EventsConfig = [
             t.params.liquidator,
             nToken,
             getNTokenTransferForLocalLiquidation(event.transaction.hash.toHexString()),
-            event
+            event,
+            0
           ),
         ])
       );
@@ -970,7 +1003,8 @@ let EventsConfig = [
             t.params.liquidated,
             localCash,
             t.params.netLocalFromLiquidator,
-            event
+            event,
+            0
           ),
         ])
       );
@@ -982,7 +1016,8 @@ let EventsConfig = [
             t.params.liquidator,
             collateralCash,
             t.params.netCollateralTransfer,
-            event
+            event,
+            0
           ),
         ])
       );
@@ -993,7 +1028,8 @@ let EventsConfig = [
             t.params.liquidator,
             nToken,
             t.params.netNTokenTransfer,
-            event
+            event,
+            0
           ),
         ])
       );
@@ -1031,7 +1067,8 @@ let EventsConfig = [
             t.params.liquidated,
             localCash,
             t.params.netLocalFromLiquidator,
-            event
+            event,
+            0
           ),
         ])
       );
@@ -1050,7 +1087,8 @@ let EventsConfig = [
               t.params.liquidator,
               fCash,
               t.params.fCashNotionalTransfer[i],
-              event
+              event,
+              0
             ),
           ])
         );
