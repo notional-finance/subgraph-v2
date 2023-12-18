@@ -24,6 +24,15 @@ import {
   ZERO_ADDRESS,
 } from "./constants";
 
+export function isMigratingToV3(): boolean {
+  let versionContext = VersionContext.load("0");
+  if (versionContext) {
+    return versionContext.isMigratingToV3
+  }
+
+  return false;
+}
+
 export function isV2(): boolean {
   let versionContext = VersionContext.load("0");
   if (versionContext) {

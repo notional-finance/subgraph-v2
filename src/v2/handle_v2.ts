@@ -1,6 +1,7 @@
 import { Address, BigInt, Bytes, dataSource, ethereum, log } from "@graphprotocol/graph-ts";
 import {
   FEE_RESERVE,
+  PrimeCash,
   RATE_DECIMALS,
   RATE_PRECISION,
   SCALAR_DECIMALS,
@@ -39,7 +40,11 @@ import {
   nTokenResidualPurchase,
   nTokenSupplyChange,
 } from "../../generated/Assets/NotionalV2";
-import { AccountContextUpdate } from "../../generated/Configuration/NotionalV3";
+import {
+  AccountContextUpdate,
+  EndV3AccountEvents,
+  MigratedToV3,
+} from "../../generated/Configuration/NotionalV3";
 import { Transfer as TransferEvent } from "../../generated/Assets/ERC20";
 import { Token, Transfer, TransferBundle, VersionContext } from "../../generated/schema";
 import {
@@ -49,7 +54,7 @@ import {
 } from "../common/transfers";
 import { processProfitAndLoss } from "../common/profit_loss";
 import { QUARTER, getTimeRef } from "../common/market";
-import { getBalance, updateAccount } from "../balances";
+import { getBalance, getBalanceSnapshot, updateAccount } from "../balances";
 import { calculateSettledfCashValue } from "./v2_utils";
 
 export function getAssetToken(currencyId: i32): Address {
@@ -170,13 +175,58 @@ export function handleIncentivesMigrated(event: IncentivesMigrated): void {
   }
 }
 
-// TODO
-export function handleReserveBalanceUpdated(event: ReserveBalanceUpdated): void {}
+export function handleReserveBalanceUpdated(event: ReserveBalanceUpdated): void {
+  if (isV2()) {
+    let reserve = getAccount(FEE_RESERVE.toHexString(), event);
+    let assetCash = getAssetCash(event.params.currencyId);
+    let balance = getBalance(reserve, assetCash, event);
+    let snapshot = getBalanceSnapshot(balance, event);
+    snapshot.currentBalance = event.params.newBalance;
+    balance.save();
+    snapshot.save();
+  }
+}
 
-// TODO: this triggers during migrate prime cash
-// export function handleMigrateToV3(event: ReserveBalanceUpdated): void {}
-// TODO: this is called via the transfer event for pcash rewrites and ignores fCash updates
-// export function handleAccountV3Events(event: ReserveBalanceUpdated): void {}
+// This triggers during migrate prime cash
+export function handleMigrateToV3(_event: MigratedToV3): void {
+  let versionContext = VersionContext.load("0");
+  if (!versionContext) {
+    log.critical("Version Context not found", []);
+  } else {
+    versionContext.version = "v3";
+    versionContext.isMigratingToV3 = true;
+    versionContext.save();
+  }
+}
+
+export function handleEndMigrateToV3(_event: EndV3AccountEvents): void {
+  let versionContext = VersionContext.load("0");
+  if (!versionContext) {
+    log.critical("Version Context not found", []);
+  } else {
+    versionContext.isMigratingToV3 = false;
+    versionContext.save();
+  }
+}
+
+export function handleInitialV3Transfer(
+  account: Address,
+  token: Token,
+  value: BigInt,
+  transfer: Transfer,
+  event: ethereum.Event
+): void {
+  if (token.tokenType == PrimeCash && account != ZERO_ADDRESS) {
+    let transferArray = new Array<Transfer>();
+    // Burns the asset cash token for prime cash
+    transferArray.push(transfer);
+    transferArray.push(burnToken(account, getAssetCash(token.currencyId), value, event, 1));
+    createBundle("Convert Prime Cash", event, transferArray);
+  } else {
+    // Do not save the transfer and just exit here.
+    return;
+  }
+}
 
 export function handleV2AccountContextUpdate(event: AccountContextUpdate): void {
   if (!isV2()) return;

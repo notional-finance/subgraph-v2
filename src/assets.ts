@@ -138,9 +138,11 @@ export function handleUpgrade(event: Upgraded): void {
     if (network == "mainnet" || network == "goerli") {
       versionContext.version = "v2";
       versionContext.didMigrateIncentives = false;
+      versionContext.isMigratingToV3 = false;
     } else {
       versionContext.version = "v3";
       versionContext.didMigrateIncentives = true;
+      versionContext.isMigratingToV3 = false;
     }
   }
 

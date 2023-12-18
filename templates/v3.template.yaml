@@ -301,6 +301,10 @@ dataSources:
           handler: handleIncentivesMigrated
         - event: SetSettlementRate(indexed uint256,indexed uint256,uint128)
           handler: handleV2SettlementRate
+        - event: MigratedToV3()
+          handler: handleMigrateToV3
+        - event: EndV3AccountEvents()
+          handler: handleEndMigrateToV3
         # - event: ReserveFeeAccrued(indexed uint16,int256)
         #   handler: handleReserveFeeAccrued
         # - event: AccountSettled(indexed address)

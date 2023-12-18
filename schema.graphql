@@ -755,8 +755,8 @@ type VersionContext @entity {
   routerImplementation: Bytes!
   didMigrateIncentives: Boolean!
 
-  # "Used to temporarily mark the transition when switching from v2 to v3."
-  # isMigratingToV3: Boolean!
+  "Used to temporarily mark the transition when switching from v2 to v3."
+  isMigratingToV3: Boolean!
 }
 
 # Staked NOTE

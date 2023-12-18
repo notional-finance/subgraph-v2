@@ -2,7 +2,7 @@ import { Address, ethereum, log, BigInt } from "@graphprotocol/graph-ts";
 import { TransferBatch, TransferSingle } from "../generated/Transactions/NotionalV3";
 import { ERC20, Transfer as TransferEvent } from "../generated/templates/ERC20Proxy/ERC20";
 import { updateBalance } from "./balances";
-import { getAsset, createTransfer } from "./common/entities";
+import { getAsset, createTransfer, isMigratingToV3 } from "./common/entities";
 import { getOrCreateERC1155Asset } from "./common/erc1155";
 import { Token, Transfer } from "../generated/schema";
 import {
@@ -13,6 +13,7 @@ import {
 } from "./common/transfers";
 import { ProxyRenamed } from "../generated/Transactions/ERC4626";
 import { getTokenNameAndSymbol } from "./common/erc20";
+import { handleInitialV3Transfer } from "./v2/handle_v2";
 
 export function logTransfer(
   from: Address,
@@ -48,8 +49,12 @@ export function logTransfer(
   // Ensures the balance snapshot exists for the PnL calculations
   updateBalance(token, transfer, event);
 
-  // Calls transfer.save() inside
-  processTransfer(transfer, event);
+  if (isMigratingToV3()) {
+    handleInitialV3Transfer(to, token, value, transfer, event);
+  } else {
+    // Calls transfer.save() inside
+    processTransfer(transfer, event);
+  }
 }
 
 export function handleERC1155Transfer(event: TransferSingle): void {
