@@ -57,6 +57,7 @@ import { setActiveMarkets } from "./common/market";
 import { updateVaultOracles } from "./exchange_rates";
 import { updateNTokenIncentives } from "./balances";
 import { readUnderlyingTokenFromNotional } from "./assets";
+import { createSecondaryRewarderContext } from "./rewarder";
 
 export function getCurrencyConfiguration(currencyId: i32): CurrencyConfiguration {
   let id = currencyId.toString();
@@ -497,7 +498,7 @@ export function handleUpdateSecondaryIncentiveRewarder(
     }
     o.save();
 
-    createSecondaryRewarderContext()
+    createSecondaryRewarderContext(event.params.rewarder, event);
   }
 
   configuration.save();

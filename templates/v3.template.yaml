@@ -134,6 +134,8 @@ dataSources:
           file: ./abi/IStrategyVault.json
         - name: ERC4626
           file: ./abi/ERC4626.json
+        - name: SecondaryRewarder
+          file: ./abi/SecondaryRewarder.json
       eventHandlers:
         - event: ListCurrency(uint16)
           handler: handleListCurrency
@@ -278,7 +280,7 @@ templates:
     kind: ethereum/contract
     network: {{ networkName }}
     source:
-      abi: ISecondaryRewarder
+      abi: SecondaryRewarder
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -291,6 +293,8 @@ templates:
           file: ./abi/ERC20.json
         - name: ERC4626
           file: ./abi/ERC4626.json
+        - name: SecondaryRewarder
+          file: ./abi/SecondaryRewarder.json
       eventHandlers:
-        - event: SecondaryRewardTransfer(indexed address,uint256)
+        - event: RewardTransfer(indexed address,indexed address,uint256)
           handler: handleSecondaryRewardTransfer
