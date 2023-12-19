@@ -39,12 +39,10 @@ import {
   SettledCashDebt,
   nTokenResidualPurchase,
   nTokenSupplyChange,
-} from "../../generated/Assets/NotionalV2";
-import {
-  AccountContextUpdate,
   EndV3AccountEvents,
   MigratedToV3,
-} from "../../generated/Configuration/NotionalV3";
+} from "../../generated/Assets/NotionalV2";
+import { AccountContextUpdate } from "../../generated/Configuration/NotionalV3";
 import { Transfer as TransferEvent } from "../../generated/Assets/ERC20";
 import { Token, Transfer, TransferBundle, VersionContext } from "../../generated/schema";
 import {
@@ -356,13 +354,15 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
   let _f = context.get(acct.toHexString());
   let prevfCashIds: Array<string>;
   if (_f == null) {
+    log.debug("PREV FCASH IDS {}, not found", [acct.toHexString()]);
     prevfCashIds = new Array<string>();
   } else {
+    log.debug("PREV FCASH IDS {}, {}", [acct.toHexString(), _f.toString()]);
     prevfCashIds = _f.toString().split(":");
   }
 
   let transferBundles: TransferBundle[] = new Array<TransferBundle>();
-  // TODO: this loop does not work....
+  // @todo: this loop does not work....
   for (let i = 0; i < prevfCashIds.length; i++) {
     // This is stored as the positive or negative fCash id
     let fCash = getAsset(prevfCashIds[i]);
@@ -612,11 +612,12 @@ let EventsConfig = [
       // This returns underlying to asset cash deposits
       let minter = event.parameters[0].value.toAddress();
       let notional = getNotionalV2();
+      log.debug("Inside mint cToken {}, {}", [minter.toHexString(), account.toHexString()]);
       if (minter !== notional._address) return null;
       let assetCash = getAsset(event.address.toHexString());
       let mintAmount = event.parameters[2].value.toBigInt();
 
-      // TODO: this does not work...
+      // @todo: this does not work...
       return [
         createBundle("Deposit", event, [mintToken(account, assetCash, mintAmount, event, 0)]),
       ];
@@ -638,12 +639,13 @@ let EventsConfig = [
     (event: ethereum.Event, account: Address): TransferBundle[] | null => {
       // This returns asset cash to underlying withdraws
       let redeemer = event.parameters[0].value.toAddress();
+      log.debug("Inside redeem cToken {}, {}", [redeemer.toHexString(), account.toHexString()]);
       let notional = getNotionalV2();
       if (redeemer !== notional._address) return null;
       let assetCash = getAsset(event.address.toHexString());
       let redeemAmount = event.parameters[2].value.toBigInt();
 
-      // TODO: this does not work....
+      // @todo: this does not work....
       return [
         createBundle("Withdraw", event, [burnToken(account, assetCash, redeemAmount, event, 0)]),
       ];
@@ -661,9 +663,17 @@ let EventsConfig = [
     (event: ethereum.Event): TransferBundle[] | null => {
       // This returns asset cash direct transfers
       let t = changetype<TransferEvent>(event);
+      log.debug("Inside transfer from {}, {}, {}", [
+        t.address.toHexString(),
+        t.params.from.toHexString(),
+        t.params.to.toHexString(),
+      ]);
       let notional = getNotionalV2();
       let currency = notional.try_getCurrencyId(t.address);
-      if (currency.reverted) return null;
+      if (currency.reverted) {
+        log.debug("Inside transfer from {}, getCurrencyId reverted", [t.address.toHexString()]);
+        return null;
+      }
       let assetCash = getAssetCash(currency.value);
       if (t.params.from === notional._address) {
         return [

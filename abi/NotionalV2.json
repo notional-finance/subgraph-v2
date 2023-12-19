@@ -1,6 +1,24 @@
 [
   {
     "anonymous": false,
+    "inputs": [],
+    "name": "StartV3AccountEvents",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [],
+    "name": "EndV3AccountEvents",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [],
+    "name": "MigratedToV3",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
     "inputs": [
       {
         "indexed": true,
