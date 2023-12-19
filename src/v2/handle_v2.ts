@@ -1,4 +1,4 @@
-import { Address, BigInt, Bytes, dataSource, ethereum, log } from "@graphprotocol/graph-ts";
+import { Address, BigInt, Bytes, ethereum, log } from "@graphprotocol/graph-ts";
 import {
   FEE_RESERVE,
   PrimeCash,
@@ -53,7 +53,7 @@ import {
 import { processProfitAndLoss } from "../common/profit_loss";
 import { QUARTER, getTimeRef } from "../common/market";
 import { getBalance, getBalanceSnapshot, updateAccount } from "../balances";
-import { calculateSettledfCashValue } from "./v2_utils";
+import { calculateSettledfCashValue, decodeERC1155Id } from "./v2_utils";
 
 export function getAssetToken(currencyId: i32): Address {
   let notional = getNotionalV2();
@@ -229,7 +229,6 @@ export function handleInitialV3Transfer(
 export function handleV2AccountContextUpdate(event: AccountContextUpdate): void {
   if (!isV2()) return;
   if (event.receipt == null) log.critical("Transaction Receipt not Found", []);
-  let notional = getNotionalV2();
   let receipt = event.receipt as ethereum.TransactionReceipt;
   let eventType: string[] = new Array<string>();
   let events: ethereum.Event[] = new Array<ethereum.Event>();
@@ -241,7 +240,6 @@ export function handleV2AccountContextUpdate(event: AccountContextUpdate): void 
   // Parse all the relevant events in the receipt
   for (let i = 0; i < receipt.logs.length; i++) {
     let _log = receipt.logs[i];
-    if (_log.address != notional._address) continue;
     // NOTE: this will be the hash of the signature of the event
     let topic = _log.topics[0].toHexString();
     for (let i = 0; i < EventsConfig.length; i++) {
@@ -350,23 +348,21 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
   let notional = getNotionalV2();
   let portfolio = notional.getAccountPortfolio(acct);
 
-  let context = dataSource.context();
-  let _f = context.get(acct.toHexString());
+  let _f = account._prevfCashIds;
   let prevfCashIds: Array<string>;
-  if (_f == null) {
+  if (_f === null) {
     log.debug("PREV FCASH IDS {}, not found", [acct.toHexString()]);
     prevfCashIds = new Array<string>();
   } else {
-    log.debug("PREV FCASH IDS {}, {}", [acct.toHexString(), _f.toString()]);
-    prevfCashIds = _f.toString().split(":");
+    log.debug("PREV FCASH IDS {}, {}", [acct.toHexString(), _f as string]);
+    prevfCashIds = (_f as string).split(":");
   }
 
   let transferBundles: TransferBundle[] = new Array<TransferBundle>();
-  // @todo: this loop does not work....
   for (let i = 0; i < prevfCashIds.length; i++) {
     // This is stored as the positive or negative fCash id
-    let fCash = getAsset(prevfCashIds[i]);
-    let fCashIdInt = encodeFCashID(BigInt.fromI32(fCash.currencyId), fCash.maturity!);
+    let fCashIdInt = BigInt.fromString(prevfCashIds[i]);
+    let fCash = getOrCreateERC1155Asset(fCashIdInt, event.block, event.transaction.hash);
 
     let balance = getBalance(account, fCash, event);
     let snapshot = updateAccount(fCash, account, balance, event);
@@ -419,7 +415,7 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
       fCashId = convertToNegativeFCashId(fCashId);
     }
 
-    let idString = fCashId.toHexString();
+    let idString = fCashId.toString();
     newfCashIds.push(idString);
 
     // Don't re-update existing fCash ids
@@ -440,7 +436,9 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
     }
   }
 
-  context.setString(acct.toHexString(), newfCashIds.join(":"));
+  account._prevfCashIds = newfCashIds.join(":");
+  account.save();
+
   return transferBundles;
 }
 
@@ -559,6 +557,7 @@ function makeTransfer(
   transfer.transactionHash = event.transaction.hash.toHexString();
   transfer.transferType = decodeTransferType(from, to);
   transfer.underlying = getUnderlying(token.currencyId).id;
+  transfer.maturity = token.maturity;
 
   return transfer;
 }

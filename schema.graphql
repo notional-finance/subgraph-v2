@@ -199,6 +199,9 @@ type Account @entity {
   transfersFrom: [Transfer!] @derivedFrom(field: "from")
   transfersTo: [Transfer!] @derivedFrom(field: "to")
   profitLossLineItems: [ProfitLossLineItem!] @derivedFrom(field: "account")
+
+  "Used for internal tracking for V2 events"
+  _prevfCashIds: String
 }
 
 ### Exchange Rates ###
