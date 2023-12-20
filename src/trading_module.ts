@@ -63,7 +63,7 @@ function getTradingModulePermissions(
     permissions.symbol = nameSymbol[1];
 
     let t = getAsset(token.toHexString());
-    if (t.symbol !== null) {
+    if (t.get("symbol") !== null) {
       // Only set the token link if the asset exists, otherwise just set the
       // token address
       permissions.token = token.toHexString();
