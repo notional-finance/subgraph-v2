@@ -58,9 +58,9 @@ function getTradingModulePermissions(
     permissions.tokenAddress = token;
     permissions.allowedDexes = new Array<string>();
     permissions.allowedTradeTypes = new Array<string>();
-    let [name, symbol] = getTokenNameAndSymbol(ERC20.bind(token));
-    permissions.name = name;
-    permissions.symbol = symbol;
+    let nameSymbol = getTokenNameAndSymbol(ERC20.bind(token));
+    permissions.name = nameSymbol[0];
+    permissions.symbol = nameSymbol[1];
 
     let t = getAsset(token.toHexString());
     if (t.symbol !== null) {

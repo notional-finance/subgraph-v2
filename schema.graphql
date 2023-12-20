@@ -720,8 +720,8 @@ type TradingModulePermission @entity {
   sender: Account!
   token: Token
   tokenAddress: Bytes!
-  name: string!;
-  symbol: string!;
+  name: String!
+  symbol: String!
 
   allowedDexes: [DEX!]!
   allowSell: Boolean!
