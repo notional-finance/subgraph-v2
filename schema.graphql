@@ -718,7 +718,10 @@ type TradingModulePermission @entity {
   lastUpdateTransactionHash: Bytes!
 
   sender: Account!
-  token: Token!
+  token: Token
+  tokenAddress: Bytes!
+  name: string!;
+  symbol: string!;
 
   allowedDexes: [DEX!]!
   allowSell: Boolean!
