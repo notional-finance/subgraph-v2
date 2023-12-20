@@ -503,6 +503,11 @@ function extractProfitLossLineItem(
   ) {
     let notional = getNotional();
     let token = getAsset(transfers[0].token);
+    log.debug("In Settle fCash {}", [
+      transfers[0].token,
+      token.currencyId.toString(),
+      transfers[0].maturity === null ? "Not Found" : (transfers[0].maturity as BigInt).toString(),
+    ]);
     let settlementValue = notional.try_convertSettledfCash(
       token.currencyId,
       transfers[0].maturity as BigInt,
