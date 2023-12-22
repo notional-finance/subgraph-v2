@@ -200,7 +200,6 @@ function createLineItem(
   underlyingAmountSpot: BigInt,
   ratio: BigInt | null = null
 ): void {
-  log.debug("CREATE LINE ITEM {} {} {}", [bundle.bundleName, tokenTransfer.token, transferType]);
   let item = new ProfitLossLineItem(bundle.id + ":" + lineItems.length.toString());
   item.bundle = bundle.id;
   item.blockNumber = bundle.blockNumber;
