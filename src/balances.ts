@@ -557,29 +557,28 @@ export function updateAccount(
   if (isV2()) {
     // V2 has different methods for getting the various balances.
     let notionalV2 = getNotionalV2();
-    if (token.tokenType === "fCash") {
+    if (token.tokenType == "fCash") {
       // This method will work even if the isfCashDebt flag is set because it is ignored.
       let signedBalance = notionalV2.signedBalanceOf(
         accountAddress,
         BigInt.fromUnsignedBytes(Bytes.fromHexString(token.id).reverse() as ByteArray)
       );
 
-      // fCash debt and positive fCash are stored in separate balance snapshots
-      if (token.isfCashDebt && signedBalance.lt(BigInt.zero())) {
-        snapshot.currentBalance = signedBalance.abs();
-      } else if (!token.isfCashDebt && signedBalance.ge(BigInt.zero())) {
-        snapshot.currentBalance = signedBalance;
-      } else {
-        snapshot.currentBalance = BigInt.zero();
-      }
-    } else if (token.tokenType === "AssetCash") {
+      // TODO: fCash debt and positive fCash are stored in separate balance snapshots
+      snapshot.currentBalance = signedBalance.abs();
+    } else if (token.tokenType == "AssetCash") {
       snapshot.currentBalance = notionalV2
         .getAccountBalance(token.currencyId, accountAddress)
         .getCashBalance();
-    } else if (token.tokenType === "nToken") {
+    } else if (token.tokenType == "nToken") {
       snapshot.currentBalance = notionalV2
         .getAccountBalance(token.currencyId, accountAddress)
         .getNTokenBalance();
+    }
+
+    // If both prev and current are zero then return without saving
+    if (snapshot.currentBalance.isZero() && snapshot.previousBalance.isZero()) {
+      return snapshot;
     }
   } else if (token.tokenInterface == "ERC1155") {
     // Use the ERC1155 balance of selector which gets the balance directly for fCash

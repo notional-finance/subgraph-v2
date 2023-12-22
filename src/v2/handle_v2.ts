@@ -19,6 +19,7 @@ import {
   getIncentives,
   getNotionalV2,
   getOracle,
+  getTransaction,
   getUnderlying,
   isV2,
 } from "../common/entities";
@@ -215,10 +216,11 @@ export function handleInitialV3Transfer(
   event: ethereum.Event
 ): void {
   if (token.tokenType == PrimeCash && account != ZERO_ADDRESS) {
+    let logIndex = new LogIndex();
     let transferArray = new Array<Transfer>();
     // Burns the asset cash token for prime cash
     transferArray.push(transfer);
-    transferArray.push(burnToken(account, getAssetCash(token.currencyId), value, event, 1));
+    transferArray.push(burnToken(account, getAssetCash(token.currencyId), value, event, logIndex));
     createBundle("Convert Prime Cash", event, transferArray);
   } else {
     // Do not save the transfer and just exit here.
@@ -235,7 +237,9 @@ export function handleV2AccountContextUpdate(event: AccountContextUpdate): void 
   let account = event.params.account;
 
   // Returns any settled balances, fCash repays and borrows
-  let transferBundles = updateV2AccountBalances(account, event);
+  let transferBundles: TransferBundle[] = new Array<TransferBundle>();
+  let logIndex = new LogIndex();
+  updateV2AccountBalances(account, event, transferBundles, logIndex);
 
   // Parse all the relevant events in the receipt
   for (let i = 0; i < receipt.logs.length; i++) {
@@ -260,7 +264,7 @@ export function handleV2AccountContextUpdate(event: AccountContextUpdate): void 
     // inside those bundles
     for (let j = 0; j < EventsConfig.length; j++) {
       if (eventName != EventsConfig[j].name) continue;
-      let bundles = EventsConfig[j].createBundle(events[i], account);
+      let bundles = EventsConfig[j].createBundle(events[i], account, logIndex);
       if (bundles !== null) {
         transferBundles = transferBundles.concat(bundles);
       }
@@ -312,11 +316,6 @@ export function handleV2AccountContextUpdate(event: AccountContextUpdate): void 
       orderedBundles.push(transferBundles[i]);
     }
   }
-  for (let i = 0; i < transferBundles.length; i++) {
-    if (transferBundles[i].bundleName == "Deposit") {
-      orderedBundles.push(transferBundles[i]);
-    }
-  }
 
   let bundleArray: string[] = new Array<string>();
   for (let i = 0; i < orderedBundles.length; i++) bundleArray.push(orderedBundles[i].id);
@@ -331,9 +330,17 @@ export function handleV2AccountContextUpdate(event: AccountContextUpdate): void 
 
     processProfitAndLoss(orderedBundles[i], transfers, bundleArray, event);
   }
+
+  let transaction = getTransaction(event);
+  transaction.save();
 }
 
-function updateV2AccountBalances(acct: Address, event: ethereum.Event): TransferBundle[] {
+function updateV2AccountBalances(
+  acct: Address,
+  event: ethereum.Event,
+  transferBundles: TransferBundle[],
+  logIndex: LogIndex
+): void {
   let account = getAccount(acct.toHexString(), event);
   for (let currencyId = 1; currencyId <= 4; currencyId++) {
     let assetCash = getAssetCash(currencyId);
@@ -351,14 +358,11 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
   let _f = account._prevfCashIds;
   let prevfCashIds: Array<string>;
   if (_f === null) {
-    log.debug("PREV FCASH IDS {}, not found", [acct.toHexString()]);
     prevfCashIds = new Array<string>();
   } else {
-    log.debug("PREV FCASH IDS {}, {}", [acct.toHexString(), _f as string]);
     prevfCashIds = (_f as string).split(":");
   }
 
-  let transferBundles: TransferBundle[] = new Array<TransferBundle>();
   for (let i = 0; i < prevfCashIds.length; i++) {
     // This is stored as the positive or negative fCash id
     let fCashIdInt = BigInt.fromString(prevfCashIds[i]);
@@ -367,12 +371,12 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
     let balance = getBalance(account, fCash, event);
     let snapshot = updateAccount(fCash, account, balance, event);
 
-    if (fCash.maturity!.le(event.block.timestamp)) {
+    if (fCash.maturity!.le(event.block.timestamp) && !snapshot.previousBalance.isZero()) {
       // Return a settle fCash and cash bundle pair
       let assetCash = getAssetCash(fCash.currencyId);
       transferBundles.push(
         createBundle("Settle fCash", event, [
-          burnToken(acct, fCash, snapshot.previousBalance, event, 0),
+          burnToken(acct, fCash, snapshot.previousBalance, event, logIndex),
         ])
       );
 
@@ -383,7 +387,7 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
             assetCash,
             calculateSettledfCashValue(fCash.currencyId, fCash, snapshot.previousBalance),
             event,
-            0
+            logIndex
           ),
         ])
       );
@@ -391,16 +395,16 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
       let repayAmount = snapshot.previousBalance.minus(snapshot.currentBalance);
       let posfCash = getPositivefCash(fCashIdInt, event);
       let transfers = new Array<Transfer>();
-      transfers.push(burnToken(acct, posfCash, repayAmount, event, 0));
-      transfers.push(burnToken(acct, fCash, repayAmount, event, 1));
+      transfers.push(burnToken(acct, posfCash, repayAmount, event, logIndex));
+      transfers.push(burnToken(acct, fCash, repayAmount, event, logIndex));
 
       transferBundles.push(createBundle("Repay fCash", event, transfers));
     } else if (fCash.isfCashDebt && snapshot.currentBalance.gt(snapshot.previousBalance)) {
       let borrowAmount = snapshot.currentBalance.minus(snapshot.previousBalance);
       let posfCash = getPositivefCash(fCashIdInt, event);
       let transfers = new Array<Transfer>();
-      transfers.push(mintToken(acct, posfCash, borrowAmount, event, 0));
-      transfers.push(mintToken(acct, fCash, borrowAmount, event, 1));
+      transfers.push(mintToken(acct, posfCash, borrowAmount, event, logIndex));
+      transfers.push(mintToken(acct, fCash, borrowAmount, event, logIndex));
 
       transferBundles.push(createBundle("Borrow fCash", event, transfers));
     }
@@ -428,8 +432,8 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
         let borrowAmount = portfolio[i].notional.neg();
         let posfCash = getPositivefCash(fCashId, event);
         let transfers = new Array<Transfer>();
-        transfers.push(burnToken(acct, posfCash, borrowAmount, event, 0));
-        transfers.push(burnToken(acct, fCash, borrowAmount, event, 1));
+        transfers.push(burnToken(acct, posfCash, borrowAmount, event, logIndex));
+        transfers.push(burnToken(acct, fCash, borrowAmount, event, logIndex));
 
         transferBundles.push(createBundle("Borrow fCash", event, transfers));
       }
@@ -438,8 +442,6 @@ function updateV2AccountBalances(acct: Address, event: ethereum.Event): Transfer
 
   account._prevfCashIds = newfCashIds.join(":");
   account.save();
-
-  return transferBundles;
 }
 
 function getPositivefCash(fCashId: BigInt, event: ethereum.Event): Token {
@@ -447,12 +449,28 @@ function getPositivefCash(fCashId: BigInt, event: ethereum.Event): Token {
   return getOrCreateERC1155Asset(fCashIdInt, event.block, event.transaction.hash);
 }
 
+class LogIndex {
+  logIndex: i32;
+
+  constructor() {
+    this.logIndex = 0;
+  }
+
+  getLogIndex(): i32 {
+    return ++this.logIndex;
+  }
+}
+
 class TopicConfig {
   topicHash: string;
   indexedNames: string[];
   indexedTypes: string[];
   dataResolver: (data: Bytes) => ethereum.EventParam[];
-  createBundle: (event: ethereum.Event, account: Address) => TransferBundle[] | null;
+  createBundle: (
+    event: ethereum.Event,
+    account: Address,
+    logIndex: LogIndex
+  ) => TransferBundle[] | null;
   name: string;
 
   constructor(
@@ -461,7 +479,11 @@ class TopicConfig {
     indexedNames: string[],
     indexedTypes: string[],
     dataResolver: (data: Bytes) => ethereum.EventParam[],
-    createBundle: (event: ethereum.Event, account: Address) => TransferBundle[] | null
+    createBundle: (
+      event: ethereum.Event,
+      account: Address,
+      logIndex: LogIndex
+    ) => TransferBundle[] | null
   ) {
     this.name = name;
     this.topicHash = topicHash;
@@ -542,9 +564,9 @@ function makeTransfer(
   token: Token,
   value: BigInt,
   event: ethereum.Event,
-  index: i32
+  index: LogIndex
 ): Transfer {
-  let transfer = createTransfer(event, index);
+  let transfer = createTransfer(event, index.getLogIndex());
   transfer.from = from.toHexString();
   transfer.to = to.toHexString();
   transfer.token = token.id;
@@ -567,7 +589,7 @@ function burnToken(
   token: Token,
   value: BigInt,
   event: ethereum.Event,
-  index: i32
+  index: LogIndex
 ): Transfer {
   return makeTransfer(from, ZERO_ADDRESS, token, value, event, index);
 }
@@ -577,7 +599,7 @@ function mintToken(
   token: Token,
   value: BigInt,
   event: ethereum.Event,
-  index: i32
+  index: LogIndex
 ): Transfer {
   return makeTransfer(to, ZERO_ADDRESS, token, value, event, index);
 }
@@ -607,7 +629,7 @@ let EventsConfig = [
         new ethereum.EventParam("mintTokens", values[2]),
       ];
     },
-    (event: ethereum.Event, account: Address): TransferBundle[] | null => {
+    (event: ethereum.Event, account: Address, logIndex: LogIndex): TransferBundle[] | null => {
       // This returns underlying to asset cash deposits
       let minter = event.parameters[0].value.toAddress();
       let notional = getNotionalV2();
@@ -616,9 +638,10 @@ let EventsConfig = [
       let assetCash = getAsset(event.address.toHexString());
       let mintAmount = event.parameters[2].value.toBigInt();
 
-      // @todo: this does not work...
       return [
-        createBundle("Deposit", event, [mintToken(account, assetCash, mintAmount, event, 0)]),
+        createBundle("Deposit", event, [
+          mintToken(account, assetCash, mintAmount, event, logIndex),
+        ]),
       ];
     }
   ),
@@ -635,7 +658,7 @@ let EventsConfig = [
         new ethereum.EventParam("redeemTokens", values[2]),
       ];
     },
-    (event: ethereum.Event, account: Address): TransferBundle[] | null => {
+    (event: ethereum.Event, account: Address, logIndex: LogIndex): TransferBundle[] | null => {
       // This returns asset cash to underlying withdraws
       let redeemer = event.parameters[0].value.toAddress();
       log.debug("Inside redeem cToken {}, {}", [redeemer.toHexString(), account.toHexString()]);
@@ -644,9 +667,10 @@ let EventsConfig = [
       let assetCash = getAsset(event.address.toHexString());
       let redeemAmount = event.parameters[2].value.toBigInt();
 
-      // @todo: this does not work....
       return [
-        createBundle("Withdraw", event, [burnToken(account, assetCash, redeemAmount, event, 0)]),
+        createBundle("Withdraw", event, [
+          burnToken(account, assetCash, redeemAmount, event, logIndex),
+        ]),
       ];
     }
   ),
@@ -659,7 +683,7 @@ let EventsConfig = [
       let value = ethereum.decode("uint256", data);
       return [new ethereum.EventParam("value", value!)];
     },
-    (event: ethereum.Event): TransferBundle[] | null => {
+    (event: ethereum.Event, _: Address, logIndex: LogIndex): TransferBundle[] | null => {
       // This returns asset cash direct transfers
       let t = changetype<TransferEvent>(event);
       log.debug("Inside transfer from {}, {}, {}", [
@@ -677,13 +701,13 @@ let EventsConfig = [
       if (t.params.from === notional._address) {
         return [
           createBundle("Withdraw", event, [
-            burnToken(t.params.to, assetCash, t.params.value, event, 0),
+            burnToken(t.params.to, assetCash, t.params.value, event, logIndex),
           ]),
         ];
       } else if (t.params.to === notional._address) {
         return [
           createBundle("Deposit", event, [
-            mintToken(t.params.from, assetCash, t.params.value, event, 0),
+            mintToken(t.params.from, assetCash, t.params.value, event, logIndex),
           ]),
         ];
       }
@@ -704,7 +728,7 @@ let EventsConfig = [
         new ethereum.EventParam("netfCash", values[2]),
       ];
     },
-    (event: ethereum.Event): TransferBundle[] | null => {
+    (event: ethereum.Event, _: Address, logIndex: LogIndex): TransferBundle[] | null => {
       let l = changetype<LendBorrowTrade>(event);
       let assetCash = getAssetCash(l.params.currencyId);
       let nToken = getNToken(l.params.currencyId);
@@ -722,7 +746,7 @@ let EventsConfig = [
             assetCash,
             l.params.netAssetCash.neg(),
             event,
-            0
+            logIndex
           )
         );
         transfers.push(
@@ -732,7 +756,7 @@ let EventsConfig = [
             assetCash,
             BigInt.zero(),
             event,
-            1
+            logIndex
           )
         );
         transfers.push(
@@ -742,7 +766,7 @@ let EventsConfig = [
             fCash,
             l.params.netfCash,
             event,
-            2
+            logIndex
           )
         );
         return [createBundle("Buy fCash", event, transfers)];
@@ -754,7 +778,7 @@ let EventsConfig = [
             assetCash,
             l.params.netAssetCash,
             event,
-            0
+            logIndex
           )
         );
         transfers.push(
@@ -764,7 +788,7 @@ let EventsConfig = [
             assetCash,
             BigInt.zero(),
             event,
-            1
+            logIndex
           )
         );
         transfers.push(
@@ -774,27 +798,13 @@ let EventsConfig = [
             fCash,
             l.params.netfCash.neg(),
             event,
-            2
+            logIndex
           )
         );
         return [createBundle("Sell fCash", event, transfers)];
       }
     }
   ),
-  // new TopicConfig(
-  //   "AccountSettled",
-  //   "0xe8fafb2a45bb3c597b46894e13460ced12d06a721cf3b1f3a70f6d9465cf9d28",
-  //   ["account"],
-  //   ["address"],
-  //   (_data: Bytes): ethereum.EventParam[] => {
-  //     return [];
-  //   }
-  //   (event: ethereum.Event): TransferBundle[] | null => {
-  //   }
-  //   // Look at balances before and after and find matured fCash
-  //   // Bundle => Settle fCash [ Burn Transfer Single fCash fCashNotional.abs()]
-  //   // Bundle => Settle Cash [ Transfer Asset Cash SettlementReserve to account CashAmount]
-  // ),
   new TopicConfig(
     "SettledCashDebt",
     "0xc76e4e38ccd25a7b0a39cdaa81a20efa0c2127e74c448b7b05aef1c427d5732b",
@@ -807,7 +817,7 @@ let EventsConfig = [
         new ethereum.EventParam("fCashAmount", values[1]),
       ];
     },
-    (event: ethereum.Event, account: Address): TransferBundle[] | null => {
+    (event: ethereum.Event, account: Address, logIndex: LogIndex): TransferBundle[] | null => {
       let t = changetype<SettledCashDebt>(event);
       if (t.params.settler !== account) return null;
       let fCash = getOrCreateERC1155Asset(
@@ -830,7 +840,7 @@ let EventsConfig = [
             fCash,
             t.params.fCashAmount,
             event,
-            0
+            logIndex
           ),
         ])
       );
@@ -842,7 +852,7 @@ let EventsConfig = [
             assetCash,
             t.params.amountToSettleAsset,
             event,
-            0
+            logIndex
           ),
         ])
       );
@@ -859,7 +869,7 @@ let EventsConfig = [
       let values = ethereum.decode("int256", data)!;
       return [new ethereum.EventParam("tokenSupplyChange", values)];
     },
-    (event: ethereum.Event): TransferBundle[] | null => {
+    (event: ethereum.Event, _: Address, logIndex: LogIndex): TransferBundle[] | null => {
       let t = changetype<nTokenSupplyChange>(event);
       let nToken = getNToken(t.params.currencyId);
       let assetCash = getAssetCash(t.params.currencyId);
@@ -878,10 +888,12 @@ let EventsConfig = [
             assetCash,
             nTokenPV,
             event,
-            0
+            logIndex
           )
         );
-        transfers.push(mintToken(t.params.account, nToken, t.params.tokenSupplyChange, event, 1));
+        transfers.push(
+          mintToken(t.params.account, nToken, t.params.tokenSupplyChange, event, logIndex)
+        );
         return [createBundle("Mint nToken", event, transfers)];
       } else if (nTokenPV !== null) {
         transfers.push(
@@ -891,11 +903,11 @@ let EventsConfig = [
             assetCash,
             nTokenPV,
             event,
-            0
+            logIndex
           )
         );
         transfers.push(
-          burnToken(t.params.account, nToken, t.params.tokenSupplyChange.neg(), event, 1)
+          burnToken(t.params.account, nToken, t.params.tokenSupplyChange.neg(), event, logIndex)
         );
 
         return [createBundle("Redeem nToken", event, transfers)];
@@ -916,7 +928,7 @@ let EventsConfig = [
         new ethereum.EventParam("netAssetCashNToken", values[1]),
       ];
     },
-    (event: ethereum.Event): TransferBundle[] | null => {
+    (event: ethereum.Event, _: Address, logIndex: LogIndex): TransferBundle[] | null => {
       let t = changetype<nTokenResidualPurchase>(event);
       let fCash = getOrCreateERC1155Asset(
         encodeFCashID(BigInt.fromI32(t.params.currencyId), t.params.maturity),
@@ -937,7 +949,7 @@ let EventsConfig = [
               fCash,
               t.params.fCashAmountToPurchase,
               event,
-              0
+              logIndex
             ),
           ])
         );
@@ -949,7 +961,7 @@ let EventsConfig = [
               assetCash,
               t.params.netAssetCashNToken.neg(),
               event,
-              0
+              logIndex
             ),
           ])
         );
@@ -962,7 +974,7 @@ let EventsConfig = [
               fCash,
               t.params.fCashAmountToPurchase.neg(),
               event,
-              0
+              logIndex
             ),
           ])
         );
@@ -975,7 +987,7 @@ let EventsConfig = [
               assetCash,
               t.params.netAssetCashNToken,
               event,
-              0
+              logIndex
             ),
           ])
         );
@@ -996,7 +1008,7 @@ let EventsConfig = [
         new ethereum.EventParam("netLocalFromLiquidator", values[1]),
       ];
     },
-    (event: ethereum.Event, account: Address): TransferBundle[] | null => {
+    (event: ethereum.Event, account: Address, logIndex: LogIndex): TransferBundle[] | null => {
       let t = changetype<LiquidateLocalCurrency>(event);
       if (t.params.liquidator !== account) return null;
       let assetCash = getAssetCash(t.params.localCurrencyId);
@@ -1011,7 +1023,7 @@ let EventsConfig = [
             assetCash,
             t.params.netLocalFromLiquidator,
             event,
-            0
+            logIndex
           ),
         ])
       );
@@ -1024,7 +1036,7 @@ let EventsConfig = [
             nToken,
             getNTokenTransferForLocalLiquidation(event.transaction.hash.toHexString()),
             event,
-            0
+            logIndex
           ),
         ])
       );
@@ -1047,7 +1059,7 @@ let EventsConfig = [
         new ethereum.EventParam("netNTokenTransfer", values[4]),
       ];
     },
-    (event: ethereum.Event, account: Address): TransferBundle[] | null => {
+    (event: ethereum.Event, account: Address, logIndex: LogIndex): TransferBundle[] | null => {
       let t = changetype<LiquidateCollateralCurrency>(event);
       if (t.params.liquidator !== account) return null;
       let localCash = getAssetCash(t.params.localCurrencyId);
@@ -1063,7 +1075,7 @@ let EventsConfig = [
             localCash,
             t.params.netLocalFromLiquidator,
             event,
-            0
+            logIndex
           ),
         ])
       );
@@ -1076,7 +1088,7 @@ let EventsConfig = [
             collateralCash,
             t.params.netCollateralTransfer,
             event,
-            0
+            logIndex
           ),
         ])
       );
@@ -1088,7 +1100,7 @@ let EventsConfig = [
             nToken,
             t.params.netNTokenTransfer,
             event,
-            0
+            logIndex
           ),
         ])
       );
@@ -1114,7 +1126,7 @@ let EventsConfig = [
         new ethereum.EventParam("fCashNotionalTransfer", values[4]),
       ];
     },
-    (event: ethereum.Event, account: Address): TransferBundle[] | null => {
+    (event: ethereum.Event, account: Address, logIndex: LogIndex): TransferBundle[] | null => {
       let t = changetype<LiquidatefCashEvent>(event);
       if (t.params.liquidator !== account) return null;
       let localCash = getAssetCash(t.params.localCurrencyId);
@@ -1127,7 +1139,7 @@ let EventsConfig = [
             localCash,
             t.params.netLocalFromLiquidator,
             event,
-            0
+            logIndex
           ),
         ])
       );
@@ -1147,7 +1159,7 @@ let EventsConfig = [
               fCash,
               t.params.fCashNotionalTransfer[i],
               event,
-              0
+              logIndex
             ),
           ])
         );
