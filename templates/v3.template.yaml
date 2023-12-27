@@ -3,11 +3,6 @@ description: Notional V3 Subgraph
 repository: https://github.com/notional-finance/contracts-v2
 schema:
   file: ./schema.graphql
-# features:
-#   - grafting
-# graft:
-#   base: QmPn3fK1eZ26axAj7ropqRdJYziNiPh9LDM2ppsxbYXfWa
-#   block: 6907898
 dataSources:
   - name: Assets
     kind: ethereum/contract

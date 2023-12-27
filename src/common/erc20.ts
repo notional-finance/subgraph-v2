@@ -122,7 +122,6 @@ export function createERC20TokenAsset(
   token.firstUpdateTimestamp = event.block.timestamp.toI32();
   token.firstUpdateTransactionHash = event.transaction.hash;
 
-  log.debug("Updated token variables for entity {}", [token.id]);
   token.save();
 
   return token;

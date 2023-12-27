@@ -70,7 +70,6 @@ export function handleListCurrency(event: ListCurrency): void {
   underlying.lastUpdateTimestamp = event.block.timestamp.toI32();
   underlying.lastUpdateTransactionHash = event.transaction.hash;
 
-  log.debug("Updated currency variables for entity {}", [id.toString()]);
   underlying.save();
 
   if (isV2()) {

@@ -355,7 +355,7 @@ function updateNToken(
     if (token.isfCashDebt) {
       let portfolio = notional.getNTokenPortfolio(nTokenAddress).getNetfCashAssets();
       for (let i = 0; i < portfolio.length; i++) {
-        if (portfolio[i].maturity === token.maturity) {
+        if (portfolio[i].maturity == (token.maturity as BigInt)) {
           snapshot.currentBalance = portfolio[i].notional;
           break;
         }
@@ -363,7 +363,7 @@ function updateNToken(
     } else {
       let markets = notional.getActiveMarkets(token.currencyId);
       for (let i = 0; i < markets.length; i++) {
-        if (markets[i].maturity === token.maturity) {
+        if (markets[i].maturity == (token.maturity as BigInt)) {
           snapshot.currentBalance = markets[i].totalfCash;
           break;
         }
