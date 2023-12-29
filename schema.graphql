@@ -222,6 +222,7 @@ enum OracleType {
   nTokenBlendedInterestRate,
   nTokenFeeRate,
   nTokenIncentiveRate,
+  nTokenSecondaryIncentiveRate,
 }
 
 type nTokenFeeBuffer @entity {

@@ -9,7 +9,7 @@ import {
 } from "../generated/ExchangeRates/Notional";
 import { IStrategyVault } from "../generated/ExchangeRates/IStrategyVault";
 import { Aggregator } from "../generated/ExchangeRates/Aggregator";
-import { Token, ExchangeRate, Oracle } from "../generated/schema";
+import { Token, ExchangeRate, Oracle, Incentive } from "../generated/schema";
 import {
   Chainlink,
   DOUBLE_SCALAR_DECIMALS,
@@ -41,9 +41,11 @@ import {
   nTokenBlendedInterestRate,
   nTokenFeeRate,
   nTokenIncentiveRate,
+  nTokenSecondaryIncentiveRate,
 } from "./common/constants";
 import {
   getAsset,
+  getIncentives,
   getNotional,
   getOracle,
   getOracleRegistry,
@@ -363,10 +365,26 @@ function updateNTokenRates(
           .times(RATE_PRECISION)
           .div(nTokenUnderlyingPV)
       : BigInt.zero();
+
     // prettier-ignore
     updateNTokenRate(
       nTokenIncentiveRate,
       noteAPYInNOTETerms,
+      base, nToken, notional._address, block, txnHash
+    );
+
+    // This is the APY of the secondary incentive in its own terms
+    let secondaryAPY = incentives.secondaryEmissionRate
+      ? (incentives.secondaryEmissionRate as BigInt)
+          .times(INTERNAL_TOKEN_PRECISION)
+          .times(RATE_PRECISION)
+          .div(nTokenUnderlyingPV)
+      : BigInt.zero();
+
+    // prettier-ignore
+    updateNTokenRate(
+      nTokenSecondaryIncentiveRate,
+      secondaryAPY,
       base, nToken, notional._address, block, txnHash
     );
   }

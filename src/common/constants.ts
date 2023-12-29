@@ -78,6 +78,7 @@ export const nTokenToUnderlyingExchangeRate = "nTokenToUnderlyingExchangeRate";
 export const nTokenBlendedInterestRate = "nTokenBlendedInterestRate";
 export const nTokenFeeRate = "nTokenFeeRate";
 export const nTokenIncentiveRate = "nTokenIncentiveRate";
+export const nTokenSecondaryIncentiveRate = "nTokenSecondaryIncentiveRate";
 
 // Whitelisted Capability
 export const GlobalTransferOperator = "GlobalTransferOperator";
