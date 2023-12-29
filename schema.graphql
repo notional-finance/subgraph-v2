@@ -352,10 +352,6 @@ type CurrencyConfiguration @entity {
   proportions: [Int!]
   deprecated_anchorRates: [Int!]
 
-  "Annual incentive emission rate"
-  incentiveEmissionRate: BigInt
-  secondaryIncentiveRewarder: Bytes
-
   "Residual purchase incentive in basis points"
   residualPurchaseIncentiveBasisPoints: Int
   "Seconds until residuals become available to purchase after market initialization"
@@ -695,6 +691,11 @@ type Incentive @entity {
 
   currencyConfiguration: CurrencyConfiguration!
 
+  "If set, a secondary incentive rewarder is set"
+  secondaryIncentiveRewarder: Bytes
+
+  "Annual incentive emission rate for NOTE"
+  incentiveEmissionRate: BigInt
   "Current accumulated NOTE per nToken"
   accumulatedNOTEPerNToken: BigInt
   "Last accumulation time"
@@ -717,6 +718,9 @@ type Incentive @entity {
   accumulatedSecondaryRewardPerNToken: BigInt
   "Last accumulated time for the current rewarder"
   lastSecondaryAccumulatedTime: BigInt
+
+  "Secondary incentive emission rate in INTERNAL_TOKEN_PRECISION"
+  secondaryEmissionRate: BigInt
   "End time for the current secondary rewarder"
   secondaryRewardEndTime: BigInt
 }

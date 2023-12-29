@@ -347,26 +347,28 @@ function updateNTokenRates(
       .div(nTokenUnderlyingPV.times(underlying.precision).div(INTERNAL_TOKEN_PRECISION));
     // prettier-ignore
     updateNTokenRate(
-    nTokenFeeRate,
-    feeAPY,
-    base, nToken, notional._address, block, txnHash
-  );
+      nTokenFeeRate,
+      feeAPY,
+      base, nToken, notional._address, block, txnHash
+    );
 
     // incentiveAPY needs a NOTE token price / nTokenTVL
     // noteToNTokenExRate * [(noteIncentives * RATE_PRECISION) / nTokenTVL]
-    let config = getCurrencyConfiguration(currencyId);
-    let noteAPYInNOTETerms = config.incentiveEmissionRate
-      ? (config.incentiveEmissionRate as BigInt)
+    let incentives = Incentive.load(currencyId.toString());
+    if (incentives == null) return;
+
+    let noteAPYInNOTETerms = incentives.incentiveEmissionRate
+      ? (incentives.incentiveEmissionRate as BigInt)
           .times(INTERNAL_TOKEN_PRECISION)
           .times(RATE_PRECISION)
           .div(nTokenUnderlyingPV)
       : BigInt.zero();
     // prettier-ignore
     updateNTokenRate(
-    nTokenIncentiveRate,
-    noteAPYInNOTETerms,
-    base, nToken, notional._address, block, txnHash
-  );
+      nTokenIncentiveRate,
+      noteAPYInNOTETerms,
+      base, nToken, notional._address, block, txnHash
+    );
   }
 }
 

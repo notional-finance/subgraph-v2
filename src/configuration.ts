@@ -431,14 +431,8 @@ export function handleMarketsInitialized(event: MarketsInitialized): void {
 }
 
 export function handleUpdateIncentiveEmissionRate(event: UpdateIncentiveEmissionRate): void {
-  let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number;
-  configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
-  configuration.lastUpdateTransactionHash = event.transaction.hash;
-
-  configuration.incentiveEmissionRate = event.params.newEmissionRate;
-  configuration.save();
-
+  let incentives = getIncentives(event.params.currencyId, event);
+  incentives.incentiveEmissionRate = event.params.newEmissionRate;
   updateNTokenIncentives(event.params.currencyId, event);
 }
 
@@ -454,17 +448,14 @@ export function handleIncentivesMigrated(event: IncentivesMigrated): void {
 export function handleUpdateSecondaryIncentiveRewarder(
   event: UpdateSecondaryIncentiveRewarder
 ): void {
-  let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number;
-  configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
-  configuration.lastUpdateTransactionHash = event.transaction.hash;
-
-  let previousRewarder = configuration.secondaryIncentiveRewarder;
+  let incentives = getIncentives(event.params.currencyId, event);
+  let previousRewarder = incentives.secondaryIncentiveRewarder;
   if (event.params.rewarder == ZERO_ADDRESS) {
-    configuration.secondaryIncentiveRewarder = null;
+    incentives.secondaryIncentiveRewarder = null;
   } else {
-    configuration.secondaryIncentiveRewarder = event.params.rewarder;
+    incentives.secondaryIncentiveRewarder = event.params.rewarder;
   }
+  incentives.save();
 
   if (previousRewarder !== null && previousRewarder.toHexString() != ZERO_ADDRESS.toHexString()) {
     // Remove the capability
@@ -487,7 +478,7 @@ export function handleUpdateSecondaryIncentiveRewarder(
     o.lastUpdateBlockNumber = event.block.number;
     o.lastUpdateTimestamp = event.block.timestamp.toI32();
     o.lastUpdateTransactionHash = event.transaction.hash;
-    o.currency = configuration.id;
+    o.currency = event.params.currencyId.toString();
 
     let op = IStrategyVault.bind(event.params.rewarder);
     let name = op.try_name();
@@ -500,8 +491,6 @@ export function handleUpdateSecondaryIncentiveRewarder(
 
     createSecondaryRewarderContext(event.params.rewarder, event);
   }
-
-  configuration.save();
 }
 
 export function handleReserveBufferUpdate(event: ReserveBufferUpdated): void {
