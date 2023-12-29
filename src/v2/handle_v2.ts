@@ -832,46 +832,46 @@ let EventsConfig = [
       }
     }
   ),
-  new TopicConfig(
-    "LiquidateLocalCurrency",
-    "0x4596c3b6545e97eb42b719442dd0afa8eb7680f3ff72c762763d4b292ee26ea7",
-    ["liquidated", "liquidator"],
-    ["address", "address"],
-    (data: Bytes): ethereum.EventParam[] => {
-      let values = ethereum.decode("(uint16,int256)", data)!.toTuple();
-      return [
-        new ethereum.EventParam("localCurrencyId", values[0]),
-        new ethereum.EventParam("netLocalFromLiquidator", values[1]),
-      ];
-    },
-    (event: ethereum.Event, account: Address): TransferBundle[] | null => {
-      let t = changetype<LiquidateLocalCurrency>(event);
-      if (t.params.liquidator !== account) return null;
-      let assetCash = getAssetCash(t.params.localCurrencyId);
-      let nToken = getNToken(t.params.localCurrencyId);
+  // new TopicConfig(
+  //   "LiquidateLocalCurrency",
+  //   "0x4596c3b6545e97eb42b719442dd0afa8eb7680f3ff72c762763d4b292ee26ea7",
+  //   ["liquidated", "liquidator"],
+  //   ["address", "address"],
+  //   (data: Bytes): ethereum.EventParam[] => {
+  //     let values = ethereum.decode("(uint16,int256)", data)!.toTuple();
+  //     return [
+  //       new ethereum.EventParam("localCurrencyId", values[0]),
+  //       new ethereum.EventParam("netLocalFromLiquidator", values[1]),
+  //     ];
+  //   },
+  //   (event: ethereum.Event, account: Address): TransferBundle[] | null => {
+  //     let t = changetype<LiquidateLocalCurrency>(event);
+  //     if (t.params.liquidator !== account) return null;
+  //     let assetCash = getAssetCash(t.params.localCurrencyId);
+  //     let nToken = getNToken(t.params.localCurrencyId);
 
-      return [
-        createBundle("Transfer Asset", event, [
-          makeTransfer(
-            t.params.liquidator,
-            t.params.liquidated,
-            assetCash,
-            t.params.netLocalFromLiquidator,
-            event
-          ),
-        ]),
-        createBundle("Transfer Asset", event, [
-          makeTransfer(
-            t.params.liquidated,
-            t.params.liquidator,
-            nToken,
-            getNTokenTransferForLocalLiquidation(event.transaction.hash.toHexString()),
-            event
-          ),
-        ]),
-      ];
-    }
-  ),
+  //     return [
+  //       createBundle("Transfer Asset", event, [
+  //         makeTransfer(
+  //           t.params.liquidator,
+  //           t.params.liquidated,
+  //           assetCash,
+  //           t.params.netLocalFromLiquidator,
+  //           event
+  //         ),
+  //       ]),
+  //       createBundle("Transfer Asset", event, [
+  //         makeTransfer(
+  //           t.params.liquidated,
+  //           t.params.liquidator,
+  //           nToken,
+  //           getNTokenTransferForLocalLiquidation(event.transaction.hash.toHexString()),
+  //           event
+  //         ),
+  //       ]),
+  //     ];
+  //   }
+  // ),
   new TopicConfig(
     "LiquidateCollateralCurrency",
     "0x88fff2f00941b1272999212de454ee8d15f54d132723b35e3423ef742109861c",
