@@ -197,6 +197,10 @@ function updateSnapshotForIncentives(
   incentiveSnapshot.balanceSnapshot = snapshot.id;
   incentiveSnapshot.rewardToken = rewardToken.id;
 
+  incentiveSnapshot.previousIncentiveDebt = BigInt.zero();
+  incentiveSnapshot.totalClaimed = BigInt.zero();
+  incentiveSnapshot.adjustedClaimed = BigInt.zero();
+
   if (snapshot.previousSnapshot) {
     let prevSnapshot = IncentiveSnapshot.load(
       (snapshot.previousSnapshot as string) + ":" + rewardToken.id
@@ -207,10 +211,6 @@ function updateSnapshotForIncentives(
       incentiveSnapshot.totalClaimed = prevSnapshot.totalClaimed;
       incentiveSnapshot.adjustedClaimed = prevSnapshot.adjustedClaimed;
     }
-  } else {
-    incentiveSnapshot.previousIncentiveDebt = BigInt.zero();
-    incentiveSnapshot.totalClaimed = BigInt.zero();
-    incentiveSnapshot.adjustedClaimed = BigInt.zero();
   }
 
   let incentivesClaimed: BigInt;
@@ -218,9 +218,12 @@ function updateSnapshotForIncentives(
     // NOTE incentives are found on the notional contract directly
     let notional = getNotional();
     let b = notional.getAccount(account).getAccountBalances();
+    // Set this to zero if it is not found in the current balances
+    incentiveSnapshot.currentIncentiveDebt = BigInt.zero();
     for (let i = 0; i < b.length; i++) {
       if (b[i].currencyId == nToken.currencyId) {
         incentiveSnapshot.currentIncentiveDebt = b[i].accountIncentiveDebt;
+        break;
       }
     }
 
@@ -236,6 +239,7 @@ function updateSnapshotForIncentives(
   } else {
     let r = SecondaryRewarder.bind(Address.fromBytes(Address.fromHexString(transfer.from)));
     let accumulatedPerNToken = r.accumulatedRewardPerNToken();
+    incentiveSnapshot.currentIncentiveDebt = r.rewardDebtPerAccount(account);
 
     incentivesClaimed = snapshot.previousBalance
       .times(accumulatedPerNToken)
