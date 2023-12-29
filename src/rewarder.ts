@@ -2,12 +2,13 @@ import { Address, DataSourceContext, ethereum } from "@graphprotocol/graph-ts";
 import {
   RewardTransfer,
   SecondaryRewarder as ISecondaryRewarder,
+  RewardEmissionUpdate,
 } from "../generated/Configuration/SecondaryRewarder";
 import { SecondaryRewarder } from "../generated/templates";
-import { getAsset, createTransfer } from "./common/entities";
+import { getAsset, createTransfer, getIncentives, getAccount } from "./common/entities";
 import { _logTransfer } from "./transactions";
 import { createERC20TokenAsset } from "./common/erc20";
-import { Underlying } from "./common/constants";
+import { SecondaryIncentiveRewarder, Underlying } from "./common/constants";
 
 export function createSecondaryRewarderContext(rewarder: Address, event: ethereum.Event): void {
   let r = ISecondaryRewarder.bind(rewarder);
@@ -22,6 +23,17 @@ export function createSecondaryRewarderContext(rewarder: Address, event: ethereu
   context.setString("rewardToken", rewardToken.toHexString());
   context.setString("nToken", nToken.toHexString());
   SecondaryRewarder.createWithContext(rewarder, context);
+
+  let account = getAccount(rewarder.toHexString(), event);
+  account.systemAccountType = SecondaryIncentiveRewarder;
+  account.save();
+
+  let incentives = getIncentives(r.CURRENCY_ID(), event);
+  incentives.currentSecondaryReward = rewardToken.toHexString();
+  incentives.accumulatedSecondaryRewardPerNToken = r.accumulatedRewardPerNToken();
+  incentives.lastSecondaryAccumulatedTime = r.lastAccumulatedTime();
+  incentives.secondaryRewardEndTime = r.endTime();
+  incentives.save();
 }
 
 export function handleSecondaryRewardTransfer(event: RewardTransfer): void {
@@ -29,4 +41,19 @@ export function handleSecondaryRewardTransfer(event: RewardTransfer): void {
   let transfer = createTransfer(event, 0);
   // Just need to log to and a value, the from will be the emitter
   _logTransfer(event.address, event.params.account, event.params.amount, event, transfer, token);
+
+  let r = ISecondaryRewarder.bind(event.address);
+  let incentives = getIncentives(r.CURRENCY_ID(), event);
+  incentives.accumulatedSecondaryRewardPerNToken = r.accumulatedRewardPerNToken();
+  incentives.lastSecondaryAccumulatedTime = r.lastAccumulatedTime();
+  incentives.save();
+}
+
+export function handleSecondaryRewardEmissionRate(event: RewardEmissionUpdate): void {
+  let r = ISecondaryRewarder.bind(event.address);
+  let incentives = getIncentives(r.CURRENCY_ID(), event);
+  incentives.accumulatedSecondaryRewardPerNToken = r.accumulatedRewardPerNToken();
+  incentives.lastSecondaryAccumulatedTime = r.lastAccumulatedTime();
+  incentives.secondaryRewardEndTime = r.endTime();
+  incentives.save();
 }

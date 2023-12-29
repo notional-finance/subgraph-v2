@@ -22,7 +22,8 @@ enum SystemAccount {
   PrimeCash,
   PrimeDebt,
   Notional,
-  NOTE
+  NOTE,
+  SecondaryIncentiveRewarder
 }
 
 enum TokenInterface {
@@ -501,6 +502,9 @@ type BalanceSnapshot @entity(immutable: true) {
   timestamp: Int!
   transaction: Transaction!
 
+  "Link to previous snapshot, if it exists"
+  previousSnapshot: BalanceSnapshot
+
   "Link to the balance entity for this token"
   balance: Balance!
 
@@ -529,17 +533,33 @@ type BalanceSnapshot @entity(immutable: true) {
   "Cumulative realized cost using adjusted cost basis for internal PnL calculations"
   _accumulatedCostAdjustedBasis: BigInt!
 
-  "Current account incentive debt for NOTE"
-  currentNOTEIncentiveDebt: BigInt!
-  "Previous account incentive debt for NOTE"
-  previousNOTEIncentiveDebt: BigInt!
-
-  "Total NOTE accrued over the lifetime of this balance"
-  totalNOTEClaimed: BigInt!
-  "NOTE Earnings adjusted for balance changes"
-  adjustedNOTEClaimed: BigInt!
-
   profitLossLineItems: [ProfitLossLineItem!] @derivedFrom(field: "balanceSnapshot")
+  "Snapshots of the secondary incentives"
+  incentives: [IncentiveSnapshot!] @derivedFrom(field: "balanceSnapshot")
+}
+
+type IncentiveSnapshot @entity(immutable: true) {
+  "Balance Snapshot ID:Reward Token"
+  id: ID!
+  blockNumber: BigInt!
+  timestamp: Int!
+  transaction: Transaction!
+
+  "Link back to the balance snapshot for this secondary incentive"
+  balanceSnapshot: BalanceSnapshot!
+
+  "Reward token associated with this snapshot"
+  rewardToken: Token!
+
+  "Current account incentive debt for reward"
+  currentIncentiveDebt: BigInt!
+  "Previous account incentive debt for reward"
+  previousIncentiveDebt: BigInt!
+
+  "Total reward accrued over the lifetime of this balance"
+  totalClaimed: BigInt!
+  "Reward earnings adjusted for balance changes"
+  adjustedClaimed: BigInt!
 }
 
 ### Markets ###
@@ -690,6 +710,15 @@ type Incentive @entity {
   finalIntegralTotalSupply: BigInt
   "Time when the currency was migrated"
   migrationTime: BigInt
+
+  "Current secondary reward token set for this currency"
+  currentSecondaryReward: Token
+  "Total accumulated secondary reward per nToken for the current rewarder"
+  accumulatedSecondaryRewardPerNToken: BigInt
+  "Last accumulated time for the current rewarder"
+  lastSecondaryAccumulatedTime: BigInt
+  "End time for the current secondary rewarder"
+  secondaryRewardEndTime: BigInt
 }
 
 ### Trading Module ###

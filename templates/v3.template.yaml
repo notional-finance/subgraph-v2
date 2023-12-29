@@ -57,6 +57,8 @@ dataSources:
           file: ./abi/IStrategyVault.json
         - name: ERC4626
           file: ./abi/ERC4626.json
+        - name: SecondaryRewarder
+          file: ./abi/SecondaryRewarder.json
       eventHandlers:
         - event: TransferSingle(indexed address,indexed address,indexed address,uint256,uint256)
           handler: handleERC1155Transfer
@@ -271,6 +273,8 @@ templates:
           file: ./abi/ERC20.json
         - name: ERC4626
           file: ./abi/ERC4626.json
+        - name: SecondaryRewarder
+          file: ./abi/SecondaryRewarder.json
       eventHandlers:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleERC20Transfer
@@ -298,3 +302,5 @@ templates:
       eventHandlers:
         - event: RewardTransfer(indexed address,indexed address,uint256)
           handler: handleSecondaryRewardTransfer
+        - event: RewardEmissionUpdate(uint256,uint256)
+          handler: handleSecondaryRewardEmissionUpdate
