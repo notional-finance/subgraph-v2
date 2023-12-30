@@ -821,7 +821,7 @@ let EventsConfig = [
           ]),
           createBundle("Transfer Asset", event, [
             makeTransfer(
-              nToken.tokenAddress as Address,
+              changetype<Address>(nToken.tokenAddress),
               t.params.purchaser,
               assetCash,
               t.params.netAssetCashNToken,
