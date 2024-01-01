@@ -61,6 +61,8 @@ dataSources:
           file: ./abi/NotionalV3.json
         - name: IStrategyVault
           file: ./abi/IStrategyVault.json
+        - name: ERC20
+          file: ./abi/ERC20.json
         - name: ERC4626
           file: ./abi/ERC4626.json
         - name: AssetRateAggregator
@@ -100,6 +102,8 @@ dataSources:
           file: ./abi/IStrategyVault.json
         - name: ERC4626
           file: ./abi/ERC4626.json
+        - name: ERC20
+          file: ./abi/ERC20.json
       eventHandlers:
         - event: UpdateETHRate(uint16)
           handler: handleUpdateETHRate
@@ -150,6 +154,8 @@ dataSources:
           file: ./abi/ERC4626.json
         - name: AssetRateAggregator
           file: ./abi/AssetRateAggregator.json
+        - name: ERC20
+          file: ./abi/ERC20.json
       eventHandlers:
         - event: ListCurrency(uint16)
           handler: handleListCurrency
@@ -260,6 +266,8 @@ dataSources:
           file: ./abi/TreasuryManager.json
         - name: ISingleSidedLPStrategyVault
           file: ./abi/ISingleSidedLPStrategyVault.json
+        - name: ERC20
+          file: ./abi/ERC20.json
       eventHandlers:
         - event: VaultRewardReinvested(indexed address,indexed address,uint256,uint256)
           handler: handleVaultRewardReinvested
@@ -300,26 +308,6 @@ dataSources:
           handler: handleMigrateToV3
         - event: EndV3AccountEvents()
           handler: handleEndMigrateToV3
-        # - event: ReserveFeeAccrued(indexed uint16,int256)
-        #   handler: handleReserveFeeAccrued
-        # - event: AccountSettled(indexed address)
-        #   handler: handleAccountSettled
-        # - event: LendBorrowTrade(indexed address,indexed uint16,uint40,int256,int256)
-        #   handler: handleLendBorrowTrade
-        # - event: SettledCashDebt(indexed address,indexed uint16,indexed address,int256,int256)
-        #   handler: handleSettledCashDebt
-        # - event: nTokenSupplyChange(indexed address,indexed uint16,int256)
-        #   handler: handleNTokenSupplyChange
-        # - event: nTokenResidualPurchase(indexed uint16,indexed uint40,indexed address,int256,int256)
-        #   handler: handleNTokenResidualPurchase
-        # - event: LiquidateLocalCurrency(indexed address,indexed address,uint16,int256)
-        #   handler: handleLiquidateLocalCurrency
-        # - event: LiquidateCollateralCurrency(indexed address,indexed address,uint16,uint16,int256,int256,int256)
-        #   handler: handleLiquidateCollateralCurrency
-        # - event: LiquidatefCashEvent(indexed address,indexed address,uint16,uint16,int256,uint256[],int256[])
-        #   handler: handleLiquidatefCashEvent
-        # - event: CashBalanceChange(indexed address,indexed uint16,int256)
-        #   handler: handleCashBalanceChange
 templates:
   - name: ERC20Proxy
     kind: ethereum/contract

@@ -38,6 +38,7 @@ import {
   getNotionalV2,
   getUnderlying,
   hasMigratedIncentives,
+  isMigratingToV3,
   isV2,
 } from "./common/entities";
 import { updatePrimeCashMarket } from "./common/market";
@@ -588,6 +589,13 @@ export function updateAccount(
       BigInt.fromUnsignedBytes(Bytes.fromHexString(token.id).reverse() as ByteArray)
     );
   } else {
+    if (isMigratingToV3() && token.tokenType == "nToken") {
+      // nToken balances do not change during the migration and the legacy nToken API
+      // does not work due to an oversight where the callback to the Router is not whitelisted
+      // via the PauseRouter interface.
+      return snapshot;
+    }
+
     let erc20 = ERC20.bind(Address.fromBytes(token.tokenAddress as Bytes));
     snapshot.currentBalance = erc20.balanceOf(accountAddress);
   }
