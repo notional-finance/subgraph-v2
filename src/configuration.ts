@@ -433,6 +433,8 @@ export function handleMarketsInitialized(event: MarketsInitialized): void {
 export function handleUpdateIncentiveEmissionRate(event: UpdateIncentiveEmissionRate): void {
   let incentives = getIncentives(event.params.currencyId, event);
   incentives.incentiveEmissionRate = event.params.newEmissionRate;
+  incentives.save();
+
   updateNTokenIncentives(event.params.currencyId, event);
 }
 
