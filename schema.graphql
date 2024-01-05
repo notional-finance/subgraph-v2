@@ -280,6 +280,7 @@ type ExchangeRate @entity(immutable: true) {
   oracle: Oracle!
 
   rate: BigInt!
+  totalSupply: BigInt
 }
 
 ### Configuration ###
@@ -364,6 +365,8 @@ type CurrencyConfiguration @entity {
   pvHaircutPercentage: Int
   "Discount on nToken PV given to liquidators"
   liquidationHaircutPercentage: Int
+  "Maximum valuation deviation percentage for nToken minting"
+  maxMintDeviationPercentage: Int
 
   incentives: Incentive @derivedFrom(field: "currencyConfiguration")
 }

@@ -283,11 +283,15 @@ export function handleUpdateTokenCollateralParameters(
   // RESIDUAL_PURCHASE_TIME_BUFFER = 2;
   // PV_HAIRCUT_PERCENTAGE = 3;
   // RESIDUAL_PURCHASE_INCENTIVE = 4;
+  // MAX_MINT_DEVIATION_PERCENTAGE = 5;
   configuration.liquidationHaircutPercentage = parameters[0];
   configuration.cashWithholdingBufferBasisPoints = (parameters[1] as i32) * 10 * BASIS_POINT;
   configuration.residualPurchaseTimeBufferSeconds = (parameters[2] as i32) * 60;
   configuration.pvHaircutPercentage = parameters[3];
   configuration.residualPurchaseIncentiveBasisPoints = (parameters[4] as i32) * 10 * BASIS_POINT;
+  if (parameters.length > 5) {
+    configuration.maxMintDeviationPercentage = parameters[5] as i32;
+  }
 
   configuration.save();
 }
