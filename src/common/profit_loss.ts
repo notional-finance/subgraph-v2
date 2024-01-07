@@ -260,7 +260,7 @@ function updateSnapshotForIncentives(
     let rewardAdjustment = snapshot.previousBalance
       .minus(snapshot.currentBalance)
       // Converts to the reward token precision
-      .times(rewardToken.precision)
+      .times(incentiveSnapshot.adjustedClaimed)
       .div(snapshot.previousBalance);
 
     incentiveSnapshot.adjustedClaimed = incentiveSnapshot.adjustedClaimed.minus(rewardAdjustment);
@@ -394,7 +394,6 @@ function extractProfitLossLineItem(
   event: ethereum.Event
 ): ProfitLossLineItem[] {
   let lineItems = new Array<ProfitLossLineItem>();
-  log.debug("INSIDE BUNDLE {}", [bundle.bundleName]);
   /** Deposits and Withdraws */
   if (bundle.bundleName == "Deposit" || bundle.bundleName == "Withdraw") {
     if (transfers[0].valueInUnderlying !== null) {

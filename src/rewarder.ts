@@ -49,11 +49,12 @@ export function handleSecondaryRewardTransfer(event: RewardTransfer): void {
   incentives.save();
 }
 
-export function handleSecondaryRewardEmissionRate(event: RewardEmissionUpdate): void {
+export function handleSecondaryRewardEmissionUpdate(event: RewardEmissionUpdate): void {
   let r = ISecondaryRewarder.bind(event.address);
   let incentives = getIncentives(r.CURRENCY_ID(), event);
   incentives.accumulatedSecondaryRewardPerNToken = r.accumulatedRewardPerNToken();
   incentives.lastSecondaryAccumulatedTime = r.lastAccumulatedTime();
+  incentives.secondaryEmissionRate = r.emissionRatePerYear();
   incentives.secondaryRewardEndTime = r.endTime();
   incentives.save();
 }
