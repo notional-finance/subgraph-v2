@@ -45,18 +45,16 @@ import {
 } from "./common/constants";
 import {
   getAsset,
-  getIncentives,
   getNotional,
   getOracle,
   getOracleRegistry,
   getUnderlying,
 } from "./common/entities";
 import { getOrCreateERC1155Asset } from "./common/erc1155";
-import { updatefCashMarket } from "./common/market";
+import { updatePrimeCashMarket, updatefCashMarket } from "./common/market";
 import { convertValueToUnderlying, getExpFactor } from "./common/transfers";
 import { readUnderlyingTokenFromNotional } from "./assets";
 import { getNTokenFeeBuffer } from "./balances";
-import { getCurrencyConfiguration } from "./configuration";
 import { Notional__getNTokenAccountResult } from "../generated/Assets/Notional";
 
 function updateExchangeRate(
@@ -469,11 +467,15 @@ export function handlefCashEnabled(event: DeployNToken): void {
 }
 
 export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
+  updatePrimeCashMarket(event.params.currencyId, event.block, event.transaction.hash.toHexString());
+}
+
+function updatePrimeCashRates(currencyId: i32, block: ethereum.Block): void {
   let notional = getNotional();
-  let base = getUnderlying(event.params.currencyId);
-  let pCashAddress = notional.pCashAddress(event.params.currencyId);
+  let base = getUnderlying(currencyId);
+  let pCashAddress = notional.pCashAddress(currencyId);
   let pCashAsset = getAsset(pCashAddress.toHexString());
-  let factors = notional.getPrimeFactorsStored(event.params.currencyId);
+  let factors = notional.getPrimeFactorsStored(currencyId);
 
   // Supply Scalar * Underlying Scalar
   let pCashExchangeRate = getOracle(base, pCashAsset, PrimeCashToUnderlyingExchangeRate);
@@ -483,8 +485,8 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
   updateExchangeRate(
     pCashExchangeRate,
     factors.supplyScalar.times(factors.underlyingScalar),
-    event.block,
-    event.transaction.hash.toHexString()
+    block,
+    null
   );
 
   // Supply Scalar
@@ -496,27 +498,17 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
   pCashMoneyMarketExchangeRate.decimals = SCALAR_DECIMALS;
   pCashMoneyMarketExchangeRate.ratePrecision = SCALAR_PRECISION;
   pCashMoneyMarketExchangeRate.oracleAddress = notional._address;
-  updateExchangeRate(
-    pCashMoneyMarketExchangeRate,
-    factors.supplyScalar,
-    event.block,
-    event.transaction.hash.toHexString()
-  );
+  updateExchangeRate(pCashMoneyMarketExchangeRate, factors.supplyScalar, block, null);
 
   // Underlying Scalar
   let moneyMarketExchangeRate = getOracle(base, pCashAsset, MoneyMarketToUnderlyingExchangeRate);
   moneyMarketExchangeRate.decimals = SCALAR_DECIMALS;
   moneyMarketExchangeRate.ratePrecision = SCALAR_PRECISION;
   moneyMarketExchangeRate.oracleAddress = notional._address;
-  updateExchangeRate(
-    moneyMarketExchangeRate,
-    factors.underlyingScalar,
-    event.block,
-    event.transaction.hash.toHexString()
-  );
+  updateExchangeRate(moneyMarketExchangeRate, factors.underlyingScalar, block, null);
 
-  let pDebtAddress = notional.pDebtAddress(event.params.currencyId);
-  let interestRates = notional.try_getPrimeInterestRate(event.params.currencyId);
+  let pDebtAddress = notional.pDebtAddress(currencyId);
+  let interestRates = notional.try_getPrimeInterestRate(currencyId);
   if (pDebtAddress != ZERO_ADDRESS) {
     let pDebtAsset = getAsset(pDebtAddress.toHexString());
 
@@ -528,8 +520,8 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
     updateExchangeRate(
       pDebtExchangeRate,
       factors.debtScalar.times(factors.underlyingScalar),
-      event.block,
-      event.transaction.hash.toHexString()
+      block,
+      null
     );
 
     // Debt Scalar
@@ -541,12 +533,7 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
     pDebtMoneyMarketExchangeRate.decimals = SCALAR_DECIMALS;
     pDebtMoneyMarketExchangeRate.ratePrecision = SCALAR_PRECISION;
     pDebtMoneyMarketExchangeRate.oracleAddress = notional._address;
-    updateExchangeRate(
-      pDebtMoneyMarketExchangeRate,
-      factors.debtScalar,
-      event.block,
-      event.transaction.hash.toHexString()
-    );
+    updateExchangeRate(pDebtMoneyMarketExchangeRate, factors.debtScalar, block, null);
 
     // Debt interest rate
     let pDebtSpotInterestRate = getOracle(base, pDebtAsset, PrimeDebtPremiumInterestRate);
@@ -556,12 +543,7 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
     let debtRate = interestRates.reverted
       ? BigInt.zero()
       : interestRates.value.getAnnualDebtRatePostFee();
-    updateExchangeRate(
-      pDebtSpotInterestRate,
-      debtRate,
-      event.block,
-      event.transaction.hash.toHexString()
-    );
+    updateExchangeRate(pDebtSpotInterestRate, debtRate, block, null);
   }
 
   // Supply Rate
@@ -572,12 +554,7 @@ export function handlePrimeCashAccrued(event: PrimeCashInterestAccrued): void {
   let supplyRate = interestRates.reverted
     ? BigInt.zero()
     : interestRates.value.getAnnualSupplyRate();
-  updateExchangeRate(
-    pCashSpotInterestRate,
-    supplyRate,
-    event.block,
-    event.transaction.hash.toHexString()
-  );
+  updateExchangeRate(pCashSpotInterestRate, supplyRate, block, null);
 }
 
 export function handleRebalance(event: CurrencyRebalanced): void {
@@ -744,6 +721,12 @@ export function handleBlockOracleUpdate(block: ethereum.Block): void {
   registry.lastRefreshBlockNumber = block.number;
   registry.lastRefreshTimestamp = block.timestamp.toI32();
   registry.save();
+  let notional = getNotional();
+  let maxCurrencyId = notional.getMaxCurrencyId();
+
+  for (let i = 1; i <= maxCurrencyId; i++) {
+    updatePrimeCashRates(i, block);
+  }
 
   // Aggregate the same oracle types with each other.
   for (let i = 0; i < registry.chainlinkOracles.length; i++) {
