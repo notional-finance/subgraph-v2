@@ -18,6 +18,7 @@ import {
   VaultCash,
   VaultDebt,
   VaultShare,
+  SecondaryIncentiveRewarder,
 } from "./constants";
 
 class Criteria {
@@ -818,6 +819,14 @@ const vault_settle_cash = (w: Transfer[]): boolean => {
   )
 }
 
+const transfer_secondary_reward = (w: Transfer[]): boolean => {
+  return (
+    w[0].fromSystemAccount == SecondaryIncentiveRewarder &&
+    w[0].transferType == _Transfer
+  )
+}
+
+
 export let BundleCriteria = new Array<Criteria>();
 const CAN_START = true;
 const REWRITE = true;
@@ -830,6 +839,7 @@ BundleCriteria.push(
 );
 BundleCriteria.push(new Criteria("Transfer Asset", 1, transfer_asset));
 BundleCriteria.push(new Criteria("Transfer Incentive", 1, transfer_incentive));
+BundleCriteria.push(new Criteria("Transfer Secondary Incentive", 1, transfer_secondary_reward));
 BundleCriteria.push(new Criteria("Vault Entry Transfer", 1, vault_entry_transfer, 1));
 BundleCriteria.push(new Criteria("Vault Secondary Deposit", 2, vault_secondary_deposit, 0, false, false, 1));
 BundleCriteria.push(new Criteria("Vault Secondary Entry Transfer", 2, vault_entry_transfer, 1, false, false, 1));

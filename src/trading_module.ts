@@ -5,8 +5,10 @@ import {
   TokenPermissionsUpdated,
 } from "../generated/TradingModule/TradingModule";
 import { Underlying, USD_ASSET_ID } from "./common/constants";
-import { createERC20TokenAsset } from "./common/erc20";
+import { createERC20TokenAsset, getTokenNameAndSymbol } from "./common/erc20";
 import { registerChainlinkOracle } from "./exchange_rates";
+import { getAsset } from "./common/entities";
+import { ERC20 } from "../generated/templates/ERC20Proxy/ERC20";
 
 function getUSDAsset(event: ethereum.Event): Token {
   let token = Token.load(USD_ASSET_ID);
@@ -53,9 +55,19 @@ function getTradingModulePermissions(
   if (permissions == null) {
     permissions = new TradingModulePermission(id);
     permissions.sender = sender.toHexString();
-    permissions.token = token.toHexString();
+    permissions.tokenAddress = token;
     permissions.allowedDexes = new Array<string>();
     permissions.allowedTradeTypes = new Array<string>();
+    let nameSymbol = getTokenNameAndSymbol(ERC20.bind(token));
+    permissions.name = nameSymbol[0];
+    permissions.symbol = nameSymbol[1];
+
+    let t = getAsset(token.toHexString());
+    if (t.get("symbol") !== null) {
+      // Only set the token link if the asset exists, otherwise just set the
+      // token address
+      permissions.token = token.toHexString();
+    }
   }
 
   permissions.lastUpdateBlockNumber = event.block.number;

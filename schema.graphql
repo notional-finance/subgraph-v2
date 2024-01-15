@@ -22,7 +22,8 @@ enum SystemAccount {
   PrimeCash,
   PrimeDebt,
   Notional,
-  NOTE
+  NOTE,
+  SecondaryIncentiveRewarder
 }
 
 enum TokenInterface {
@@ -221,6 +222,7 @@ enum OracleType {
   nTokenBlendedInterestRate,
   nTokenFeeRate,
   nTokenIncentiveRate,
+  nTokenSecondaryIncentiveRate,
 }
 
 type nTokenFeeBuffer @entity {
@@ -351,10 +353,6 @@ type CurrencyConfiguration @entity {
   proportions: [Int!]
   deprecated_anchorRates: [Int!]
 
-  "Annual incentive emission rate"
-  incentiveEmissionRate: BigInt
-  secondaryIncentiveRewarder: Bytes
-
   "Residual purchase incentive in basis points"
   residualPurchaseIncentiveBasisPoints: Int
   "Seconds until residuals become available to purchase after market initialization"
@@ -456,6 +454,8 @@ type VaultConfiguration @entity {
 enum WhitelistedCapability {
   GlobalTransferOperator,
   AuthorizedCallbackContract
+  SecondaryIncentiveRewarder,
+  DetachedSecondaryIncentiveRewarder
 }
 
 type WhitelistedContract @entity {
@@ -465,6 +465,9 @@ type WhitelistedContract @entity {
   lastUpdateTransactionHash: Bytes!
   capability: [WhitelistedCapability!]!
   name: String!
+
+  # If this whitelisted contract is linked to a specific contract
+  currency: CurrencyConfiguration
 }
 
 ### Balances ###
@@ -496,6 +499,9 @@ type BalanceSnapshot @entity(immutable: true) {
   timestamp: Int!
   transaction: Transaction!
 
+  "Link to previous snapshot, if it exists"
+  previousSnapshot: BalanceSnapshot
+
   "Link to the balance entity for this token"
   balance: Balance!
 
@@ -524,17 +530,33 @@ type BalanceSnapshot @entity(immutable: true) {
   "Cumulative realized cost using adjusted cost basis for internal PnL calculations"
   _accumulatedCostAdjustedBasis: BigInt!
 
-  "Current account incentive debt for NOTE"
-  currentNOTEIncentiveDebt: BigInt!
-  "Previous account incentive debt for NOTE"
-  previousNOTEIncentiveDebt: BigInt!
-
-  "Total NOTE accrued over the lifetime of this balance"
-  totalNOTEClaimed: BigInt!
-  "NOTE Earnings adjusted for balance changes"
-  adjustedNOTEClaimed: BigInt!
-
   profitLossLineItems: [ProfitLossLineItem!] @derivedFrom(field: "balanceSnapshot")
+  "Snapshots of the secondary incentives"
+  incentives: [IncentiveSnapshot!] @derivedFrom(field: "balanceSnapshot")
+}
+
+type IncentiveSnapshot @entity(immutable: true) {
+  "Balance Snapshot ID:Reward Token"
+  id: ID!
+  blockNumber: BigInt!
+  timestamp: Int!
+  transaction: Transaction!
+
+  "Link back to the balance snapshot for this secondary incentive"
+  balanceSnapshot: BalanceSnapshot!
+
+  "Reward token associated with this snapshot"
+  rewardToken: Token!
+
+  "Current account incentive debt for reward"
+  currentIncentiveDebt: BigInt!
+  "Previous account incentive debt for reward"
+  previousIncentiveDebt: BigInt!
+
+  "Total reward accrued over the lifetime of this balance"
+  totalClaimed: BigInt!
+  "Reward earnings adjusted for balance changes"
+  adjustedClaimed: BigInt!
 }
 
 ### Markets ###
@@ -670,6 +692,11 @@ type Incentive @entity {
 
   currencyConfiguration: CurrencyConfiguration!
 
+  "If set, a secondary incentive rewarder is set"
+  secondaryIncentiveRewarder: Bytes
+
+  "Annual incentive emission rate for NOTE"
+  incentiveEmissionRate: BigInt
   "Current accumulated NOTE per nToken"
   accumulatedNOTEPerNToken: BigInt
   "Last accumulation time"
@@ -685,6 +712,18 @@ type Incentive @entity {
   finalIntegralTotalSupply: BigInt
   "Time when the currency was migrated"
   migrationTime: BigInt
+
+  "Current secondary reward token set for this currency"
+  currentSecondaryReward: Token
+  "Total accumulated secondary reward per nToken for the current rewarder"
+  accumulatedSecondaryRewardPerNToken: BigInt
+  "Last accumulated time for the current rewarder"
+  lastSecondaryAccumulatedTime: BigInt
+
+  "Secondary incentive emission rate in INTERNAL_TOKEN_PRECISION"
+  secondaryEmissionRate: BigInt
+  "End time for the current secondary rewarder"
+  secondaryRewardEndTime: BigInt
 }
 
 ### Trading Module ###
@@ -713,7 +752,10 @@ type TradingModulePermission @entity {
   lastUpdateTransactionHash: Bytes!
 
   sender: Account!
-  token: Token!
+  token: Token
+  tokenAddress: Bytes!
+  name: String!
+  symbol: String!
 
   allowedDexes: [DEX!]!
   allowSell: Boolean!

@@ -78,10 +78,13 @@ export const nTokenToUnderlyingExchangeRate = "nTokenToUnderlyingExchangeRate";
 export const nTokenBlendedInterestRate = "nTokenBlendedInterestRate";
 export const nTokenFeeRate = "nTokenFeeRate";
 export const nTokenIncentiveRate = "nTokenIncentiveRate";
+export const nTokenSecondaryIncentiveRate = "nTokenSecondaryIncentiveRate";
 
 // Whitelisted Capability
 export const GlobalTransferOperator = "GlobalTransferOperator";
 export const AuthorizedCallbackContract = "AuthorizedCallbackContract";
+export const SecondaryIncentiveRewarder = "SecondaryIncentiveRewarder";
+export const DetachedSecondaryIncentiveRewarder = "DetachedSecondaryIncentiveRewarder";
 
 // Arbitrum USDC Migration
 export const ARB_USDC = Address.fromHexString("0xaf88d065e77c8cc2239327c5edb3a432268e5831");

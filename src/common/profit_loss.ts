@@ -1,6 +1,7 @@
-import { ethereum, BigInt, log } from "@graphprotocol/graph-ts";
+import { ethereum, BigInt, log, Address } from "@graphprotocol/graph-ts";
 import {
   BalanceSnapshot,
+  IncentiveSnapshot,
   ProfitLossLineItem,
   Token,
   Transfer,
@@ -12,6 +13,7 @@ import {
   Burn,
   INTERNAL_TOKEN_PRECISION,
   Mint,
+  NOTE,
   PRIME_CASH_VAULT_MATURITY,
   RATE_PRECISION,
   SCALAR_PRECISION,
@@ -20,6 +22,7 @@ import {
   nToken,
 } from "./constants";
 import { convertValueToUnderlying } from "./transfers";
+import { SecondaryRewarder } from "../../generated/Configuration/SecondaryRewarder";
 
 const TRANSIENT_DUST = BigInt.fromI32(5000);
 const DUST = BigInt.fromI32(100);
@@ -47,9 +50,7 @@ export function processProfitAndLoss(
     item.balanceSnapshot = snapshot.id;
 
     if (item.get("incentivizedToken") !== null) {
-      updateSnapshotForIncentives(snapshot, item);
-
-      snapshot.save();
+      // If there is an incentivized token, it has its own snapshot that is already updated
       item.save();
       continue;
     }
@@ -176,19 +177,98 @@ export function processProfitAndLoss(
   }
 }
 
-function updateSnapshotForIncentives(snapshot: BalanceSnapshot, item: ProfitLossLineItem): void {
-  snapshot.totalNOTEClaimed = snapshot.totalNOTEClaimed.plus(item.tokenAmount);
-  // If the balance increases, add the token amount to the virtual NOTE balance
-  snapshot.adjustedNOTEClaimed = snapshot.adjustedNOTEClaimed.plus(item.tokenAmount);
+function updateSnapshotForIncentives(
+  snapshot: BalanceSnapshot,
+  transfer: Transfer,
+  nToken: Token
+): BigInt {
+  let rewardToken = getAsset(transfer.token);
+  let account = Address.fromBytes(Address.fromHexString(transfer.to));
+  let id = snapshot.id + ":" + rewardToken.id;
 
-  if (snapshot.previousBalance.gt(snapshot.currentBalance)) {
-    // When nTokens are redeemed, we adjust the note earned downwards
-    let noteAdjustment = snapshot.previousBalance
-      .minus(snapshot.currentBalance)
-      .times(INTERNAL_TOKEN_PRECISION)
-      .div(snapshot.previousBalance);
-    snapshot.adjustedNOTEClaimed = snapshot.adjustedNOTEClaimed.minus(noteAdjustment);
+  // If the incentive snapshot has already been created, then return a zero and don't re-calculate
+  // due to the nature of how how incentive transfers work.
+  if (IncentiveSnapshot.load(id)) return BigInt.zero();
+
+  let incentiveSnapshot = new IncentiveSnapshot(id);
+  incentiveSnapshot.blockNumber = snapshot.blockNumber;
+  incentiveSnapshot.timestamp = snapshot.timestamp;
+  incentiveSnapshot.transaction = snapshot.transaction;
+  incentiveSnapshot.balanceSnapshot = snapshot.id;
+  incentiveSnapshot.rewardToken = rewardToken.id;
+
+  incentiveSnapshot.previousIncentiveDebt = BigInt.zero();
+  incentiveSnapshot.totalClaimed = BigInt.zero();
+  incentiveSnapshot.adjustedClaimed = BigInt.zero();
+
+  if (snapshot.previousSnapshot) {
+    let prevSnapshot = IncentiveSnapshot.load(
+      (snapshot.previousSnapshot as string) + ":" + rewardToken.id
+    );
+
+    if (prevSnapshot) {
+      incentiveSnapshot.previousIncentiveDebt = prevSnapshot.currentIncentiveDebt;
+      incentiveSnapshot.totalClaimed = prevSnapshot.totalClaimed;
+      incentiveSnapshot.adjustedClaimed = prevSnapshot.adjustedClaimed;
+    }
   }
+
+  let incentivesClaimed: BigInt;
+  if (rewardToken.symbol == NOTE) {
+    // NOTE incentives are found on the notional contract directly
+    let notional = getNotional();
+    let b = notional.getAccount(account).getAccountBalances();
+    // Set this to zero if it is not found in the current balances
+    incentiveSnapshot.currentIncentiveDebt = BigInt.zero();
+    for (let i = 0; i < b.length; i++) {
+      if (b[i].currencyId == nToken.currencyId) {
+        incentiveSnapshot.currentIncentiveDebt = b[i].accountIncentiveDebt;
+        break;
+      }
+    }
+
+    let accumulatedPerNToken = notional
+      .getNTokenAccount(Address.fromBytes(Address.fromHexString(nToken.id)))
+      .getAccumulatedNOTEPerNToken();
+
+    // This is mimics the incentive claim calculation internally
+    incentivesClaimed = snapshot.previousBalance
+      .times(accumulatedPerNToken)
+      .div(SCALAR_PRECISION)
+      .minus(incentiveSnapshot.previousIncentiveDebt);
+  } else {
+    let r = SecondaryRewarder.bind(Address.fromBytes(Address.fromHexString(transfer.from)));
+    let accumulatedPerNToken = r.accumulatedRewardPerNToken();
+    incentiveSnapshot.currentIncentiveDebt = r.rewardDebtPerAccount(account);
+
+    incentivesClaimed = snapshot.previousBalance
+      .times(accumulatedPerNToken)
+      .div(INTERNAL_TOKEN_PRECISION)
+      // This incentive debt is always in SCALAR_PRECISION
+      .minus(incentiveSnapshot.previousIncentiveDebt)
+      .times(rewardToken.precision)
+      .div(SCALAR_PRECISION);
+  }
+
+  incentiveSnapshot.totalClaimed = incentiveSnapshot.totalClaimed.plus(incentivesClaimed);
+  // If the balance increases, add the token amount to the virtual NOTE balance
+  incentiveSnapshot.adjustedClaimed = incentiveSnapshot.adjustedClaimed.plus(incentivesClaimed);
+
+  // This is referring to the nToken balance snapshot
+  if (snapshot.previousBalance.gt(snapshot.currentBalance)) {
+    // When nTokens are redeemed, we adjust the reward earned downwards
+    let rewardAdjustment = snapshot.previousBalance
+      .minus(snapshot.currentBalance)
+      // Converts to the reward token precision
+      .times(incentiveSnapshot.adjustedClaimed)
+      .div(snapshot.previousBalance);
+
+    incentiveSnapshot.adjustedClaimed = incentiveSnapshot.adjustedClaimed.minus(rewardAdjustment);
+  }
+
+  incentiveSnapshot.save();
+
+  return incentivesClaimed;
 }
 
 function createLineItem(
@@ -314,7 +394,6 @@ function extractProfitLossLineItem(
   event: ethereum.Event
 ): ProfitLossLineItem[] {
   let lineItems = new Array<ProfitLossLineItem>();
-  log.debug("INSIDE BUNDLE {}", [bundle.bundleName]);
   /** Deposits and Withdraws */
   if (bundle.bundleName == "Deposit" || bundle.bundleName == "Withdraw") {
     if (transfers[0].valueInUnderlying !== null) {
@@ -365,12 +444,10 @@ function extractProfitLossLineItem(
         transfers[1].valueInUnderlying as BigInt
       );
     }
-  } else if (bundle.bundleName == "Transfer Incentive") {
-    // Due to the nature of this update it cannot run twice for a given transaction
-    // or the transfers will be double counted.
-    let prevTransfer = findPrecedingBundle("Transfer Incentive", bundleArray.slice(0, -1));
-    if (prevTransfer !== null) return lineItems;
-
+  } else if (
+    bundle.bundleName == "Transfer Incentive" ||
+    bundle.bundleName == "Transfer Secondary Incentive"
+  ) {
     let notional = getNotional();
     let maxCurrencyId = notional.getMaxCurrencyId();
     for (let i = 1; i <= maxCurrencyId; i++) {
@@ -384,27 +461,27 @@ function extractProfitLossLineItem(
         nTokenAddress.value.toHexString() +
         ":" +
         event.block.number.toString();
-      // No Snapshot available
+      // No current snapshot available, this is an error. There should always be a current
+      // snapshot because nTokens are updated prior to incentives.
       let snapshot = BalanceSnapshot.load(snapshotId);
-      if (snapshot == null) continue;
+      if (snapshot === null) continue;
 
-      let accumulatedNOTEPerNToken = notional
-        .getNTokenAccount(nTokenAddress.value)
-        .getAccumulatedNOTEPerNToken();
-
-      // This is mimics the incentive claim calculation internally
-      let incentivesClaimed = snapshot.previousBalance
-        .times(accumulatedNOTEPerNToken)
-        .div(SCALAR_PRECISION)
-        .minus(snapshot.previousNOTEIncentiveDebt);
-
-      createIncentiveLineItem(
-        bundle,
+      let incentivesClaimed = updateSnapshotForIncentives(
+        snapshot,
         transfers[0],
-        incentivesClaimed,
-        nTokenAddress.value.toHexString(),
-        lineItems
+        getAsset(nTokenAddress.value.toHexString())
       );
+
+      // Nothing is created if the incentive claim is zero
+      if (!incentivesClaimed.isZero()) {
+        createIncentiveLineItem(
+          bundle,
+          transfers[0],
+          incentivesClaimed,
+          nTokenAddress.value.toHexString(),
+          lineItems
+        );
+      }
     }
   } else if (bundle.bundleName == "Transfer Asset") {
     // Don't create transfer PnL items if the value is null (happens for NOTE tokens)

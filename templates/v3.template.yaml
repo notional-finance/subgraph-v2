@@ -1,6 +1,13 @@
 specVersion: 0.0.8
 description: Notional V3 Subgraph
 repository: https://github.com/notional-finance/contracts-v2
+# # Enable these lines to spin up grafting. Note that you must
+# # deploy to a newly created subgraph.
+# features:
+#   - grafting
+# graft:
+#   base: QmZxxiyTw2jRBPLyg7A3aLmgy6zeAW7g7aQL6imoS8iwu1
+#   block: 167703900
 schema:
   file: ./schema.graphql
 dataSources:
@@ -57,6 +64,8 @@ dataSources:
           file: ./abi/IStrategyVault.json
         - name: ERC4626
           file: ./abi/ERC4626.json
+        - name: SecondaryRewarder
+          file: ./abi/SecondaryRewarder.json
       eventHandlers:
         - event: TransferSingle(indexed address,indexed address,indexed address,uint256,uint256)
           handler: handleERC1155Transfer
@@ -134,6 +143,8 @@ dataSources:
           file: ./abi/IStrategyVault.json
         - name: ERC4626
           file: ./abi/ERC4626.json
+        - name: SecondaryRewarder
+          file: ./abi/SecondaryRewarder.json
       eventHandlers:
         - event: ListCurrency(uint16)
           handler: handleListCurrency
@@ -269,8 +280,36 @@ templates:
           file: ./abi/ERC20.json
         - name: ERC4626
           file: ./abi/ERC4626.json
+        - name: SecondaryRewarder
+          file: ./abi/SecondaryRewarder.json
       eventHandlers:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleERC20Transfer
         - event: ProxyRenamed()
           handler: handleProxyRenamed
+  - name: SecondaryRewarder
+    kind: ethereum/contract
+    network: {{ networkName }}
+    source:
+      abi: SecondaryRewarder
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      file: ./src/rewarder.ts
+      entities:
+        - Transfer
+      abis:
+        - name: ERC20
+          file: ./abi/ERC20.json
+        - name: ERC4626
+          file: ./abi/ERC4626.json
+        - name: SecondaryRewarder
+          file: ./abi/SecondaryRewarder.json
+        - name: Notional
+          file: ./abi/Notional.json
+      eventHandlers:
+        - event: RewardTransfer(indexed address,indexed address,uint256)
+          handler: handleSecondaryRewardTransfer
+        - event: RewardEmissionUpdate(uint256,uint256)
+          handler: handleSecondaryRewardEmissionUpdate
