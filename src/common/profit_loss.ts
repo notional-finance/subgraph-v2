@@ -71,6 +71,7 @@ export function processProfitAndLoss(
       }
     }
 
+    let setAdjustedCostBasis = true;
     snapshot._accumulatedBalance = snapshot._accumulatedBalance.plus(item.tokenAmount);
     // This never gets reset to zero. Accumulated cost is a positive number. underlyingAmountRealized
     // is negative when purchasing tokens, positive when selling so we invert it here.
@@ -82,6 +83,19 @@ export function processProfitAndLoss(
         item.underlyingAmountRealized
       );
     } else {
+      // Catches the edge condition (specifically minting nTokens w/ fCash) where the negative
+      // tokenAmount appears before the positive token amount and the adjusted cost basis is
+      // still initialized to zero.
+      if (snapshot.adjustedCostBasis.isZero()) {
+        snapshot.adjustedCostBasis = item.underlyingAmountRealized
+          .neg()
+          .times(INTERNAL_TOKEN_PRECISION)
+          .div(snapshot._accumulatedBalance);
+        // Do not recalculate the adjust cost basis later in the function if this occurs
+        // and we need to initialize it.
+        setAdjustedCostBasis = false;
+      }
+
       snapshot._accumulatedCostRealized = snapshot._accumulatedCostRealized.minus(
         // Token amount is negative here but this expression is a positive number
         snapshot.adjustedCostBasis.times(item.tokenAmount.neg()).div(INTERNAL_TOKEN_PRECISION)
@@ -136,7 +150,7 @@ export function processProfitAndLoss(
       // Adjusted cost basis is in underlying precision and a positive number.
       if (snapshot._accumulatedCostRealized.abs().le(DUST)) {
         snapshot.adjustedCostBasis = BigInt.fromI32(0);
-      } else {
+      } else if (setAdjustedCostBasis) {
         snapshot.adjustedCostBasis = snapshot._accumulatedCostRealized
           .times(INTERNAL_TOKEN_PRECISION)
           .div(snapshot._accumulatedBalance);
