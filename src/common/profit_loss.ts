@@ -318,7 +318,8 @@ function createLineItem(
   lineItems: ProfitLossLineItem[],
   underlyingAmountRealized: BigInt,
   underlyingAmountSpot: BigInt,
-  ratio: BigInt | null = null
+  ratio: BigInt | null = null,
+  underlyingAmountForImpliedRate: BigInt | null = null
 ): void {
   let item = new ProfitLossLineItem(bundle.id + ":" + lineItems.length.toString());
   item.bundle = bundle.id;
@@ -364,11 +365,19 @@ function createLineItem(
     .abs();
 
   let token = getAsset(item.token);
-  if (token.maturity !== null && (token.maturity as BigInt).notEqual(PRIME_CASH_VAULT_MATURITY)) {
+  if (
+    token.maturity !== null &&
+    (token.maturity as BigInt).notEqual(PRIME_CASH_VAULT_MATURITY) &&
+    underlyingAmountForImpliedRate !== null
+  ) {
     let underlying = getUnderlying(token.currencyId);
+    let realizedPriceForImpliedRate = underlyingAmountForImpliedRate
+      .times(INTERNAL_TOKEN_PRECISION)
+      .div(item.tokenAmount)
+      .abs();
     // Convert the realized price to an implied fixed rate for fixed vault debt
     // and fCash tokens
-    let realizedPriceInRatePrecision: f64 = item.realizedPrice
+    let realizedPriceInRatePrecision: f64 = realizedPriceForImpliedRate
       .times(RATE_PRECISION)
       .div(underlying.precision)
       .toI64() as f64;
@@ -1010,6 +1019,7 @@ function createVaultDebtLineItem(
   bundleArray: string[]
 ): void {
   let underlyingDebtAmountRealized: BigInt | null = null;
+  let underlyingDebtForImpliedRate: BigInt | null = null;
 
   if ((vaultDebt.maturity as BigInt).equals(PRIME_CASH_VAULT_MATURITY)) {
     underlyingDebtAmountRealized = vaultDebt.valueInUnderlying as BigInt;
@@ -1023,17 +1033,18 @@ function createVaultDebtLineItem(
       borrow[0].valueInUnderlying !== null &&
       borrow[1].valueInUnderlying !== null
     ) {
+      underlyingDebtForImpliedRate = borrow[0].valueInUnderlying as BigInt;
       underlyingDebtAmountRealized = (borrow[0].valueInUnderlying as BigInt).minus(
         borrow[1].valueInUnderlying as BigInt
       );
       if (
         vaultFees &&
         vaultFees[0].valueInUnderlying !== null &&
-        vaultFees[0].valueInUnderlying !== null
+        vaultFees[1].valueInUnderlying !== null
       ) {
         underlyingDebtAmountRealized = underlyingDebtAmountRealized
           .minus(vaultFees[0].valueInUnderlying as BigInt)
-          .minus(vaultFees[0].valueInUnderlying as BigInt);
+          .minus(vaultFees[1].valueInUnderlying as BigInt);
       }
     }
   } else if (vaultDebt.transferType == Burn) {
@@ -1042,11 +1053,13 @@ function createVaultDebtLineItem(
 
     if (lendAtZero !== null && lendAtZero[0].valueInUnderlying !== null) {
       underlyingDebtAmountRealized = lendAtZero[0].valueInUnderlying;
+      underlyingDebtForImpliedRate = lendAtZero[0].valueInUnderlying;
     } else if (
       lend !== null &&
       lend[0].valueInUnderlying !== null &&
       lend[1].valueInUnderlying !== null
     ) {
+      underlyingDebtForImpliedRate = lend[0].valueInUnderlying;
       underlyingDebtAmountRealized = (lend[0].valueInUnderlying as BigInt).plus(
         lend[1].valueInUnderlying as BigInt
       );
@@ -1060,7 +1073,9 @@ function createVaultDebtLineItem(
       vaultDebt.transferType,
       lineItems,
       underlyingDebtAmountRealized,
-      vaultDebt.valueInUnderlying as BigInt
+      vaultDebt.valueInUnderlying as BigInt,
+      null,
+      underlyingDebtForImpliedRate
     );
   }
 }
@@ -1117,6 +1132,7 @@ function createfCashLineItems(
           .div(fCashTrade[2].value)
           .abs();
 
+  // This is the prime cash transfer
   createLineItem(
     bundle,
     fCashTrade[0],
@@ -1138,6 +1154,7 @@ function createfCashLineItems(
     ratio
   );
 
+  // This is the fCash cash transfer
   let underlyingAmountRealized = getfCashAmountRealized(isBuy, fCashTrade);
   createLineItem(
     bundle,
@@ -1146,6 +1163,7 @@ function createfCashLineItems(
     lineItems,
     underlyingAmountRealized,
     fCashTransfer.valueInUnderlying as BigInt,
-    ratio
+    ratio,
+    fCashTrade[0].valueInUnderlying // For the implied rate, do not include the fee
   );
 }
