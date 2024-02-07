@@ -84,19 +84,21 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
         snapshot.totalILAndFeesAtSnapshot = BigInt.zero();
         snapshot._accumulatedBalance = BigInt.zero();
         snapshot._accumulatedCostAdjustedBasis = BigInt.zero();
+        snapshot._accumulatedCostRealized = BigInt.zero();
+        snapshot.impliedFixedRate = null;
       } else {
         snapshot.totalILAndFeesAtSnapshot = prevSnapshot.totalILAndFeesAtSnapshot;
         snapshot._accumulatedBalance = prevSnapshot._accumulatedBalance;
         snapshot._accumulatedCostAdjustedBasis = prevSnapshot._accumulatedCostAdjustedBasis;
+        snapshot._accumulatedCostRealized = prevSnapshot._accumulatedCostRealized;
+        snapshot.impliedFixedRate = prevSnapshot.impliedFixedRate;
       }
 
       if (prevSnapshot) {
         // These values are always copied from the previous snapshot
         snapshot.totalProfitAndLossAtSnapshot = prevSnapshot.totalProfitAndLossAtSnapshot;
-        snapshot._accumulatedCostRealized = prevSnapshot._accumulatedCostRealized;
         snapshot.previousBalance = prevSnapshot.currentBalance;
         snapshot.adjustedCostBasis = prevSnapshot.adjustedCostBasis;
-        snapshot.impliedFixedRate = prevSnapshot.impliedFixedRate;
         snapshot.previousSnapshot = prevSnapshot.id;
       }
     }
