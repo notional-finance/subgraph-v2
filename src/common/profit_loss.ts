@@ -1,6 +1,7 @@
-import { ethereum, BigInt, log, Address } from "@graphprotocol/graph-ts";
+import { ethereum, BigInt, log, Address, Bytes } from "@graphprotocol/graph-ts";
 import {
   BalanceSnapshot,
+  Incentive,
   IncentiveSnapshot,
   ProfitLossLineItem,
   Token,
@@ -53,6 +54,21 @@ export function processProfitAndLoss(
       // If there is an incentivized token, it has its own snapshot that is already updated
       item.save();
       continue;
+    } else if (token.tokenType == "nToken" && snapshot.previousBalance.isZero()) {
+      // When establishing an nToken balance, must also set the initial reward debt
+      let NOTE_Token = getAsset(
+        getNotional()
+          .getNoteToken()
+          .toHexString()
+      );
+      let s = createSnapshotForIncentives(item.account, snapshot, NOTE_Token, token);
+      if (s) s.save();
+      let incentives = Incentive.load(token.currencyId.toString());
+      if (incentives !== null && incentives.secondaryIncentiveRewarder !== null) {
+        let rewardToken = getAsset(incentives.currentSecondaryReward as string);
+        let s = createSnapshotForIncentives(item.account, snapshot, rewardToken, token);
+        if (s) s.save();
+      }
     }
 
     snapshot._accumulatedBalance = snapshot._accumulatedBalance.plus(item.tokenAmount);
@@ -177,18 +193,18 @@ export function processProfitAndLoss(
   }
 }
 
-function updateSnapshotForIncentives(
+function createSnapshotForIncentives(
+  _account: string,
   snapshot: BalanceSnapshot,
-  transfer: Transfer,
+  rewardToken: Token,
   nToken: Token
-): BigInt {
-  let rewardToken = getAsset(transfer.token);
-  let account = Address.fromBytes(Address.fromHexString(transfer.to));
+): IncentiveSnapshot | null {
+  let account = Address.fromBytes(Address.fromHexString(_account));
   let id = snapshot.id + ":" + rewardToken.id;
 
   // If the incentive snapshot has already been created, then return a zero and don't re-calculate
   // due to the nature of how how incentive transfers work.
-  if (IncentiveSnapshot.load(id)) return BigInt.zero();
+  if (IncentiveSnapshot.load(id)) return null;
 
   let incentiveSnapshot = new IncentiveSnapshot(id);
   incentiveSnapshot.blockNumber = snapshot.blockNumber;
@@ -213,7 +229,6 @@ function updateSnapshotForIncentives(
     }
   }
 
-  let incentivesClaimed: BigInt;
   if (rewardToken.symbol == NOTE) {
     // NOTE incentives are found on the notional contract directly
     let notional = getNotional();
@@ -226,6 +241,32 @@ function updateSnapshotForIncentives(
         break;
       }
     }
+  } else {
+    let incentives = Incentive.load(nToken.currencyId.toString());
+    if (incentives !== null && incentives.secondaryIncentiveRewarder !== null) {
+      let r = SecondaryRewarder.bind(
+        Address.fromBytes(incentives.secondaryIncentiveRewarder as Bytes)
+      );
+      incentiveSnapshot.currentIncentiveDebt = r.rewardDebtPerAccount(account);
+    }
+  }
+
+  return incentiveSnapshot;
+}
+
+function updateSnapshotForIncentives(
+  snapshot: BalanceSnapshot,
+  transfer: Transfer,
+  nToken: Token
+): BigInt {
+  let rewardToken = getAsset(transfer.token);
+  let incentiveSnapshot = createSnapshotForIncentives(transfer.to, snapshot, rewardToken, nToken);
+  if (incentiveSnapshot === null) return BigInt.zero();
+
+  let incentivesClaimed: BigInt;
+  if (rewardToken.symbol == NOTE) {
+    // NOTE incentives are found on the notional contract directly
+    let notional = getNotional();
 
     let accumulatedPerNToken = notional
       .getNTokenAccount(Address.fromBytes(Address.fromHexString(nToken.id)))
@@ -239,7 +280,6 @@ function updateSnapshotForIncentives(
   } else {
     let r = SecondaryRewarder.bind(Address.fromBytes(Address.fromHexString(transfer.from)));
     let accumulatedPerNToken = r.accumulatedRewardPerNToken();
-    incentiveSnapshot.currentIncentiveDebt = r.rewardDebtPerAccount(account);
 
     incentivesClaimed = snapshot.previousBalance
       .times(accumulatedPerNToken)

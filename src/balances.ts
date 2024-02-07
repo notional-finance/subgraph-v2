@@ -34,6 +34,7 @@ import { getAccount, getAsset, getIncentives, getNotional, getUnderlying } from 
 import { updatePrimeCashMarket } from "./common/market";
 import { updatefCashOraclesAndMarkets } from "./exchange_rates";
 import { getCurrencyConfiguration } from "./configuration";
+import { SecondaryRewarder as ISecondaryRewarder } from "../generated/Configuration/SecondaryRewarder";
 
 export function getNTokenFeeBuffer(currencyId: i32): nTokenFeeBuffer {
   let feeBuffer = nTokenFeeBuffer.load(currencyId.toString());
@@ -249,6 +250,15 @@ export function updateNTokenIncentives(currencyId: i32, event: ethereum.Event): 
     incentives.lastAccumulatedTime = notional
       .getNTokenAccount(nTokenAddress.value)
       .getLastAccumulatedTime();
+
+    if (incentives.secondaryIncentiveRewarder !== null) {
+      let r = ISecondaryRewarder.bind(
+        Address.fromBytes(incentives.secondaryIncentiveRewarder as Bytes)
+      );
+      incentives.accumulatedSecondaryRewardPerNToken = r.accumulatedRewardPerNToken();
+      incentives.lastSecondaryAccumulatedTime = r.lastAccumulatedTime();
+    }
+
     incentives.save();
   }
 }
