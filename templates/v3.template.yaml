@@ -1,13 +1,13 @@
 specVersion: 0.0.8
 description: Notional V3 Subgraph
 repository: https://github.com/notional-finance/contracts-v2
-# # Enable these lines to spin up grafting. Note that you must
-# # deploy to a newly created subgraph.
-# features:
-#   - grafting
-# graft:
-#   base: QmZxxiyTw2jRBPLyg7A3aLmgy6zeAW7g7aQL6imoS8iwu1
-#   block: 167703900
+# Enable these lines to spin up grafting. Note that you must
+# deploy to a newly created subgraph.
+features:
+  - grafting
+graft:
+  base: QmV63Q1qKqjJGDiksMYX6RS82fZGE739Sefpk3FCfBodEs
+  block: 175519340
 schema:
   file: ./schema.graphql
 dataSources:
