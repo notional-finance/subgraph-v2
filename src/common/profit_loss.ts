@@ -1,29 +1,35 @@
-import { ethereum, BigInt, log, Address, Bytes } from "@graphprotocol/graph-ts";
+import { ethereum, BigInt, Bytes } from "@graphprotocol/graph-ts";
 import {
   BalanceSnapshot,
-  Incentive,
-  IncentiveSnapshot,
   ProfitLossLineItem,
   Token,
   Transfer,
   TransferBundle,
 } from "../../generated/schema";
-import { getAccount, getAsset, getNotional, getUnderlying } from "./entities";
+import { getAccount, getAsset, getNotional } from "./entities";
 import { getBalance, getBalanceSnapshot, updateAccount } from "../balances";
 import {
   Burn,
   INTERNAL_TOKEN_PRECISION,
   Mint,
-  NOTE,
   PRIME_CASH_VAULT_MATURITY,
-  RATE_PRECISION,
-  SCALAR_PRECISION,
-  SECONDS_IN_YEAR,
   Transfer as _Transfer,
-  nToken,
 } from "./constants";
-import { convertValueToUnderlying } from "./transfers";
-import { SecondaryRewarder } from "../../generated/Configuration/SecondaryRewarder";
+import {
+  createLineItem,
+  createVaultDebtLineItem,
+  createVaultShareLineItem,
+  createfCashLineItems,
+  findPrecedingBundle,
+  getfCashAmountRealized,
+} from "./pnl/line_item";
+import { updateCurrentSnapshotPnL, updateTotalILAndFees } from "./pnl/metrics";
+import {
+  createIncentiveLineItem,
+  setInitialIncentiveSnapshot,
+  shouldCreateIncentiveSnapshot,
+  updateSnapshotForIncentives,
+} from "./pnl/incentives";
 
 const TRANSIENT_DUST = BigInt.fromI32(5000);
 const DUST = BigInt.fromI32(100);
@@ -55,26 +61,12 @@ export function processProfitAndLoss(
       item.save();
       continue;
     } else if (token.tokenType == "nToken" && snapshot.previousBalance.isZero()) {
-      // When establishing an nToken balance, must also set the initial reward debt
-      let NOTE_Token = getAsset(
-        getNotional()
-          .getNoteToken()
-          .toHexString()
-      );
-      let s = createSnapshotForIncentives(item.account, snapshot, NOTE_Token, token);
-      if (s) s.save();
-      let incentives = Incentive.load(token.currencyId.toString());
-      if (incentives !== null && incentives.secondaryIncentiveRewarder !== null) {
-        let rewardToken = getAsset(incentives.currentSecondaryReward as string);
-        let s = createSnapshotForIncentives(item.account, snapshot, rewardToken, token);
-        if (s) s.save();
-      }
+      setInitialIncentiveSnapshot(item.account, snapshot, token);
     }
 
     let setAdjustedCostBasis = true;
     snapshot._accumulatedBalance = snapshot._accumulatedBalance.plus(item.tokenAmount);
-    // This never gets reset to zero. Accumulated cost is a positive number. underlyingAmountRealized
-    // is negative when purchasing tokens, positive when selling so we invert it here.
+
     if (item.tokenAmount.isZero()) {
       // Do nothing
     } else if (item.tokenAmount.gt(BigInt.zero())) {
@@ -114,6 +106,7 @@ export function processProfitAndLoss(
     // If sell fcash flips negative clear this to zero...
     if (snapshot._accumulatedBalance.abs().le(DUST)) {
       // Clear all snapshot amounts back to zero if the accumulated balance goes below zero
+      // NOTE: _accumulatedCostRealized is not cleared to zero in here. Is that correct?
       snapshot._accumulatedBalance = BigInt.zero();
       snapshot._accumulatedCostAdjustedBasis = BigInt.zero();
       snapshot.adjustedCostBasis = BigInt.zero();
@@ -156,313 +149,16 @@ export function processProfitAndLoss(
           .div(snapshot._accumulatedBalance);
       }
 
-      let accumulatedBalanceValueAtSpot = convertValueToUnderlying(
-        snapshot._accumulatedBalance,
-        token,
-        event.block.timestamp
-      );
-
-      if (accumulatedBalanceValueAtSpot !== null) {
-        snapshot.currentProfitAndLossAtSnapshot = accumulatedBalanceValueAtSpot.minus(
-          snapshot.adjustedCostBasis
-            .times(snapshot._accumulatedBalance)
-            .div(INTERNAL_TOKEN_PRECISION)
-        );
-        snapshot.totalProfitAndLossAtSnapshot = accumulatedBalanceValueAtSpot.minus(
-          snapshot._accumulatedCostRealized
-        );
-
-        // Both underlyingAmountSpot and underlyingAmountRealized are negative numbers. Spot prices
-        // are higher than realized prices so ILandFees is positive here.
-        let ILandFees = item.underlyingAmountRealized.minus(item.underlyingAmountSpot);
-        if (ILandFees.ge(BigInt.zero())) {
-          snapshot.totalILAndFeesAtSnapshot = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
-        } else if (
-          snapshot._accumulatedBalance
-            .minus(item.tokenAmount)
-            .abs()
-            .gt(TRANSIENT_DUST) &&
-          // NOTE: for nToken residuals this will not compute IL and fees properly
-          !item.tokenAmount.isZero()
-        ) {
-          // Equation here should be:
-          // newTotal = totalILAndFeesAtSnapshot * (1 + tokenAmount / accumulatedBalance)
-          // or
-          // newTotal = totalILAndFeesAtSnapshot + (totalILAndFeesAtSnapshot * tokenAmount / accumulatedBalance)
-          let total = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
-
-          snapshot.totalILAndFeesAtSnapshot = total.plus(
-            total.times(item.tokenAmount).div(snapshot._accumulatedBalance.minus(item.tokenAmount))
-          );
-        }
-
-        snapshot.totalInterestAccrualAtSnapshot = snapshot.currentProfitAndLossAtSnapshot.minus(
-          snapshot.totalILAndFeesAtSnapshot
-        );
-      }
+      // This will update the total IL and fees metric, which is used in the following
+      // method to calculate the total interest accrued at the snapshot
+      updateTotalILAndFees(snapshot, item);
+      updateCurrentSnapshotPnL(snapshot, token, event);
     }
 
     item.save();
     snapshot.save();
   }
 }
-
-function createSnapshotForIncentives(
-  _account: string,
-  snapshot: BalanceSnapshot,
-  rewardToken: Token,
-  nToken: Token
-): IncentiveSnapshot | null {
-  let account = Address.fromBytes(Address.fromHexString(_account));
-  let id = snapshot.id + ":" + rewardToken.id;
-
-  // If the incentive snapshot has already been created, then return a zero and don't re-calculate
-  // due to the nature of how how incentive transfers work.
-  if (IncentiveSnapshot.load(id)) return null;
-
-  let incentiveSnapshot = new IncentiveSnapshot(id);
-  incentiveSnapshot.blockNumber = snapshot.blockNumber;
-  incentiveSnapshot.timestamp = snapshot.timestamp;
-  incentiveSnapshot.transaction = snapshot.transaction;
-  incentiveSnapshot.balanceSnapshot = snapshot.id;
-  incentiveSnapshot.rewardToken = rewardToken.id;
-
-  incentiveSnapshot.previousIncentiveDebt = BigInt.zero();
-  incentiveSnapshot.totalClaimed = BigInt.zero();
-  incentiveSnapshot.adjustedClaimed = BigInt.zero();
-
-  if (snapshot.previousSnapshot) {
-    let prevSnapshot = IncentiveSnapshot.load(
-      (snapshot.previousSnapshot as string) + ":" + rewardToken.id
-    );
-
-    if (prevSnapshot) {
-      incentiveSnapshot.previousIncentiveDebt = prevSnapshot.currentIncentiveDebt;
-      incentiveSnapshot.totalClaimed = prevSnapshot.totalClaimed;
-      incentiveSnapshot.adjustedClaimed = prevSnapshot.adjustedClaimed;
-    }
-  }
-
-  if (rewardToken.symbol == NOTE) {
-    // NOTE incentives are found on the notional contract directly
-    let notional = getNotional();
-    let b = notional.getAccount(account).getAccountBalances();
-    // Set this to zero if it is not found in the current balances
-    incentiveSnapshot.currentIncentiveDebt = BigInt.zero();
-    for (let i = 0; i < b.length; i++) {
-      if (b[i].currencyId == nToken.currencyId) {
-        incentiveSnapshot.currentIncentiveDebt = b[i].accountIncentiveDebt;
-        break;
-      }
-    }
-  } else {
-    let incentives = Incentive.load(nToken.currencyId.toString());
-    incentiveSnapshot.currentIncentiveDebt = BigInt.zero();
-    if (incentives !== null && incentives.secondaryIncentiveRewarder !== null) {
-      let r = SecondaryRewarder.bind(
-        Address.fromBytes(incentives.secondaryIncentiveRewarder as Bytes)
-      );
-      incentiveSnapshot.currentIncentiveDebt = r.rewardDebtPerAccount(account);
-    }
-  }
-
-  return incentiveSnapshot;
-}
-
-function updateSnapshotForIncentives(
-  snapshot: BalanceSnapshot,
-  transfer: Transfer,
-  nToken: Token
-): BigInt {
-  let rewardToken = getAsset(transfer.token);
-  let incentiveSnapshot = createSnapshotForIncentives(transfer.to, snapshot, rewardToken, nToken);
-  // In these cases, no incentive has been accrued to the account
-  if (
-    incentiveSnapshot === null ||
-    incentiveSnapshot.currentIncentiveDebt.isZero() ||
-    incentiveSnapshot.currentIncentiveDebt == incentiveSnapshot.previousIncentiveDebt
-  )
-    return BigInt.zero();
-
-  let incentivesClaimed: BigInt;
-  if (rewardToken.symbol == NOTE) {
-    // NOTE incentives are found on the notional contract directly
-    let notional = getNotional();
-
-    let accumulatedPerNToken = notional
-      .getNTokenAccount(Address.fromBytes(Address.fromHexString(nToken.id)))
-      .getAccumulatedNOTEPerNToken();
-
-    // This is mimics the incentive claim calculation internally
-    incentivesClaimed = snapshot.previousBalance
-      .times(accumulatedPerNToken)
-      .div(SCALAR_PRECISION)
-      .minus(incentiveSnapshot.previousIncentiveDebt);
-  } else {
-    let r = SecondaryRewarder.bind(Address.fromBytes(Address.fromHexString(transfer.from)));
-    let accumulatedPerNToken = r.accumulatedRewardPerNToken();
-
-    incentivesClaimed = snapshot.previousBalance
-      .times(accumulatedPerNToken)
-      .div(INTERNAL_TOKEN_PRECISION)
-      // This incentive debt is always in SCALAR_PRECISION
-      .minus(incentiveSnapshot.previousIncentiveDebt)
-      .times(rewardToken.precision)
-      .div(SCALAR_PRECISION);
-
-    log.debug("Inside secondary rewarder claimed {} {} {} {}", [
-      snapshot.previousBalance.toString(),
-      accumulatedPerNToken.toString(),
-      incentiveSnapshot.previousIncentiveDebt.toString(),
-      incentivesClaimed.toString(),
-    ]);
-  }
-
-  incentiveSnapshot.totalClaimed = incentiveSnapshot.totalClaimed.plus(incentivesClaimed);
-  // If the balance increases, add the token amount to the virtual NOTE balance
-  incentiveSnapshot.adjustedClaimed = incentiveSnapshot.adjustedClaimed.plus(incentivesClaimed);
-
-  // This is referring to the nToken balance snapshot
-  if (snapshot.previousBalance.gt(snapshot.currentBalance)) {
-    // When nTokens are redeemed, we adjust the reward earned downwards
-    let rewardAdjustment = snapshot.previousBalance
-      .minus(snapshot.currentBalance)
-      // Converts to the reward token precision
-      .times(incentiveSnapshot.adjustedClaimed)
-      .div(snapshot.previousBalance);
-
-    incentiveSnapshot.adjustedClaimed = incentiveSnapshot.adjustedClaimed.minus(rewardAdjustment);
-  }
-
-  incentiveSnapshot.save();
-
-  return incentivesClaimed;
-}
-
-function createLineItem(
-  bundle: TransferBundle,
-  tokenTransfer: Transfer,
-  transferType: string,
-  lineItems: ProfitLossLineItem[],
-  underlyingAmountRealized: BigInt,
-  underlyingAmountSpot: BigInt,
-  ratio: BigInt | null = null,
-  underlyingAmountForImpliedRate: BigInt | null = null
-): void {
-  let item = new ProfitLossLineItem(bundle.id + ":" + lineItems.length.toString());
-  item.bundle = bundle.id;
-  item.blockNumber = bundle.blockNumber;
-  item.timestamp = bundle.timestamp;
-  item.transactionHash = bundle.transactionHash;
-  item.token = tokenTransfer.token;
-  item.underlyingToken = tokenTransfer.underlying;
-
-  if (transferType == Mint) {
-    item.account = tokenTransfer.to;
-    item.tokenAmount = tokenTransfer.value;
-    item.underlyingAmountRealized = underlyingAmountRealized.neg();
-    item.underlyingAmountSpot = underlyingAmountSpot.neg();
-  } else if (transferType == Burn) {
-    item.account = tokenTransfer.from;
-    item.tokenAmount = tokenTransfer.value.neg();
-    item.underlyingAmountRealized = underlyingAmountRealized;
-    item.underlyingAmountSpot = underlyingAmountSpot;
-  } else {
-    log.critical("Unknown transfer type {}", [transferType]);
-  }
-
-  // This ratio is used to split fCash transfers between the positive and negative portions
-  if (ratio) {
-    item.tokenAmount = item.tokenAmount.times(ratio).div(RATE_PRECISION);
-    item.underlyingAmountRealized = item.underlyingAmountRealized.times(ratio).div(RATE_PRECISION);
-    item.underlyingAmountSpot = item.underlyingAmountSpot.times(ratio).div(RATE_PRECISION);
-  }
-
-  // Don't create an inconsequential PnL item
-  if (item.tokenAmount == BigInt.zero()) return;
-
-  // Prices are in underlying.precision
-  item.realizedPrice = underlyingAmountRealized
-    .times(INTERNAL_TOKEN_PRECISION)
-    .div(item.tokenAmount)
-    .abs();
-
-  item.spotPrice = underlyingAmountSpot
-    .times(INTERNAL_TOKEN_PRECISION)
-    .div(item.tokenAmount)
-    .abs();
-
-  let token = getAsset(item.token);
-  if (
-    token.maturity !== null &&
-    (token.maturity as BigInt).notEqual(PRIME_CASH_VAULT_MATURITY) &&
-    underlyingAmountForImpliedRate !== null
-  ) {
-    let underlying = getUnderlying(token.currencyId);
-    let realizedPriceForImpliedRate = underlyingAmountForImpliedRate
-      .times(INTERNAL_TOKEN_PRECISION)
-      .div(item.tokenAmount)
-      .abs();
-    // Convert the realized price to an implied fixed rate for fixed vault debt
-    // and fCash tokens
-    let realizedPriceInRatePrecision: f64 = realizedPriceForImpliedRate
-      .times(RATE_PRECISION)
-      .div(underlying.precision)
-      .toI64() as f64;
-    let ratePrecision = RATE_PRECISION.toI64() as f64;
-    let timeToMaturity = (token.maturity as BigInt).minus(BigInt.fromI32(bundle.timestamp));
-    let x: f64 = Math.trunc(Math.log(ratePrecision / realizedPriceInRatePrecision) * ratePrecision);
-    if (isFinite(x)) {
-      let r = BigInt.fromI64(x as i64);
-      let fixedRate = r.times(SECONDS_IN_YEAR).div(timeToMaturity);
-      item.impliedFixedRate = fixedRate;
-    }
-  }
-
-  lineItems.push(item);
-}
-
-function createIncentiveLineItem(
-  bundle: TransferBundle,
-  tokenTransfer: Transfer,
-  transferAmount: BigInt,
-  incentivizedTokenId: string,
-  lineItems: ProfitLossLineItem[]
-): void {
-  let item = new ProfitLossLineItem(bundle.id + ":" + lineItems.length.toString());
-  item.bundle = bundle.id;
-  item.blockNumber = bundle.blockNumber;
-  item.timestamp = bundle.timestamp;
-  item.transactionHash = bundle.transactionHash;
-  item.token = tokenTransfer.token;
-  item.underlyingToken = tokenTransfer.underlying;
-
-  item.account = tokenTransfer.to;
-  item.tokenAmount = transferAmount;
-  item.underlyingAmountRealized = BigInt.zero();
-  item.underlyingAmountSpot = BigInt.zero();
-  item.realizedPrice = BigInt.zero();
-  item.spotPrice = BigInt.zero();
-  item.isTransientLineItem = false;
-  item.incentivizedToken = incentivizedTokenId;
-
-  lineItems.push(item);
-}
-
-/**
- * Non-Listed PnL Items
- * Transfer Asset
- * Vault Entry Transfer
- * Vault Secondary Deposit
- *
- * nToken Add Liquidity
- * nToken Remove Liquidity
- * nToken Deleverage
- *
- * Global Settlement
- *
- * Liquidations need to be processed via event emission
- */
 
 function extractProfitLossLineItem(
   bundle: TransferBundle,
@@ -543,36 +239,24 @@ function extractProfitLossLineItem(
       let snapshot = BalanceSnapshot.load(snapshotId);
       let nToken = getAsset(nTokenAddress.value.toHexString());
       if (snapshot === null) {
-        let account = getAccount(transfers[0].to, event);
-        let balance = getBalance(account, nToken, event);
-        // If the snapshot does not exist then this is via a manual claim action
-        if (bundle.bundleName == "Transfer Secondary Incentive") {
-          // Secondary rewarder transfers come directly from the matched rewarder so we can check
-          // here if the transfer is coming from the secondary.
-          let incentives = Incentive.load(nToken.currencyId.toString());
-          if (
-            incentives !== null &&
-            incentives.secondaryIncentiveRewarder !== null &&
-            (incentives.secondaryIncentiveRewarder as Bytes).toHexString() == transfers[0].from
-          ) {
-            // Create a snapshot here for the secondary incentive, it has matched
-            // TODO: inside this snapshot the currentProfitLossAtSnapshot and totalInterestAccrualAtSnapshot
-            // are not set properly...
-            snapshot = updateAccount(nToken, account, balance, event);
-          }
-        } else if (bundle.bundleName == "Transfer Incentive") {
-          // In this case it is a claim NOTE direct off the nToken, given that secondary incentives
-          // come first we will likely only trip this edge case when someone only holds an ntoken
-          // that is only incentivized by NOTE...
-          // TODO: The way to fix this is to detect if the incentive debt has changed for this
-          // particular nToken for this account, we need to first create the incentive snapshot
-          // and then decide whether or not we need to create the snapshot here..
+        // If the snapshot does not exist then this is via a manual claim action, this method
+        // will check if an incentive snapshot needs to be created.
+        if (shouldCreateIncentiveSnapshot(bundle.bundleName, i, transfers[i], event, nToken)) {
+          let account = getAccount(transfers[0].to, event);
+          let balance = getBalance(account, nToken, event);
+
+          // Creates a new snapshot and updates the current balance
+          snapshot = updateAccount(nToken, account, balance, event);
+
+          // Updates the current snapshot PnL figures
+          updateCurrentSnapshotPnL(snapshot, nToken, event);
+          snapshot.save();
+        } else {
+          // If not then continue to the next currency id
           continue;
         }
       }
 
-      // If no snapshot exists at this point, then do not create incentive snapshots.
-      if (snapshot === null) continue;
       let incentivesClaimed = updateSnapshotForIncentives(snapshot, transfers[0], nToken);
       // Nothing is created if the incentive claim is zero
       if (!incentivesClaimed.isZero()) {
@@ -1033,190 +717,4 @@ function extractProfitLossLineItem(
   }
 
   return lineItems;
-}
-
-function findPrecedingBundleIndex(name: string, bundleArray: string[]): i32 {
-  for (let i = bundleArray.length - 1; i > -1; i--) {
-    // Search the bundle array in reverse order
-    let id = bundleArray[i];
-    if (!id.endsWith(name)) continue;
-
-    return i;
-  }
-
-  return -1;
-}
-
-function findPrecedingBundle(name: string, bundleArray: string[]): Transfer[] | null {
-  let index = findPrecedingBundleIndex(name, bundleArray);
-  if (index == -1) return null;
-
-  let id = bundleArray[index];
-  let bundle = TransferBundle.load(id);
-  if (bundle === null) return null;
-
-  let transfers = new Array<Transfer>();
-  for (let i = 0; i < bundle.transfers.length; i++) {
-    let t = Transfer.load(bundle.transfers[i]);
-    if (t === null) log.error("Could not load transfer {}", [bundle.transfers[i]]);
-    else transfers.push(t);
-  }
-
-  return transfers;
-}
-
-function createVaultDebtLineItem(
-  bundle: TransferBundle,
-  vaultDebt: Transfer,
-  lineItems: ProfitLossLineItem[],
-  bundleArray: string[]
-): void {
-  let underlyingDebtAmountRealized: BigInt | null = null;
-  let underlyingDebtForImpliedRate: BigInt | null = null;
-
-  if ((vaultDebt.maturity as BigInt).equals(PRIME_CASH_VAULT_MATURITY)) {
-    underlyingDebtAmountRealized = vaultDebt.valueInUnderlying as BigInt;
-  } else if (vaultDebt.transferType == Mint) {
-    // If this is an fCash then look for the traded fCash value
-    let borrow = findPrecedingBundle("Sell fCash Vault", bundleArray);
-    let vaultFees = findPrecedingBundle("Vault Fees", bundleArray);
-
-    if (
-      borrow !== null &&
-      borrow[0].valueInUnderlying !== null &&
-      borrow[1].valueInUnderlying !== null
-    ) {
-      underlyingDebtForImpliedRate = borrow[0].valueInUnderlying as BigInt;
-      underlyingDebtAmountRealized = (borrow[0].valueInUnderlying as BigInt).minus(
-        borrow[1].valueInUnderlying as BigInt
-      );
-      if (
-        vaultFees &&
-        vaultFees[0].valueInUnderlying !== null &&
-        vaultFees[1].valueInUnderlying !== null
-      ) {
-        underlyingDebtAmountRealized = underlyingDebtAmountRealized
-          .minus(vaultFees[0].valueInUnderlying as BigInt)
-          .minus(vaultFees[1].valueInUnderlying as BigInt);
-      }
-    }
-  } else if (vaultDebt.transferType == Burn) {
-    let lend = findPrecedingBundle("Buy fCash Vault", bundleArray);
-    let lendAtZero = findPrecedingBundle("Vault Lend at Zero", bundleArray);
-
-    if (lendAtZero !== null && lendAtZero[0].valueInUnderlying !== null) {
-      underlyingDebtAmountRealized = lendAtZero[0].valueInUnderlying;
-      underlyingDebtForImpliedRate = lendAtZero[0].valueInUnderlying;
-    } else if (
-      lend !== null &&
-      lend[0].valueInUnderlying !== null &&
-      lend[1].valueInUnderlying !== null
-    ) {
-      underlyingDebtForImpliedRate = lend[0].valueInUnderlying;
-      underlyingDebtAmountRealized = (lend[0].valueInUnderlying as BigInt).plus(
-        lend[1].valueInUnderlying as BigInt
-      );
-    }
-  }
-
-  if (underlyingDebtAmountRealized !== null) {
-    createLineItem(
-      bundle,
-      vaultDebt,
-      vaultDebt.transferType,
-      lineItems,
-      underlyingDebtAmountRealized,
-      vaultDebt.valueInUnderlying as BigInt,
-      null,
-      underlyingDebtForImpliedRate
-    );
-  }
-}
-
-function createVaultShareLineItem(
-  bundle: TransferBundle,
-  vaultShares: Transfer,
-  lineItems: ProfitLossLineItem[],
-  underlyingShareAmountRealized: BigInt
-): void {
-  let underlyingShareAmountSpot: BigInt;
-  // In some cases, the spot price cannot be calculated via the contract. Just use the underlying
-  // share amount realized instead. This will mark the ILandFees value at 0.
-  if (vaultShares.valueInUnderlying === null) {
-    underlyingShareAmountSpot = underlyingShareAmountRealized;
-  } else {
-    underlyingShareAmountSpot = vaultShares.valueInUnderlying as BigInt;
-  }
-
-  createLineItem(
-    bundle,
-    vaultShares,
-    vaultShares.transferType,
-    lineItems,
-    underlyingShareAmountRealized,
-    underlyingShareAmountSpot
-  );
-}
-
-function getfCashAmountRealized(isBuy: boolean, fCashTrade: Transfer[]): BigInt {
-  if (isBuy) {
-    return (fCashTrade[0].valueInUnderlying as BigInt).plus(
-      fCashTrade[1].valueInUnderlying as BigInt
-    );
-  } else {
-    return (fCashTrade[0].valueInUnderlying as BigInt).minus(
-      fCashTrade[1].valueInUnderlying as BigInt
-    );
-  }
-}
-
-function createfCashLineItems(
-  bundle: TransferBundle,
-  fCashTrade: Transfer[],
-  fCashTransfer: Transfer,
-  lineItems: ProfitLossLineItem[]
-): void {
-  let isBuy = fCashTrade[0].toSystemAccount == nToken;
-  let ratio: BigInt | null =
-    fCashTrade[2].value === fCashTransfer.value.abs()
-      ? null
-      : fCashTransfer.value
-          .times(RATE_PRECISION)
-          .div(fCashTrade[2].value)
-          .abs();
-
-  // This is the prime cash transfer
-  createLineItem(
-    bundle,
-    fCashTrade[0],
-    isBuy ? Burn : Mint,
-    lineItems,
-    fCashTrade[0].valueInUnderlying as BigInt,
-    fCashTrade[0].valueInUnderlying as BigInt,
-    ratio
-  );
-
-  // prime cash fee transfer
-  createLineItem(
-    bundle,
-    fCashTrade[1],
-    Burn,
-    lineItems,
-    fCashTrade[1].valueInUnderlying as BigInt,
-    fCashTrade[1].valueInUnderlying as BigInt,
-    ratio
-  );
-
-  // This is the fCash cash transfer
-  let underlyingAmountRealized = getfCashAmountRealized(isBuy, fCashTrade);
-  createLineItem(
-    bundle,
-    fCashTransfer,
-    isBuy ? Mint : Burn,
-    lineItems,
-    underlyingAmountRealized,
-    fCashTransfer.valueInUnderlying as BigInt,
-    ratio,
-    fCashTrade[0].valueInUnderlying // For the implied rate, do not include the fee
-  );
 }
