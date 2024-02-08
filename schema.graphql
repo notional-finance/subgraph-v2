@@ -772,7 +772,7 @@ type Reinvestment @entity {
   vault: VaultConfiguration!
 
   "Address of the token sold"
-  rewardTokenSold: Bytes!
+  rewardTokenSold: Token!
   "Amount of reward tokens sold"
   rewardAmountSold: BigInt!
 
@@ -782,6 +782,8 @@ type Reinvestment @entity {
   tokensPerVaultShare: BigInt
   "Value of the tokens reinvested"
   underlyingAmountRealized: BigInt
+  "Vault Share Price after Reinvestment"
+  vaultSharePrice: BigInt
 }
 
 # type ExternalLending @entity {

@@ -3,6 +3,7 @@ import { ISingleSidedLPStrategyVault } from "../generated/TreasuryManager/ISingl
 import { Reinvestment } from "../generated/schema";
 import { BigInt } from "@graphprotocol/graph-ts";
 import { INTERNAL_TOKEN_PRECISION } from "./common/constants";
+import { createERC20TokenAsset } from "./common/erc20";
 
 export function handleVaultRewardReinvested(event: VaultRewardReinvested): void {
   let id =
@@ -18,7 +19,9 @@ export function handleVaultRewardReinvested(event: VaultRewardReinvested): void 
   reinvestment.transactionHash = event.transaction.hash;
 
   reinvestment.vault = event.params.vault.toHexString();
-  reinvestment.rewardTokenSold = event.params.rewardToken;
+  // Ensure that the reward token has a record in the system
+  let rewardToken = createERC20TokenAsset(event.params.rewardToken, false, event, "Underlying");
+  reinvestment.rewardTokenSold = rewardToken.id;
 
   reinvestment.rewardAmountSold = event.params.soldAmount;
   reinvestment.tokensReinvested = event.params.poolClaimAmount;
@@ -40,8 +43,18 @@ export function handleVaultRewardReinvested(event: VaultRewardReinvested): void 
       BigInt.fromI32(0)
     );
 
-    if (!underlyingAmountRealized.reverted)
+    let vaultSharePrice = vault.try_convertStrategyToUnderlying(
+      event.params.vault,
+      INTERNAL_TOKEN_PRECISION,
+      BigInt.fromI32(0)
+    );
+
+    if (!underlyingAmountRealized.reverted) {
       reinvestment.underlyingAmountRealized = underlyingAmountRealized.value;
+    }
+    if (!vaultSharePrice.reverted) {
+      reinvestment.vaultSharePrice = vaultSharePrice.value;
+    }
   }
 
   reinvestment.save();
