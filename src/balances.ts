@@ -484,12 +484,12 @@ function updateReserves(
   }
 }
 
-function updateAccount(
+export function updateAccount(
   token: Token,
   account: Account,
   balance: Balance,
   event: ethereum.Event
-): void {
+): BalanceSnapshot {
   // updates vault account balances directly
   let notional = getNotional();
   let accountAddress = Address.fromBytes(Address.fromHexString(account.id));
@@ -509,4 +509,6 @@ function updateAccount(
   }
 
   _saveBalance(balance, snapshot);
+
+  return snapshot;
 }

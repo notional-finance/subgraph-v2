@@ -9,7 +9,7 @@ import {
   TransferBundle,
 } from "../../generated/schema";
 import { getAccount, getAsset, getNotional, getUnderlying } from "./entities";
-import { getBalance, getBalanceSnapshot } from "../balances";
+import { getBalance, getBalanceSnapshot, updateAccount } from "../balances";
 import {
   Burn,
   INTERNAL_TOKEN_PRECISION,
@@ -257,6 +257,7 @@ function createSnapshotForIncentives(
     }
   } else {
     let incentives = Incentive.load(nToken.currencyId.toString());
+    incentiveSnapshot.currentIncentiveDebt = BigInt.zero();
     if (incentives !== null && incentives.secondaryIncentiveRewarder !== null) {
       let r = SecondaryRewarder.bind(
         Address.fromBytes(incentives.secondaryIncentiveRewarder as Bytes)
@@ -275,7 +276,13 @@ function updateSnapshotForIncentives(
 ): BigInt {
   let rewardToken = getAsset(transfer.token);
   let incentiveSnapshot = createSnapshotForIncentives(transfer.to, snapshot, rewardToken, nToken);
-  if (incentiveSnapshot === null) return BigInt.zero();
+  // In these cases, no incentive has been accrued to the account
+  if (
+    incentiveSnapshot === null ||
+    incentiveSnapshot.currentIncentiveDebt.isZero() ||
+    incentiveSnapshot.currentIncentiveDebt == incentiveSnapshot.previousIncentiveDebt
+  )
+    return BigInt.zero();
 
   let incentivesClaimed: BigInt;
   if (rewardToken.symbol == NOTE) {
@@ -302,6 +309,13 @@ function updateSnapshotForIncentives(
       .minus(incentiveSnapshot.previousIncentiveDebt)
       .times(rewardToken.precision)
       .div(SCALAR_PRECISION);
+
+    log.debug("Inside secondary rewarder claimed {} {} {} {}", [
+      snapshot.previousBalance.toString(),
+      accumulatedPerNToken.toString(),
+      incentiveSnapshot.previousIncentiveDebt.toString(),
+      incentivesClaimed.toString(),
+    ]);
   }
 
   incentiveSnapshot.totalClaimed = incentiveSnapshot.totalClaimed.plus(incentivesClaimed);
@@ -524,17 +538,42 @@ function extractProfitLossLineItem(
         nTokenAddress.value.toHexString() +
         ":" +
         event.block.number.toString();
-      // No current snapshot available, this is an error. There should always be a current
-      // snapshot because nTokens are updated prior to incentives.
+
+      // If snapshot exists, tokens were claimed via mint or redeem
       let snapshot = BalanceSnapshot.load(snapshotId);
+      let nToken = getAsset(nTokenAddress.value.toHexString());
+      if (snapshot === null) {
+        let account = getAccount(transfers[0].to, event);
+        let balance = getBalance(account, nToken, event);
+        // If the snapshot does not exist then this is via a manual claim action
+        if (bundle.bundleName == "Transfer Secondary Incentive") {
+          // Secondary rewarder transfers come directly from the matched rewarder so we can check
+          // here if the transfer is coming from the secondary.
+          let incentives = Incentive.load(nToken.currencyId.toString());
+          if (
+            incentives !== null &&
+            incentives.secondaryIncentiveRewarder !== null &&
+            (incentives.secondaryIncentiveRewarder as Bytes).toHexString() == transfers[0].from
+          ) {
+            // Create a snapshot here for the secondary incentive, it has matched
+            // TODO: inside this snapshot the currentProfitLossAtSnapshot and totalInterestAccrualAtSnapshot
+            // are not set properly...
+            snapshot = updateAccount(nToken, account, balance, event);
+          }
+        } else if (bundle.bundleName == "Transfer Incentive") {
+          // In this case it is a claim NOTE direct off the nToken, given that secondary incentives
+          // come first we will likely only trip this edge case when someone only holds an ntoken
+          // that is only incentivized by NOTE...
+          // TODO: The way to fix this is to detect if the incentive debt has changed for this
+          // particular nToken for this account, we need to first create the incentive snapshot
+          // and then decide whether or not we need to create the snapshot here..
+          continue;
+        }
+      }
+
+      // If no snapshot exists at this point, then do not create incentive snapshots.
       if (snapshot === null) continue;
-
-      let incentivesClaimed = updateSnapshotForIncentives(
-        snapshot,
-        transfers[0],
-        getAsset(nTokenAddress.value.toHexString())
-      );
-
+      let incentivesClaimed = updateSnapshotForIncentives(snapshot, transfers[0], nToken);
       // Nothing is created if the incentive claim is zero
       if (!incentivesClaimed.isZero()) {
         createIncentiveLineItem(

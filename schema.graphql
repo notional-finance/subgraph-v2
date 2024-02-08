@@ -784,4 +784,30 @@ type Reinvestment @entity {
   underlyingAmountRealized: BigInt
 }
 
+# type ExternalLending @entity {
+#   "Currency ID"
+#   id: ID!
+
+#   # snapshots
+#   holdings: {
+#     blockHash: BigInt
+#     blockNumber: BigInt
+#     timestamp: BigInt
+
+#     holding: Token!
+
+#     balanceOf: BigInt!
+#     balanceOfUnderlying: BigInt!
+#     storedBalanceOf: BigInt!
+#     storedBalanceOfUnderlying: BigInt!
+#     protocolLendingRevenueAllTime: BigInt
+#     pCashLendingRevenueAllTime: BigInt
+
+#     targetUtilization: BigInt!
+#     currentUtilization: BigInt!
+#     withdrawThreshold: number!
+#     holdingAvailableToWithdraw: BigInt!
+#   }
+# }
+
 # Staked NOTE
