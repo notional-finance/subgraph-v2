@@ -1,7 +1,9 @@
 {
     "cSpell.words": [
+        "cooldown",
         "Negativef",
         "Positivef",
+        "Rebalance",
         "Wrappedf"
     ],
     "editor.defaultFormatter": "dbaeumer.vscode-eslint",

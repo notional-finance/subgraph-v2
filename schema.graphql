@@ -784,30 +784,81 @@ type Reinvestment @entity {
   vaultSharePrice: BigInt
 }
 
-# type ExternalLending @entity {
-#   "Currency ID"
-#   id: ID!
+type ExternalLending @entity {
+  "Currency ID"
+  id: ID!
 
-#   # snapshots
-#   holdings: {
-#     blockHash: BigInt
-#     blockNumber: BigInt
-#     timestamp: BigInt
+  lastUpdateBlockNumber: BigInt!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
 
-#     holding: Token!
+  "Reference to the underlying token"
+  underlying: Token!
 
-#     balanceOf: BigInt!
-#     balanceOfUnderlying: BigInt!
-#     storedBalanceOf: BigInt!
-#     storedBalanceOfUnderlying: BigInt!
-#     protocolLendingRevenueAllTime: BigInt
-#     pCashLendingRevenueAllTime: BigInt
+  "Accumulate the revenue from snapshots"
+  protocolRevenueAllTime: BigInt
+  primeCashRevenueAllTime: BigInt
 
-#     targetUtilization: BigInt!
-#     currentUtilization: BigInt!
-#     withdrawThreshold: number!
-#     holdingAvailableToWithdraw: BigInt!
-#   }
-# }
+  currentExternal: ExternalLendingSnapshot!
+  externalSnapshots: [ExternalLendingSnapshot!] @derivedFrom(field: "externalLending")
 
-# Staked NOTE
+  currentUnderlying: UnderlyingSnapshot!
+  underlyingSnapshot: [UnderlyingSnapshot!] @derivedFrom(field: "externalLending")
+}
+
+type UnderlyingSnapshot @entity(immutable: true) {
+  id: ID!
+  blockHash: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+
+  "Reference to the parent object"
+  externalLending: ExternalLending!
+  prevSnapshot: UnderlyingSnapshot
+  "Direct balanceOf the underlying token held by the contract"
+  balanceOf: BigInt!
+  "Stored balanceOf of the underlying token held by the contract"
+  storedBalanceOf: BigInt!
+}
+
+type ExternalLendingSnapshot @entity(immutable: true) {
+  "CurrencyID:ExternalLendingToken:Block Number"
+  id: ID!
+  blockHash: BigInt!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transactionHash: Bytes!
+
+  "Reference to the parent object"
+  externalLending: ExternalLending!
+  prevSnapshot: ExternalLendingSnapshot
+
+  "Reference to the external lending token, this may change over time so referenced inside the snapshot"
+  externalLendingToken: Token!
+
+  "Direct balanceOf the external lending token held by the contract"
+  balanceOf: BigInt!
+  "Direct balanceOf the external lending token in underlying of held by the contract"
+  balanceOfUnderlying: BigInt!
+  "Stored balanceOf of the external lending token held by the contract"
+  storedBalanceOf: BigInt!
+  "Stored balanceOf in underlying of the external lending held by the contract"
+  storedBalanceOfUnderlying: BigInt!
+
+  "Lending revenue accrued to protocol"
+  protocolRevenueSinceLastSnapshot: BigInt!
+  "Lending revenue accrued to prime cash"
+  primeCashRevenueSinceLastSnapshot: BigInt!
+
+  "Target time between rebalance calls"
+  cooldownTime: Int!
+  "Required threshold to withdraw from external lending protocol"
+  withdrawThreshold: Int!
+  "Target utilization for external lending"
+  targetUtilization: Int!
+  "Current utilization of the market at the snapshot"
+  currentUtilization: Int!
+  "Amount in underlying available to withdraw of the holding from the external market"
+  holdingAvailableToWithdraw: BigInt!
+}
