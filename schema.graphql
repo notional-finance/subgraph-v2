@@ -796,10 +796,10 @@ type ExternalLending @entity {
   underlying: Token!
 
   "Accumulate the revenue from snapshots"
-  protocolRevenueAllTime: BigInt
-  primeCashRevenueAllTime: BigInt
+  protocolRevenueAllTime: BigInt!
+  primeCashRevenueAllTime: BigInt!
 
-  currentExternal: ExternalLendingSnapshot!
+  currentExternal: ExternalLendingSnapshot
   externalSnapshots: [ExternalLendingSnapshot!] @derivedFrom(field: "externalLending")
 
   currentUnderlying: UnderlyingSnapshot!
