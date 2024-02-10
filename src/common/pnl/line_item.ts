@@ -112,12 +112,12 @@ export function findPrecedingBundle(name: string, bundleArray: string[]): Transf
 
   let id = bundleArray[index];
   let bundle = TransferBundle.load(id);
-  if (bundle === null) return null;
+  if (bundle == null) return null;
 
   let transfers = new Array<Transfer>();
   for (let i = 0; i < bundle.transfers.length; i++) {
     let t = Transfer.load(bundle.transfers[i]);
-    if (t === null) log.error("Could not load transfer {}", [bundle.transfers[i]]);
+    if (t == null) log.error("Could not load transfer {}", [bundle.transfers[i]]);
     else transfers.push(t);
   }
 

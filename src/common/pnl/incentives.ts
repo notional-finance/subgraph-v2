@@ -182,7 +182,7 @@ export function updateSnapshotForIncentives(
   let incentiveSnapshot = createSnapshotForIncentives(transfer.to, snapshot, rewardToken, nToken);
   // In these cases, no incentive has been accrued to the account
   if (
-    incentiveSnapshot === null ||
+    incentiveSnapshot == null ||
     incentiveSnapshot.currentIncentiveDebt.isZero() ||
     incentiveSnapshot.currentIncentiveDebt == incentiveSnapshot.previousIncentiveDebt
   )

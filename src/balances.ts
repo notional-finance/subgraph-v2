@@ -38,7 +38,7 @@ import { SecondaryRewarder as ISecondaryRewarder } from "../generated/Configurat
 
 export function getNTokenFeeBuffer(currencyId: i32): nTokenFeeBuffer {
   let feeBuffer = nTokenFeeBuffer.load(currencyId.toString());
-  if (feeBuffer === null) {
+  if (feeBuffer == null) {
     feeBuffer = new nTokenFeeBuffer(currencyId.toString());
     feeBuffer.feeTransfers = new Array<string>();
     // NOTE: we have to keep a separate fee transfer amount in the case that the
@@ -401,7 +401,7 @@ function updateVaultState(
 
 function updateNTokenFeeBuffer(currencyId: i32, transfer: Transfer, event: ethereum.Event): void {
   let config = getCurrencyConfiguration(currencyId);
-  if (config === null) return;
+  if (config == null) return;
   let fCashReserveFeeSharePercent = config.fCashReserveFeeSharePercent;
   let feeBuffer = getNTokenFeeBuffer(currencyId);
 
@@ -412,7 +412,7 @@ function updateNTokenFeeBuffer(currencyId: i32, transfer: Transfer, event: ether
   // Remove any transfers that are before the min transfer timestamp
   while (feeTransfers.length > 0) {
     let transfer = Transfer.load(feeTransfers[0]);
-    if (transfer === null || transfer.timestamp < minTransferTimestamp) {
+    if (transfer == null || transfer.timestamp < minTransferTimestamp) {
       feeTransfers.shift();
       feeTransferAmount.shift();
     }

@@ -238,7 +238,7 @@ function extractProfitLossLineItem(
       // If snapshot exists, tokens were claimed via mint or redeem
       let snapshot = BalanceSnapshot.load(snapshotId);
       let nToken = getAsset(nTokenAddress.value.toHexString());
-      if (snapshot === null) {
+      if (snapshot == null) {
         // If the snapshot does not exist then this is via a manual claim action, this method
         // will check if an incentive snapshot needs to be created.
         if (shouldCreateIncentiveSnapshot(bundle.bundleName, i, transfers[0], event, nToken)) {
