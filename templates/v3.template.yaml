@@ -6,8 +6,8 @@ repository: https://github.com/notional-finance/contracts-v2
 features:
   - grafting
 graft:
-  base: Qmag3DQyW8EJ9sNQpTVaG1p2QeCozqRbyX12kruhhDyAQs
-  block: 178490300
+  base: QmZPkPMTbdDoBSoc1beseKCNRND5tKLaUhb798hVchtdBZ
+  block: 154261800
 schema:
   file: ./schema.graphql
 dataSources:
@@ -252,6 +252,8 @@ dataSources:
           file: ./abi/TreasuryManager.json
         - name: ISingleSidedLPStrategyVault
           file: ./abi/ISingleSidedLPStrategyVault.json
+        - name: ERC20
+          file: ./abi/ERC20.json
       eventHandlers:
         - event: VaultRewardReinvested(indexed address,indexed address,uint256,uint256)
           handler: handleVaultRewardReinvested
