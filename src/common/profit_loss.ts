@@ -78,7 +78,7 @@ export function processProfitAndLoss(
       // Catches the edge condition (specifically minting nTokens w/ fCash) where the negative
       // tokenAmount appears before the positive token amount and the adjusted cost basis is
       // still initialized to zero.
-      if (snapshot.adjustedCostBasis.isZero()) {
+      if (snapshot.adjustedCostBasis.isZero() && !snapshot._accumulatedBalance.isZero()) {
         snapshot.adjustedCostBasis = item.underlyingAmountRealized
           .neg()
           .times(INTERNAL_TOKEN_PRECISION)
@@ -241,7 +241,7 @@ function extractProfitLossLineItem(
       if (snapshot === null) {
         // If the snapshot does not exist then this is via a manual claim action, this method
         // will check if an incentive snapshot needs to be created.
-        if (shouldCreateIncentiveSnapshot(bundle.bundleName, i, transfers[i], event, nToken)) {
+        if (shouldCreateIncentiveSnapshot(bundle.bundleName, i, transfers[0], event, nToken)) {
           let account = getAccount(transfers[0].to, event);
           let balance = getBalance(account, nToken, event);
 

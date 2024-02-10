@@ -45,6 +45,8 @@ export function shouldCreateIncentiveSnapshot(
     let NOTE_Token = getNOTE();
     let account = getAccount(transfer.to, event);
     let balance = getBalance(account, nToken, event);
+    if (balance.get("current") === null) return false;
+
     let prevSnapshot = IncentiveSnapshot.load((balance.current as string) + ":" + NOTE_Token.id);
     let currentIncentiveDebt = getAccountIncentiveDebt(account.id, currencyId);
 
