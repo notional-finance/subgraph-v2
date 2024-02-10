@@ -790,7 +790,6 @@ type ExternalLending @entity {
 
   lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
 
   "Reference to the underlying token"
   underlying: Token!
@@ -808,10 +807,8 @@ type ExternalLending @entity {
 
 type UnderlyingSnapshot @entity(immutable: true) {
   id: ID!
-  blockHash: BigInt!
   blockNumber: BigInt!
   timestamp: BigInt!
-  transactionHash: Bytes!
 
   "Reference to the parent object"
   externalLending: ExternalLending!
@@ -825,7 +822,6 @@ type UnderlyingSnapshot @entity(immutable: true) {
 type ExternalLendingSnapshot @entity(immutable: true) {
   "CurrencyID:ExternalLendingToken:Block Number"
   id: ID!
-  blockHash: BigInt!
   blockNumber: BigInt!
   timestamp: BigInt!
   transactionHash: Bytes!
