@@ -204,6 +204,9 @@ export function updateSnapshotForIncentives(
       .minus(incentiveSnapshot.previousIncentiveDebt);
   } else {
     let r = SecondaryRewarder.bind(Address.fromBytes(Address.fromHexString(transfer.from)));
+    // If this is not the matching nToken, then don't calculate the incentives claimed
+    let r_nToken = r.NTOKEN_ADDRESS().toHexString();
+    if (r_nToken != nToken.id) return BigInt.zero();
     let accumulatedPerNToken = r.accumulatedRewardPerNToken();
 
     incentivesClaimed = snapshot.previousBalance
