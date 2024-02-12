@@ -6,8 +6,8 @@ repository: https://github.com/notional-finance/contracts-v2
 features:
   - grafting
 graft:
-  base: QmZPkPMTbdDoBSoc1beseKCNRND5tKLaUhb798hVchtdBZ
-  block: 154261800
+  base: QmYCYEJdnLTtxnndfLXVAy2LSYTpT9UejZeou2R7ffDrWt
+  block: 164974495
 schema:
   file: ./schema.graphql
 dataSources:
