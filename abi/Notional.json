@@ -79,6 +79,31 @@
     "anonymous": false,
     "inputs": [
       {
+        "indexed": true,
+        "internalType": "uint16",
+        "name": "currencyId",
+        "type": "uint16"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "assetToken",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "harvestAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "AssetInterestHarvested",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
         "indexed": false,
         "internalType": "uint16",
         "name": "currencyId",
@@ -487,8 +512,13 @@
           },
           {
             "internalType": "uint8",
-            "name": "target",
+            "name": "targetUtilization",
             "type": "uint8"
+          },
+          {
+            "internalType": "uint16",
+            "name": "externalWithdrawThreshold",
+            "type": "uint16"
           }
         ],
         "indexed": false,
@@ -586,6 +616,19 @@
       }
     ],
     "name": "SweepCashIntoMarkets",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint16",
+        "name": "currencyId",
+        "type": "uint16"
+      }
+    ],
+    "name": "TokenMigrated",
     "type": "event"
   },
   {
@@ -1970,6 +2013,24 @@
     "type": "function"
   },
   {
+    "inputs": [],
+    "name": "checkRebalance",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "canExec",
+        "type": "bool"
+      },
+      {
+        "internalType": "bytes",
+        "name": "execPayload",
+        "type": "bytes"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -1980,29 +2041,15 @@
         "internalType": "address",
         "name": "account",
         "type": "address"
+      },
+      {
+        "internalType": "bool",
+        "name": "checkDebtCap",
+        "type": "bool"
       }
     ],
     "name": "checkVaultAccountCollateralRatio",
     "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address[]",
-        "name": "ctokens",
-        "type": "address[]"
-      }
-    ],
-    "name": "claimCOMPAndTransfer",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
     "stateMutability": "nonpayable",
     "type": "function"
   },
@@ -3961,9 +4008,9 @@
         "type": "uint256"
       },
       {
-        "internalType": "bytes5",
+        "internalType": "bytes6",
         "name": "nTokenParameters",
-        "type": "bytes5"
+        "type": "bytes6"
       },
       {
         "internalType": "int256",
@@ -4259,6 +4306,16 @@
         "internalType": "uint256",
         "name": "totalUnderlyingSupply",
         "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxUnderlyingDebt",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalUnderlyingDebt",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -4550,36 +4607,44 @@
         "type": "uint16"
       }
     ],
-    "name": "getRebalancingCooldown",
+    "name": "getRebalancingFactors",
     "outputs": [
-      {
-        "internalType": "uint40",
-        "name": "",
-        "type": "uint40"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint16",
-        "name": "currencyId",
-        "type": "uint16"
-      },
       {
         "internalType": "address",
         "name": "holding",
         "type": "address"
-      }
-    ],
-    "name": "getRebalancingTarget",
-    "outputs": [
+      },
       {
         "internalType": "uint8",
-        "name": "",
+        "name": "target",
         "type": "uint8"
+      },
+      {
+        "internalType": "uint16",
+        "name": "externalWithdrawThreshold",
+        "type": "uint16"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint128",
+            "name": "previousSupplyFactorAtRebalance",
+            "type": "uint128"
+          },
+          {
+            "internalType": "uint40",
+            "name": "rebalancingCooldownInSeconds",
+            "type": "uint40"
+          },
+          {
+            "internalType": "uint40",
+            "name": "lastRebalanceTimestampInSeconds",
+            "type": "uint40"
+          }
+        ],
+        "internalType": "struct RebalancingContextStorage",
+        "name": "context",
+        "type": "tuple"
       }
     ],
     "stateMutability": "view",
@@ -5371,6 +5436,19 @@
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint16[]",
+        "name": "currencies",
+        "type": "uint16[]"
+      }
+    ],
+    "name": "harvestAssetInterest",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -6592,6 +6670,11 @@
         "internalType": "uint256",
         "name": "maxUnderlyingSupply",
         "type": "uint256"
+      },
+      {
+        "internalType": "uint8",
+        "name": "maxPrimeDebtUtilization",
+        "type": "uint8"
       }
     ],
     "name": "setMaxUnderlyingSupply",
@@ -6613,6 +6696,19 @@
       }
     ],
     "name": "setPauseRouterAndGuardian",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_rebalancingBot",
+        "type": "address"
+      }
+    ],
+    "name": "setRebalancingBot",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -6651,8 +6747,13 @@
           },
           {
             "internalType": "uint8",
-            "name": "target",
+            "name": "targetUtilization",
             "type": "uint8"
+          },
+          {
+            "internalType": "uint16",
+            "name": "externalWithdrawThreshold",
+            "type": "uint16"
           }
         ],
         "internalType": "struct NotionalTreasury.RebalancingTargetConfig[]",
@@ -6697,6 +6798,24 @@
       }
     ],
     "name": "setReserveCashBalance",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint16",
+        "name": "currencyId",
+        "type": "uint16"
+      },
+      {
+        "internalType": "contract IRewarder",
+        "name": "rewarder",
+        "type": "address"
+      }
+    ],
+    "name": "setSecondaryIncentiveRewarder",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -7327,6 +7446,11 @@
         "internalType": "uint8",
         "name": "liquidationHaircutPercentage",
         "type": "uint8"
+      },
+      {
+        "internalType": "uint8",
+        "name": "maxMintDeviationPercentage",
+        "type": "uint8"
       }
     ],
     "name": "updateTokenCollateralParameters",
@@ -7492,6 +7616,45 @@
       }
     ],
     "name": "withdraw",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint16",
+        "name": "currencyId",
+        "type": "uint16"
+      },
+      {
+        "internalType": "address",
+        "name": "owner",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "spender",
+        "type": "address"
+      },
+      {
+        "internalType": "uint88",
+        "name": "withdrawAmountPrimeCash",
+        "type": "uint88"
+      }
+    ],
+    "name": "withdrawViaProxy",
     "outputs": [
       {
         "internalType": "uint256",

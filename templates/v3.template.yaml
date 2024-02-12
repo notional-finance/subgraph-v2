@@ -180,10 +180,6 @@ dataSources:
           handler: handleUpdateIncentiveEmissionRate
         - event: ReserveBufferUpdated(uint16,uint256)
           handler: handleReserveBufferUpdate
-        - event: RebalancingTargetsUpdated(uint16,(address,uint8)[])
-          handler: handleRebalancingTargetsUpdated
-        - event: RebalancingCooldownUpdated(uint16,uint40)
-          handler: handleRebalancingCooldownUpdated
         # Whitelisted Contract
         - event: UpdateGlobalTransferOperator(address,bool)
           handler: handleUpdateGlobalTransferOperator
@@ -205,6 +201,11 @@ dataSources:
         # Account Context
         - event: AccountContextUpdate(indexed address)
           handler: handleAccountContextUpdate
+        # External Lending
+        - event: CurrencyRebalanced(uint16,uint256,uint256)
+          handler: handleCurrencyRebalanced
+        - event: AssetInterestHarvested(indexed uint16,address,uint256)
+          handler: handleInterestHarvested
   - name: TradingModule
     kind: ethereum/contract
     network: {{ networkName }}

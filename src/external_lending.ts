@@ -1,13 +1,10 @@
 import { ethereum, BigInt } from "@graphprotocol/graph-ts";
-import { CurrencyRebalanced } from "../generated/Configuration/Notional";
-import {
-  ExternalLending,
-  ExternalLendingSnapshot,
-  ExternalLendingSnapshotLoader,
-  UnderlyingSnapshot,
-} from "../generated/schema";
+import { AssetInterestHarvested, CurrencyRebalanced } from "../generated/Configuration/Notional";
+import { ExternalLending, ExternalLendingSnapshot, UnderlyingSnapshot } from "../generated/schema";
 import { getNotional, getUnderlying } from "./common/entities";
 import { ERC20 } from "../generated/templates/ERC20Proxy/ERC20";
+import { PrimeCashHoldingsOracle } from "../generated/Configuration/PrimeCashHoldingsOracle";
+import { RATE_PRECISION, SCALAR_PRECISION } from "./common/constants";
 
 function getExternalLending(currencyId: i32, block: ethereum.Block): ExternalLending {
   let id = currencyId.toString();
@@ -16,7 +13,6 @@ function getExternalLending(currencyId: i32, block: ethereum.Block): ExternalLen
     entity = new ExternalLending(id);
     entity.underlying = getUnderlying(currencyId).id;
     entity.protocolRevenueAllTime = BigInt.zero();
-    entity.primeCashRevenueAllTime = BigInt.zero();
   }
 
   entity.lastUpdateBlockNumber = block.number;
@@ -43,36 +39,50 @@ function getUnderlyingSnapshot(currencyId: i32, block: ethereum.Block): Underlyi
 function getExternalLendingSnapshot(
   currencyId: i32,
   event: ethereum.Event
-): ExternalLendingSnapshot {
+): ExternalLendingSnapshot | null {
   let id = currencyId.toString() + ":" + event.transaction.hash.toHexString();
   let notional = getNotional();
 
   let snapshot = new ExternalLendingSnapshot(id);
-  // TODO: get these ABIs
   let holdingsOracle = PrimeCashHoldingsOracle.bind(
     notional.getPrimeCashHoldingsOracle(currencyId)
   );
-  let externalLendingToken = holdingsOracle.holdings()[0];
+  let factors = notional.getRebalancingFactors(currencyId);
+  snapshot.cooldownTime = factors.getContext().rebalancingCooldownInSeconds.toI32();
+  snapshot.withdrawThreshold = factors.getExternalWithdrawThreshold();
+  snapshot.targetUtilization = factors.getTarget();
+  let primeFactors = notional.getPrimeFactors(currencyId, event.block.timestamp);
+  snapshot.currentUtilization = primeFactors
+    .getTotalUnderlyingDebt()
+    .times(RATE_PRECISION)
+    .div(primeFactors.getTotalUnderlyingSupply())
+    .toI32();
 
-  snapshot.blockNumber = event.block.number.toI32();
-  snapshot.timestamp = event.block.timestamp.toI32();
+  let externalLendingToken = factors.getHolding();
+  let externalLendingERC20 = ERC20.bind(externalLendingToken);
+  let oracleData = holdingsOracle.getOracleData();
+
+  snapshot.blockNumber = event.block.number;
+  snapshot.timestamp = event.block.timestamp;
   snapshot.transactionHash = event.transaction.hash;
 
-  // externalLendingToken: Token!
+  snapshot.externalLendingToken = externalLendingToken.toHexString();
+  snapshot.storedBalanceOf = notional.getStoredTokenBalances([externalLendingToken])[0];
+  snapshot.storedBalanceOfUnderlying = holdingsOracle.holdingValuesInUnderlying()[0];
 
-  // balanceOf: BigInt!
-  // balanceOfUnderlying: BigInt!
-  // storedBalanceOf: BigInt!
-  // storedBalanceOfUnderlying: BigInt!
+  let underlyingExchangeRate = snapshot.storedBalanceOfUnderlying
+    .times(SCALAR_PRECISION)
+    .div(snapshot.storedBalanceOf);
+  snapshot.balanceOf = externalLendingERC20.balanceOf(notional._address);
+  // This is inferred using the exchange rate since the prime cash holdings oracle is not aware
+  // of the actual balanceOf
+  snapshot.balanceOfUnderlying = snapshot.balanceOf
+    .times(underlyingExchangeRate)
+    .div(SCALAR_PRECISION);
+  snapshot.holdingAvailableToWithdraw = oracleData.externalUnderlyingAvailableForWithdraw;
 
-  // protocolRevenueSinceLastSnapshot: BigInt!
-  // primeCashRevenueSinceLastSnapshot: BigInt!
-
-  // cooldownTime: Int!
-  // withdrawThreshold: Int!
-  // targetUtilization: Int!
-  // currentUtilization: Int!
-  // holdingAvailableToWithdraw: BigInt!
+  // NOTE: this is set by listening to a different event
+  snapshot.protocolInterestHarvested = BigInt.zero();
 
   return snapshot;
 }
@@ -98,18 +108,42 @@ export function handleUnderlyingSnapshot(block: ethereum.Block): void {
 export function handleCurrencyRebalanced(event: CurrencyRebalanced): void {
   let external = getExternalLending(event.params.currencyId, event.block);
   let snapshot = getExternalLendingSnapshot(event.params.currencyId, event);
+  if (snapshot == null) return;
 
   snapshot.externalLending = external.id;
   snapshot.prevSnapshot = external.currentExternal;
   external.currentExternal = snapshot.id;
 
-  external.protocolRevenueAllTime = external.protocolRevenueAllTime.plus(
-    snapshot.protocolRevenueSinceLastSnapshot
-  );
-  external.primeCashRevenueAllTime = external.primeCashRevenueAllTime.plus(
-    snapshot.primeCashRevenueSinceLastSnapshot
-  );
+  if (snapshot.prevSnapshot !== null) {
+    let prevSnapshot = ExternalLendingSnapshot.load(snapshot.prevSnapshot as string);
+    if (prevSnapshot !== null) {
+      snapshot.protocolRevenueSinceLastSnapshot = snapshot.balanceOfUnderlying
+        .minus(snapshot.storedBalanceOfUnderlying)
+        // This is set on the prev snapshot if interest is harvested
+        .plus(prevSnapshot.protocolInterestHarvested)
+        .minus(prevSnapshot.balanceOfUnderlying.minus(snapshot.storedBalanceOfUnderlying));
+
+      external.protocolRevenueAllTime = external.protocolRevenueAllTime.plus(
+        snapshot.protocolRevenueSinceLastSnapshot
+      );
+    } else {
+      snapshot.protocolRevenueSinceLastSnapshot = BigInt.zero();
+      external.protocolRevenueAllTime = BigInt.zero();
+    }
+  }
 
   external.save();
   snapshot.save();
+}
+
+export function handleInterestHarvested(event: AssetInterestHarvested): void {
+  let external = getExternalLending(event.params.currencyId, event.block);
+  if (external.currentExternal !== null) {
+    let snapshot = ExternalLendingSnapshot.load(external.currentExternal as string);
+    if (snapshot !== null) {
+      snapshot.protocolInterestHarvested = event.params.harvestAmount;
+      snapshot.save();
+      external.save();
+    }
+  }
 }

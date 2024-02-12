@@ -340,10 +340,6 @@ type CurrencyConfiguration @entity {
   
   "Addresses of potential prime cash holdings"
   primeCashHoldings: [Bytes!]
-  "Rebalancing targets"
-  rebalancingTargets: [Int!]
-  "Rebalancing cooldown"
-  rebalancingCooldown: Int
 
   "Proportion of deposits that go into each corresponding market"
   depositShares: [Int!]
@@ -796,7 +792,6 @@ type ExternalLending @entity {
 
   "Accumulate the revenue from snapshots"
   protocolRevenueAllTime: BigInt!
-  primeCashRevenueAllTime: BigInt!
 
   currentExternal: ExternalLendingSnapshot
   externalSnapshots: [ExternalLendingSnapshot!] @derivedFrom(field: "externalLending")
@@ -844,8 +839,9 @@ type ExternalLendingSnapshot @entity(immutable: true) {
 
   "Lending revenue accrued to protocol"
   protocolRevenueSinceLastSnapshot: BigInt!
-  "Lending revenue accrued to prime cash"
-  primeCashRevenueSinceLastSnapshot: BigInt!
+
+  "Updated when protocol interest has been harvested"
+  protocolInterestHarvested: BigInt!
 
   "Target time between rebalance calls"
   cooldownTime: Int!

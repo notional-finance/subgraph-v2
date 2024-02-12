@@ -299,26 +299,6 @@ export function handleUpdateTokenCollateralParameters(
   configuration.save();
 }
 
-export function handleRebalancingTargetsUpdated(event: RebalancingTargetsUpdated): void {
-  let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number;
-  configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
-  configuration.lastUpdateTransactionHash = event.transaction.hash;
-
-  configuration.rebalancingTargets = event.params.targets.map<i32>((t) => t.target);
-  configuration.save();
-}
-
-export function handleRebalancingCooldownUpdated(event: RebalancingCooldownUpdated): void {
-  let configuration = getCurrencyConfiguration(event.params.currencyId);
-  configuration.lastUpdateBlockNumber = event.block.number;
-  configuration.lastUpdateTimestamp = event.block.timestamp.toI32();
-  configuration.lastUpdateTransactionHash = event.transaction.hash;
-
-  configuration.rebalancingCooldown = event.params.cooldownTimeInSeconds.toI32();
-  configuration.save();
-}
-
 export function handleUpdatePrimeCashCurve(event: PrimeCashCurveChanged): void {
   let configuration = getCurrencyConfiguration(event.params.currencyId);
   configuration.lastUpdateBlockNumber = event.block.number;
@@ -765,3 +745,5 @@ export function handleAccountContextUpdate(event: AccountContextUpdate): void {
 
   account.save();
 }
+
+export { handleInterestHarvested, handleCurrencyRebalanced } from "./external_lending";
