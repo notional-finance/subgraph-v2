@@ -56,6 +56,7 @@ import { convertValueToUnderlying, getExpFactor } from "./common/transfers";
 import { readUnderlyingTokenFromNotional } from "./assets";
 import { getNTokenFeeBuffer } from "./balances";
 import { Notional__getNTokenAccountResult } from "../generated/Assets/Notional";
+import { handleUnderlyingSnapshot } from "./external_lending";
 
 function updateExchangeRate(
   oracle: Oracle,
@@ -723,6 +724,9 @@ export function handleBlockOracleUpdate(block: ethereum.Block): void {
   registry.save();
   let notional = getNotional();
   let maxCurrencyId = notional.getMaxCurrencyId();
+
+  // Updates underlying held at regular snapshots
+  handleUnderlyingSnapshot(block);
 
   for (let i = 1; i <= maxCurrencyId; i++) {
     updatePrimeCashRates(i, block);

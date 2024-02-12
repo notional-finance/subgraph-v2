@@ -1,4 +1,4 @@
-import { ethereum, BigInt } from "@graphprotocol/graph-ts";
+import { ethereum, BigInt, Address } from "@graphprotocol/graph-ts";
 import { AssetInterestHarvested, CurrencyRebalanced } from "../generated/Configuration/Notional";
 import { ExternalLending, ExternalLendingSnapshot, UnderlyingSnapshot } from "../generated/schema";
 import { getNotional, getUnderlying } from "./common/entities";
@@ -21,19 +21,29 @@ function getExternalLending(currencyId: i32, block: ethereum.Block): ExternalLen
   return entity as ExternalLending;
 }
 
-function getUnderlyingSnapshot(currencyId: i32, block: ethereum.Block): UnderlyingSnapshot {
+function updateUnderlyingSnapshot(
+  currencyId: i32,
+  block: ethereum.Block,
+  external: ExternalLending
+): void {
   let id = currencyId.toString() + ":" + block.number.toString();
   let snapshot = new UnderlyingSnapshot(id);
   let underlying = getUnderlying(currencyId);
-  let erc20 = ERC20.bind(underlying.tokenAddress);
+  let erc20 = ERC20.bind(Address.fromBytes(underlying.tokenAddress));
   let notional = getNotional();
 
-  snapshot.blockNumber = block.number.toI32();
-  snapshot.timestamp = block.timestamp.toI32();
+  snapshot.blockNumber = block.number;
+  snapshot.timestamp = block.timestamp;
   snapshot.balanceOf = erc20.balanceOf(notional._address);
-  snapshot.storedBalanceOf = notional.getStoredTokenBalances([underlying.tokenAddress])[0];
+  snapshot.storedBalanceOf = notional.getStoredTokenBalances([
+    Address.fromBytes(underlying.tokenAddress),
+  ])[0];
 
-  return snapshot;
+  snapshot.externalLending = external.id;
+  snapshot.prevSnapshot = external.currentUnderlying;
+  external.currentUnderlying = snapshot.id;
+  snapshot.save();
+  external.save();
 }
 
 function getExternalLendingSnapshot(
@@ -87,6 +97,7 @@ function getExternalLendingSnapshot(
   return snapshot;
 }
 
+// NOTE: this is called inside exchange_rates on the same block cadence as the oracles
 export function handleUnderlyingSnapshot(block: ethereum.Block): void {
   // Create UnderlyingSnapshot on a block cadence
   let notional = getNotional();
@@ -94,14 +105,8 @@ export function handleUnderlyingSnapshot(block: ethereum.Block): void {
 
   for (let i = 1; i <= maxCurrencyId; i++) {
     let external = getExternalLending(i, block);
-    let snapshot = getUnderlyingSnapshot(i, block);
-
-    snapshot.externalLending = external.id;
-    snapshot.prevSnapshot = external.currentUnderlying;
-    external.currentUnderlying = snapshot.id;
-
-    external.save();
-    snapshot.save();
+    // Calls save inside
+    updateUnderlyingSnapshot(i, block, external);
   }
 }
 
@@ -109,6 +114,8 @@ export function handleCurrencyRebalanced(event: CurrencyRebalanced): void {
   let external = getExternalLending(event.params.currencyId, event.block);
   let snapshot = getExternalLendingSnapshot(event.params.currencyId, event);
   if (snapshot == null) return;
+
+  updateUnderlyingSnapshot(event.params.currencyId, event.block, external);
 
   snapshot.externalLending = external.id;
   snapshot.prevSnapshot = external.currentExternal;
