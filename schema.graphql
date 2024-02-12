@@ -527,8 +527,6 @@ type BalanceSnapshot @entity(immutable: true) {
   _accumulatedBalance: BigInt!
   "Cumulative realized cost for internal PnL calculations"
   _accumulatedCostRealized: BigInt!
-  "Cumulative realized cost using adjusted cost basis for internal PnL calculations"
-  _accumulatedCostAdjustedBasis: BigInt!
 
   profitLossLineItems: [ProfitLossLineItem!] @derivedFrom(field: "balanceSnapshot")
   "Snapshots of the secondary incentives"

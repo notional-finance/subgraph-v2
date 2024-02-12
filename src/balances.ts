@@ -71,7 +71,6 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
     snapshot.totalInterestAccrualAtSnapshot = BigInt.zero();
     snapshot._accumulatedBalance = BigInt.zero();
     snapshot._accumulatedCostRealized = BigInt.zero();
-    snapshot._accumulatedCostAdjustedBasis = BigInt.zero();
 
     // These features are accumulated over the lifetime of the balance, as long
     // as it is not zero.
@@ -83,13 +82,11 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
         // Reset these to zero if the previous balance is zero
         snapshot.totalILAndFeesAtSnapshot = BigInt.zero();
         snapshot._accumulatedBalance = BigInt.zero();
-        snapshot._accumulatedCostAdjustedBasis = BigInt.zero();
         snapshot._accumulatedCostRealized = BigInt.zero();
         snapshot.impliedFixedRate = null;
       } else {
         snapshot.totalILAndFeesAtSnapshot = prevSnapshot.totalILAndFeesAtSnapshot;
         snapshot._accumulatedBalance = prevSnapshot._accumulatedBalance;
-        snapshot._accumulatedCostAdjustedBasis = prevSnapshot._accumulatedCostAdjustedBasis;
         snapshot._accumulatedCostRealized = prevSnapshot._accumulatedCostRealized;
         snapshot.impliedFixedRate = prevSnapshot.impliedFixedRate;
       }

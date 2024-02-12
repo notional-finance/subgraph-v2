@@ -1,4 +1,4 @@
-import { ethereum, BigInt, Bytes } from "@graphprotocol/graph-ts";
+import { ethereum, BigInt, Bytes, log } from "@graphprotocol/graph-ts";
 import {
   BalanceSnapshot,
   ProfitLossLineItem,
@@ -108,7 +108,6 @@ export function processProfitAndLoss(
       // Clear all snapshot amounts back to zero if the accumulated balance goes below zero
       // NOTE: _accumulatedCostRealized is not cleared to zero in here. Is that correct?
       snapshot._accumulatedBalance = BigInt.zero();
-      snapshot._accumulatedCostAdjustedBasis = BigInt.zero();
       snapshot.adjustedCostBasis = BigInt.zero();
       snapshot.currentProfitAndLossAtSnapshot = BigInt.zero();
       snapshot.totalInterestAccrualAtSnapshot = BigInt.zero();
@@ -117,11 +116,6 @@ export function processProfitAndLoss(
       snapshot.impliedFixedRate = null;
     } else {
       if (item.tokenAmount.ge(BigInt.zero())) {
-        // Accumulated cost adjusted basis is a positive number, similar to _accumulatedCostRealized
-        snapshot._accumulatedCostAdjustedBasis = snapshot._accumulatedCostAdjustedBasis.minus(
-          item.underlyingAmountRealized
-        );
-
         if (item.impliedFixedRate !== null) {
           let prevImpliedFixedRate =
             snapshot.impliedFixedRate !== null
@@ -134,10 +128,6 @@ export function processProfitAndLoss(
             )
             .div(snapshot._accumulatedBalance);
         }
-      } else {
-        snapshot._accumulatedCostAdjustedBasis = snapshot._accumulatedCostAdjustedBasis.plus(
-          item.tokenAmount.times(snapshot.adjustedCostBasis).div(INTERNAL_TOKEN_PRECISION)
-        );
       }
 
       // Adjusted cost basis is in underlying precision and a positive number.
