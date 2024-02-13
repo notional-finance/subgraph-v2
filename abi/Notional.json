@@ -4327,6 +4327,109 @@
         "internalType": "uint16",
         "name": "currencyId",
         "type": "uint16"
+      },
+      {
+        "internalType": "uint256",
+        "name": "blockTime",
+        "type": "uint256"
+      }
+    ],
+    "name": "getPrimeFactors",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "int256",
+            "name": "supplyFactor",
+            "type": "int256"
+          },
+          {
+            "internalType": "int256",
+            "name": "debtFactor",
+            "type": "int256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "oracleSupplyRate",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct PrimeRate",
+        "name": "primeRate",
+        "type": "tuple"
+      },
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "lastAccrueTime",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalPrimeSupply",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalPrimeDebt",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "oracleSupplyRate",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "lastTotalUnderlyingValue",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "underlyingScalar",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "supplyScalar",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "debtScalar",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "rateOracleTimeWindow",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct PrimeCashFactors",
+        "name": "factors",
+        "type": "tuple"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxUnderlyingSupply",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalUnderlyingSupply",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint16",
+        "name": "currencyId",
+        "type": "uint16"
       }
     ],
     "name": "getPrimeFactorsStored",

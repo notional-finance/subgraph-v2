@@ -4,7 +4,7 @@ import { ExternalLending, ExternalLendingSnapshot, UnderlyingSnapshot } from "..
 import { getNotional, getUnderlying } from "./common/entities";
 import { ERC20 } from "../generated/templates/ERC20Proxy/ERC20";
 import { PrimeCashHoldingsOracle } from "../generated/Configuration/PrimeCashHoldingsOracle";
-import { RATE_PRECISION, SCALAR_PRECISION } from "./common/constants";
+import { ETH_CURRENCY_ID, RATE_PRECISION, SCALAR_PRECISION } from "./common/constants";
 
 function getExternalLending(currencyId: i32, block: ethereum.Block): ExternalLending {
   let id = currencyId.toString();
@@ -34,13 +34,21 @@ function updateUnderlyingSnapshot(
 
   snapshot.blockNumber = block.number;
   snapshot.timestamp = block.timestamp;
-  snapshot.balanceOf = erc20.balanceOf(notional._address);
   snapshot.storedBalanceOf = notional.getStoredTokenBalances([
     Address.fromBytes(underlying.tokenAddress),
   ])[0];
 
+  if (underlying.currencyId == ETH_CURRENCY_ID) {
+    // TODO: not sure how to get the native ETH balance
+    snapshot.balanceOf = snapshot.storedBalanceOf;
+  } else {
+    snapshot.balanceOf = erc20.balanceOf(notional._address);
+  }
+
   snapshot.externalLending = external.id;
-  snapshot.prevSnapshot = external.currentUnderlying;
+  if (external.get("currentUnderlying") !== null) {
+    snapshot.prevSnapshot = external.currentUnderlying;
+  }
   external.currentUnderlying = snapshot.id;
   snapshot.save();
   external.save();
@@ -118,7 +126,9 @@ export function handleCurrencyRebalanced(event: CurrencyRebalanced): void {
   updateUnderlyingSnapshot(event.params.currencyId, event.block, external);
 
   snapshot.externalLending = external.id;
-  snapshot.prevSnapshot = external.currentExternal;
+  if (external.get("currentExternal") !== null) {
+    snapshot.prevSnapshot = external.currentExternal;
+  }
   external.currentExternal = snapshot.id;
 
   if (snapshot.prevSnapshot !== null) {

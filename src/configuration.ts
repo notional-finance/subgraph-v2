@@ -148,7 +148,7 @@ export function handleListCurrency(event: ListCurrency): void {
     );
   }
 
-  let factors = notional.getPrimeFactors(event.params.newCurrencyId, event.block.timestamp);
+  let factors = notional.getPrimeFactors1(event.params.newCurrencyId, event.block.timestamp);
   let maxSupply = factors.getMaxUnderlyingSupply();
   if (maxSupply > BigInt.zero()) configuration.maxUnderlyingSupply = maxSupply;
 
