@@ -181,12 +181,7 @@ export function updateSnapshotForIncentives(
   let rewardToken = getAsset(transfer.token);
   let incentiveSnapshot = createSnapshotForIncentives(transfer.to, snapshot, rewardToken, nToken);
   // In these cases, no incentive has been accrued to the account
-  if (
-    incentiveSnapshot == null ||
-    incentiveSnapshot.currentIncentiveDebt.isZero() ||
-    incentiveSnapshot.currentIncentiveDebt == incentiveSnapshot.previousIncentiveDebt
-  )
-    return BigInt.zero();
+  if (incentiveSnapshot == null) return BigInt.zero();
 
   let incentivesClaimed: BigInt;
   if (rewardToken.symbol == NOTE) {

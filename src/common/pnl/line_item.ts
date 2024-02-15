@@ -1,4 +1,4 @@
-import { BigInt, log } from "@graphprotocol/graph-ts";
+import { BigInt, ethereum, log } from "@graphprotocol/graph-ts";
 import { ProfitLossLineItem, Transfer, TransferBundle } from "../../../generated/schema";
 import {
   Burn,
@@ -133,7 +133,12 @@ export function createVaultDebtLineItem(
   let underlyingDebtAmountRealized: BigInt | null = null;
   let underlyingDebtForImpliedRate: BigInt | null = null;
 
-  if ((vaultDebt.maturity as BigInt).equals(PRIME_CASH_VAULT_MATURITY)) {
+  if (
+    (vaultDebt.maturity as BigInt).equals(PRIME_CASH_VAULT_MATURITY) ||
+    // When matured the value in underlying is the settled value which includes the
+    // variable debt accrued post maturity.
+    (vaultDebt.maturity as BigInt).le(BigInt.fromI32(vaultDebt.timestamp))
+  ) {
     underlyingDebtAmountRealized = vaultDebt.valueInUnderlying as BigInt;
   } else if (vaultDebt.transferType == Mint) {
     // If this is an fCash then look for the traded fCash value
