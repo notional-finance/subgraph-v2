@@ -488,6 +488,11 @@ function extractProfitLossLineItem(
         .times(transfers[0].value)
         .div(trade[2].value);
 
+      let underlyingAmountForImpliedRate = (trade[0].valueInUnderlying as BigInt)
+        .times(transfers[0].value)
+        .div(trade[2].value);
+
+      // This is the positive fCash line item
       createLineItem(
         bundle,
         transfers[0],
@@ -497,13 +502,16 @@ function extractProfitLossLineItem(
         transfers[0].valueInUnderlying as BigInt
       );
 
+      // This is the negative fCash line item
       createLineItem(
         bundle,
         transfers[1],
         transfers[1].transferType,
         lineItems,
         underlyingAmountRealized,
-        transfers[1].valueInUnderlying as BigInt
+        transfers[1].valueInUnderlying as BigInt,
+        null,
+        underlyingAmountForImpliedRate
       );
     }
     /** Vaults */
