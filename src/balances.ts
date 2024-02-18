@@ -312,6 +312,7 @@ function updateNToken(
       BigInt.fromUnsignedBytes(Bytes.fromHexString(token.id).reverse() as ByteArray)
     );
 
+    // NOTE: this updates oracles more frequently than required.
     updatefCashOraclesAndMarkets(
       token.underlying as string,
       event.block,

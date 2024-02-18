@@ -58,30 +58,36 @@ import { getNTokenFeeBuffer } from "./balances";
 import { Notional__getNTokenAccountResult } from "../generated/Assets/Notional";
 import { handleUnderlyingSnapshot } from "./external_lending";
 
+const SIX_HOURS = BigInt.fromI32(21_600);
+
 function updateExchangeRate(
   oracle: Oracle,
   rate: BigInt,
   block: ethereum.Block,
   txnHash: string | null
 ): void {
-  let hashString = txnHash ? txnHash : "0x";
-  let id = oracle.id + ":" + block.number.toString() + ":" + hashString;
-  let exchangeRate = new ExchangeRate(id);
-  exchangeRate.blockNumber = block.number;
-  exchangeRate.timestamp = block.timestamp.toI32();
-  exchangeRate.rate = rate;
-  exchangeRate.oracle = oracle.id;
-  exchangeRate.transaction = txnHash;
-  let quote = getAsset(oracle.quote);
-  // Snapshot the total supply figure for TVL calculations
-  exchangeRate.totalSupply = quote.totalSupply;
-  exchangeRate.save();
+  let ts = block.timestamp.minus(block.timestamp.mod(SIX_HOURS));
+  let id = oracle.id + ":" + ts.toString();
 
-  oracle.latestRate = rate;
-  oracle.lastUpdateBlockNumber = block.number;
-  oracle.lastUpdateTimestamp = block.timestamp.toI32();
-  oracle.lastUpdateTransaction = txnHash;
-  oracle.save();
+  // Only save the exchange rate once per ID.
+  if (ExchangeRate.load(id) === null) {
+    let exchangeRate = new ExchangeRate(id);
+    exchangeRate.blockNumber = block.number;
+    exchangeRate.timestamp = block.timestamp.toI32();
+    exchangeRate.rate = rate;
+    exchangeRate.oracle = oracle.id;
+    exchangeRate.transaction = txnHash;
+    let quote = getAsset(oracle.quote);
+    // Snapshot the total supply figure for TVL calculations
+    exchangeRate.totalSupply = quote.totalSupply;
+    exchangeRate.save();
+
+    oracle.latestRate = rate;
+    oracle.lastUpdateBlockNumber = block.number;
+    oracle.lastUpdateTimestamp = block.timestamp.toI32();
+    oracle.lastUpdateTransaction = txnHash;
+    oracle.save();
+  }
 }
 
 /**** ORACLE UPDATES *******/
@@ -232,6 +238,8 @@ export function updatefCashOraclesAndMarkets(
       base, notional._address, posFCash, negFCash, block, txnHash
     );
 
+    // NOTE: these fCash exchange rate updates are suppressed if they fall outside
+    // the oracle update cadence
     // prettier-ignore
     updatefCashExchangeRate(
       fCashSpotRate,
@@ -243,6 +251,9 @@ export function updatefCashOraclesAndMarkets(
     let exchangeRate = BigInt.fromI64(
       Math.floor(Math.exp(x) * (RATE_PRECISION.toI64() as f64)) as i64
     );
+
+    // NOTE: these fCash exchange rate updates are suppressed if they fall outside
+    // the oracle update cadence
     // prettier-ignore
     updatefCashExchangeRate(
       fCashToUnderlyingExchangeRate,
@@ -276,6 +287,8 @@ export function updatefCashOraclesAndMarkets(
     }
   }
 
+  // NOTE: these nToken exchange rate updates are suppressed if they fall outside
+  // the oracle update cadence
   updateNTokenRates(
     currencyId,
     base,
