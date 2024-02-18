@@ -35,6 +35,7 @@ import { updatePrimeCashMarket } from "./common/market";
 import { updatefCashOraclesAndMarkets } from "./exchange_rates";
 import { getCurrencyConfiguration } from "./configuration";
 import { SecondaryRewarder as ISecondaryRewarder } from "../generated/Configuration/SecondaryRewarder";
+import { getExternalLending, updateUnderlyingSnapshot } from "./external_lending";
 
 export function getNTokenFeeBuffer(currencyId: i32): nTokenFeeBuffer {
   let feeBuffer = nTokenFeeBuffer.load(currencyId.toString());
@@ -154,7 +155,7 @@ function _saveBalance(balance: Balance, snapshot: BalanceSnapshot): void {
   snapshot.save();
 }
 
-function updateERC20ProxyTotalSupply(token: Token): void {
+function updateERC20ProxyTotalSupply(token: Token, event: ethereum.Event): void {
   if (token.tokenInterface != "ERC20") return;
   let erc20 = ERC20.bind(Address.fromBytes(token.tokenAddress));
   let totalSupply = erc20.try_totalSupply();
@@ -162,6 +163,16 @@ function updateERC20ProxyTotalSupply(token: Token): void {
     log.error("Unable to fetch total supply for {}", [token.tokenAddress.toHexString()]);
   } else {
     token.totalSupply = totalSupply.value;
+  }
+
+  if (token.get("currencyId") !== null) {
+    let external = getExternalLending(token.currencyId, event.block);
+    updateUnderlyingSnapshot(
+      token.currencyId,
+      event.block,
+      external,
+      event.transaction.hash.toHexString()
+    );
   }
 
   token.save();
@@ -265,7 +276,7 @@ export function updateNTokenIncentives(currencyId: i32, event: ethereum.Event): 
 export function updateBalance(token: Token, transfer: Transfer, event: ethereum.Event): void {
   // Update the total supply figures on the assets first.
   if (token.tokenType == PrimeCash || token.tokenType == PrimeDebt || token.tokenType == nToken) {
-    updateERC20ProxyTotalSupply(token);
+    updateERC20ProxyTotalSupply(token, event);
     updatePrimeCashMarket(token.currencyId, event.block, event.transaction.hash.toHexString());
   } else if (token.tokenType == fCash) {
     updatefCashTotalDebtOutstanding(token);

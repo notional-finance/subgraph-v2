@@ -797,13 +797,14 @@ type ExternalLending @entity {
   externalSnapshots: [ExternalLendingSnapshot!] @derivedFrom(field: "externalLending")
 
   currentUnderlying: UnderlyingSnapshot!
-  underlyingSnapshot: [UnderlyingSnapshot!] @derivedFrom(field: "externalLending")
+  underlyingSnapshots: [UnderlyingSnapshot!] @derivedFrom(field: "externalLending")
 }
 
 type UnderlyingSnapshot @entity(immutable: true) {
   id: ID!
   blockNumber: BigInt!
   timestamp: BigInt!
+  transaction: Transaction
 
   "Reference to the parent object"
   externalLending: ExternalLending!

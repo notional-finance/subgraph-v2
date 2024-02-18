@@ -6,7 +6,7 @@ import { ERC20 } from "../generated/templates/ERC20Proxy/ERC20";
 import { PrimeCashHoldingsOracle } from "../generated/Configuration/PrimeCashHoldingsOracle";
 import { ETH_CURRENCY_ID, RATE_PRECISION, SCALAR_PRECISION } from "./common/constants";
 
-function getExternalLending(currencyId: i32, block: ethereum.Block): ExternalLending {
+export function getExternalLending(currencyId: i32, block: ethereum.Block): ExternalLending {
   let id = currencyId.toString();
   let entity = ExternalLending.load(id);
   if (entity == null) {
@@ -22,12 +22,14 @@ function getExternalLending(currencyId: i32, block: ethereum.Block): ExternalLen
   return entity as ExternalLending;
 }
 
-function updateUnderlyingSnapshot(
+export function updateUnderlyingSnapshot(
   currencyId: i32,
   block: ethereum.Block,
-  external: ExternalLending
+  external: ExternalLending,
+  transactionHash: string | null
 ): void {
   let id = currencyId.toString() + ":" + block.number.toString();
+  if (transactionHash !== null) id = id + ":" + transactionHash;
   let snapshot = new UnderlyingSnapshot(id);
   let underlying = getUnderlying(currencyId);
   let erc20 = ERC20.bind(Address.fromBytes(underlying.tokenAddress));
@@ -35,6 +37,7 @@ function updateUnderlyingSnapshot(
 
   snapshot.blockNumber = block.number;
   snapshot.timestamp = block.timestamp;
+  snapshot.transaction = transactionHash;
   snapshot.storedBalanceOf = notional.getStoredTokenBalances([
     Address.fromBytes(underlying.tokenAddress),
   ])[0];
@@ -115,11 +118,12 @@ export function handleUnderlyingSnapshot(block: ethereum.Block): void {
   for (let i = 1; i <= maxCurrencyId; i++) {
     let external = getExternalLending(i, block);
     // Calls save inside
-    updateUnderlyingSnapshot(i, block, external);
+    updateUnderlyingSnapshot(i, block, external, null);
   }
 }
 
 export function handleCurrencyRebalanced(event: CurrencyRebalanced): void {
+  /* TODO: temporary disable this
   let external = getExternalLending(event.params.currencyId, event.block);
   let snapshot = getExternalLendingSnapshot(event.params.currencyId, event);
   if (snapshot == null) return;
@@ -152,6 +156,7 @@ export function handleCurrencyRebalanced(event: CurrencyRebalanced): void {
 
   external.save();
   snapshot.save();
+  */
 }
 
 export function handleInterestHarvested(event: AssetInterestHarvested): void {
