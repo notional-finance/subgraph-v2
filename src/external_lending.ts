@@ -13,6 +13,7 @@ function getExternalLending(currencyId: i32, block: ethereum.Block): ExternalLen
     entity = new ExternalLending(id);
     entity.underlying = getUnderlying(currencyId).id;
     entity.protocolRevenueAllTime = BigInt.zero();
+    entity.currencyConfiguration = id.toString();
   }
 
   entity.lastUpdateBlockNumber = block.number;

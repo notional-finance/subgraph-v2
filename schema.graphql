@@ -363,6 +363,7 @@ type CurrencyConfiguration @entity {
   maxMintDeviationPercentage: Int
 
   incentives: Incentive @derivedFrom(field: "currencyConfiguration")
+  externalLending: ExternalLending @derivedFrom(field: "currencyConfiguration")
 }
 
 type InterestRateCurve @entity {
@@ -443,9 +444,6 @@ type VaultConfiguration @entity {
   totalUsedSecondaryBorrowCapacity: [BigInt!]
   minAccountSecondaryBorrow: [BigInt!]
 }
-  # TODO: all of this information should sit on the account and total supply entities
-  "All maturities of this strategy vault"
-  # maturities: [LeveragedVaultMaturity!] @derivedFrom(field: "leveragedVault")
 
 enum WhitelistedCapability {
   GlobalTransferOperator,
@@ -786,6 +784,8 @@ type ExternalLending @entity {
 
   lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
+
+  currencyConfiguration: CurrencyConfiguration!
 
   "Reference to the underlying token"
   underlying: Token!
