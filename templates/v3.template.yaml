@@ -64,6 +64,8 @@ dataSources:
           file: ./abi/IStrategyVault.json
         - name: ERC4626
           file: ./abi/ERC4626.json
+        - name: ERC20
+          file: ./abi/ERC20.json
         - name: SecondaryRewarder
           file: ./abi/SecondaryRewarder.json
       eventHandlers:

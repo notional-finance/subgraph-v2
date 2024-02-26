@@ -5,7 +5,7 @@
   "scripts": {
     "prepare:local": "hbs --stdout --helper ./helpers.js --data ./v2.local.json ./templates/v3.template.yaml > subgraph.yaml",
     "prepare:arbitrum-one": "hbs --stdout --helper ./helpers.js --data ./v3.arbitrum-one.json ./templates/v3.template.yaml > subgraph.yaml",
-    "prepare:mainnet": "hbs --stdout --helper ./helpers.js --data ./v2.mainnet.json ./templates/v3.template.yaml > subgraph.yaml",
+    "prepare:mainnet": "hbs --stdout --helper ./helpers.js --data ./v3.mainnet.json ./templates/v3.template.yaml > subgraph.yaml",
     "codegen": "yarn run graph codegen",
     "build": "yarn run graph build",
     "deploy:local": "graph create --node http://127.0.0.1:8020 notional-finance/local-v2 && graph deploy notional-finance/local-v2 ./subgraph.yaml --ipfs http://localhost:5001 --node http://127.0.0.1:8020 --version-label 0.0.1",
@@ -14,7 +14,7 @@
     "deploy:mainnet-debug": "yarn run prepare:mainnet && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/mainnet-debug",
     "deploy:studio:arbitrum-debug": "yarn run prepare:arbitrum-one && yarn run codegen && yarn run graph deploy --studio notional-finance-v3-arbitrum",
     "deploy:studio:arbitrum": "yarn run prepare:arbitrum-one && yarn run codegen && yarn run graph deploy --studio notional-v3-arbitrum",
-    "deploy:studio:mainnet": "yarn run prepare:mainnet && yarn run codegen && yarn run graph deploy --studio notional-finance",
+    "deploy:studio:mainnet": "yarn run prepare:mainnet && yarn run codegen && yarn run graph deploy --studio notional-v3-mainnet",
     "subgraph:up": "./start.sh",
     "subgraph:down": "docker-compose down",
     "compile:subgraph": "yarn run prepare:local && yarn run codegen && yarn run build && yarn run deploy:local"

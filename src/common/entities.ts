@@ -24,7 +24,7 @@ import {
 
 export function getNotional(): Notional {
   if (dataSource.network() == "mainnet") {
-    return Notional.bind(Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369"));
+    return Notional.bind(Address.fromString("0x6e7058c91F85E0F6db4fc9da2CA41241f5e4263f"));
   } else if (dataSource.network() == "arbitrum-one") {
     return Notional.bind(Address.fromString("0x1344A36A1B56144C3Bc62E7757377D288fDE0369"));
   }
