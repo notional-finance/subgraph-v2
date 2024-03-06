@@ -299,7 +299,10 @@ type CurrencyConfiguration @entity {
   "Some currencies will not allow prime debt"
   pDebt: Token
 
+  "Maximum supply in underlying terms (in 8 decimals)"
   maxUnderlyingSupply: BigInt
+  "Maximum utilization of the max underlying supply by prime debt"
+  maxPrimeDebtUtilization: BigInt
 
   "Exchange Rate Parameters"
   collateralHaircut: Int
@@ -359,8 +362,8 @@ type CurrencyConfiguration @entity {
   pvHaircutPercentage: Int
   "Discount on nToken PV given to liquidators"
   liquidationHaircutPercentage: Int
-  "Maximum valuation deviation percentage for nToken minting"
-  maxMintDeviationPercentage: Int
+  "Maximum valuation deviation in basis points for nToken minting"
+  maxMintDeviationBasisPoints: Int
 
   incentives: Incentive @derivedFrom(field: "currencyConfiguration")
   externalLending: ExternalLending @derivedFrom(field: "currencyConfiguration")

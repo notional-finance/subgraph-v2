@@ -49,7 +49,7 @@ export function handlePriceOracleUpdate(event: PriceOracleUpdated): void {
 export function handleInitialOracles(block: ethereum.Block): void {
   if (dataSource.network() == "mainnet") {
     let trading = TradingModule.bind(
-      Address.fromHexString("0x594734c7e06C3D483466ADBCe401C6Bd269746C8")
+      Address.fromBytes(Address.fromHexString("0x594734c7e06C3D483466ADBCe401C6Bd269746C8"))
     );
 
     // Creates an empty event for method compatibility
@@ -60,14 +60,14 @@ export function handleInitialOracles(block: ethereum.Block): void {
       null,
       block,
       new ethereum.Transaction(
-        Bytes.fromBigInt(BigInt.zero()),
+        Bytes.empty(),
         BigInt.zero(),
         trading._address,
         ZERO_ADDRESS,
         BigInt.zero(),
         BigInt.zero(),
         BigInt.zero(),
-        Bytes.fromBigInt(BigInt.zero()),
+        Bytes.empty(),
         BigInt.zero()
       ),
       new Array<ethereum.EventParam>(),
@@ -96,8 +96,13 @@ export function handleInitialOracles(block: ethereum.Block): void {
     let usdBaseAsset = getUSDAsset(event);
 
     for (let i = 0; i < initialQuoteAssets.length; i++) {
-      let quoteAsset = createERC20TokenAsset(initialQuoteAssets[i], false, event, Underlying);
-      let oracle = trading.priceOracles(initialQuoteAssets[i]);
+      let quoteAsset = createERC20TokenAsset(
+        Address.fromBytes(initialQuoteAssets[i]),
+        false,
+        event,
+        Underlying
+      );
+      let oracle = trading.priceOracles(Address.fromBytes(initialQuoteAssets[i]));
       registerChainlinkOracle(usdBaseAsset, quoteAsset, oracle.getOracle(), false, event);
     }
   }

@@ -7,8 +7,6 @@ import {
   PrimeCashCurveChanged,
   PrimeCashHoldingsOracleUpdated,
   PrimeProxyDeployed,
-  RebalancingCooldownUpdated,
-  RebalancingTargetsUpdated,
   ReserveBufferUpdated,
   UpdateAuthorizedCallbackContract,
   UpdateCashGroup,
@@ -150,7 +148,17 @@ export function handleListCurrency(event: ListCurrency): void {
 
   let factors = notional.getPrimeFactors1(event.params.newCurrencyId, event.block.timestamp);
   let maxSupply = factors.getMaxUnderlyingSupply();
-  if (maxSupply > BigInt.zero()) configuration.maxUnderlyingSupply = maxSupply;
+  if (maxSupply > BigInt.zero()) {
+    configuration.maxUnderlyingSupply = maxSupply;
+    // Check if the prime debt is set and calculate the max utilization
+    let factors2 = notional.try_getPrimeFactors(event.params.newCurrencyId, event.block.timestamp);
+    if (!factors2.reverted) {
+      configuration.maxPrimeDebtUtilization = factors2.value
+        .getMaxUnderlyingDebt()
+        .times(BigInt.fromI32(100))
+        .div(maxSupply);
+    }
+  }
 
   configuration.primeCashRateOracleTimeWindowSeconds = factors
     .getFactors()
@@ -293,7 +301,7 @@ export function handleUpdateTokenCollateralParameters(
   configuration.pvHaircutPercentage = parameters[3];
   configuration.residualPurchaseIncentiveBasisPoints = (parameters[4] as i32) * 10 * BASIS_POINT;
   if (parameters.length > 5) {
-    configuration.maxMintDeviationPercentage = parameters[5] as i32;
+    configuration.maxMintDeviationBasisPoints = (parameters[5] as i32) * 5 * BASIS_POINT;
   }
 
   configuration.save();
