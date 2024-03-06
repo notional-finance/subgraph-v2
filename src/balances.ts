@@ -411,6 +411,10 @@ function updateVaultState(
 function updateNTokenFeeBuffer(currencyId: i32, transfer: Transfer, event: ethereum.Event): void {
   let config = getCurrencyConfiguration(currencyId);
   if (config == null) return;
+  // Only execute if the nToken has been created.
+  let nTokenAddress = getNotional().try_nTokenAddress(currencyId);
+  if (nTokenAddress.reverted) return;
+
   let fCashReserveFeeSharePercent = config.fCashReserveFeeSharePercent;
   let feeBuffer = getNTokenFeeBuffer(currencyId);
 
