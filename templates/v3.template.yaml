@@ -240,6 +240,10 @@ dataSources:
           handler: handlePriceOracleUpdate
         - event: TokenPermissionsUpdated(address,address,(bool,uint32,uint32))
           handler: handleTokenPermissionsUpdate
+      blockHandlers:
+        - handler: handleInitialOracles
+          filter:
+            kind: once
   - name: TreasuryManager
     kind: ethereum/contract
     network: {{ networkName }}

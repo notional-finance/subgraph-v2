@@ -1,10 +1,11 @@
-import { Address, ethereum, ByteArray, BigInt } from "@graphprotocol/graph-ts";
+import { Address, ethereum, ByteArray, BigInt, dataSource, Bytes } from "@graphprotocol/graph-ts";
 import { Token, TradingModulePermission } from "../generated/schema";
 import {
   PriceOracleUpdated,
   TokenPermissionsUpdated,
+  TradingModule,
 } from "../generated/TradingModule/TradingModule";
-import { Underlying, USD_ASSET_ID } from "./common/constants";
+import { Underlying, USD_ASSET_ID, ZERO_ADDRESS, ZeroAddress } from "./common/constants";
 import { createERC20TokenAsset, getTokenNameAndSymbol } from "./common/erc20";
 import { registerChainlinkOracle } from "./exchange_rates";
 import { getAsset } from "./common/entities";
@@ -43,6 +44,63 @@ export function handlePriceOracleUpdate(event: PriceOracleUpdated): void {
   let usdBaseAsset = getUSDAsset(event);
   let quoteAsset = createERC20TokenAsset(event.params.token, false, event, Underlying);
   registerChainlinkOracle(usdBaseAsset, quoteAsset, event.params.oracle, false, event);
+}
+
+export function handleInitialOracles(block: ethereum.Block): void {
+  if (dataSource.network() == "mainnet") {
+    let trading = TradingModule.bind(
+      Address.fromHexString("0x594734c7e06C3D483466ADBCe401C6Bd269746C8")
+    );
+
+    // Creates an empty event for method compatibility
+    let event = new ethereum.Event(
+      trading._address,
+      BigInt.zero(),
+      BigInt.zero(),
+      null,
+      block,
+      new ethereum.Transaction(
+        Bytes.fromBigInt(BigInt.zero()),
+        BigInt.zero(),
+        trading._address,
+        ZERO_ADDRESS,
+        BigInt.zero(),
+        BigInt.zero(),
+        BigInt.zero(),
+        Bytes.fromBigInt(BigInt.zero()),
+        BigInt.zero()
+      ),
+      new Array<ethereum.EventParam>(),
+      null
+    );
+    let initialQuoteAssets = [
+      // wstETH
+      Address.fromHexString("0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0"),
+      // stETH
+      Address.fromHexString("0xae7ab96520de3a18e5e111b5eaab095312d7fe84"),
+      // BAL
+      Address.fromHexString("0xba100000625a3754423978a60c9317c58a424e3D"),
+      // WBTC
+      Address.fromHexString("0x2260fac5e5542a773aa44fbcfedf7c193bc2c599"),
+      // USDT
+      Address.fromHexString("0xdac17f958d2ee523a2206206994597c13d831ec7"),
+      // USDC
+      Address.fromHexString("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"),
+      // DAI
+      Address.fromHexString("0x6b175474e89094c44da98b954eedeac495271d0f"),
+      // WETH
+      Address.fromHexString("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"),
+      // ETH
+      Address.fromHexString("0x0000000000000000000000000000000000000000"),
+    ];
+    let usdBaseAsset = getUSDAsset(event);
+
+    for (let i = 0; i < initialQuoteAssets.length; i++) {
+      let quoteAsset = createERC20TokenAsset(initialQuoteAssets[i], false, event, Underlying);
+      let oracle = trading.priceOracles(initialQuoteAssets[i]);
+      registerChainlinkOracle(usdBaseAsset, quoteAsset, oracle.getOracle(), false, event);
+    }
+  }
 }
 
 function getTradingModulePermissions(
