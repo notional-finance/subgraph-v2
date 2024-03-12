@@ -60,7 +60,7 @@ export function processProfitAndLoss(
       // If there is an incentivized token, it has its own snapshot that is already updated
       item.save();
       continue;
-    } else if (token.tokenType == "nToken" && snapshot.previousBalance.isZero()) {
+    } else if (token.tokenType == "nToken" && snapshot.previousBalance.le(DUST)) {
       setInitialIncentiveSnapshot(item.account, snapshot, token);
     }
 
