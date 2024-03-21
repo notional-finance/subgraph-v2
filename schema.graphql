@@ -171,6 +171,7 @@ type Transaction @entity(immutable: true) {
 
   transfers: [Transfer!] @derivedFrom(field: "transactionHash")
   transferBundles: [TransferBundle!] @derivedFrom(field: "transactionHash")
+  profitLossLineItems: [ProfitLossLineItem!] @derivedFrom(field: "transactionHash")
 }
 
 type Account @entity {

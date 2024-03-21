@@ -3,7 +3,7 @@
   "networkName": "mainnet",
   "note": "0xCFEAead4947f0705A14ec42aC3D44129E1Ef3eD5",
   "notional": "0x6e7058c91F85E0F6db4fc9da2CA41241f5e4263f",
-  "tradingModule": "0xBf6B9c5608D520469d8c4BD1E24F850497AF0Bb8",
+  "tradingModule": "0x594734c7e06C3D483466ADBCe401C6Bd269746C8",
   "treasuryManager": "0x53144559c0d4a3304e2dd9dafbd685247429216d",
   "startBlock": 19306415,
   "pollingInterval": 1800
