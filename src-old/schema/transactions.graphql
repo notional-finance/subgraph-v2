@@ -1,0 +1,302 @@
+enum TradeType {
+  Lend
+  Borrow
+  AddLiquidity
+  RemoveLiquidity
+  PurchaseNTokenResidual
+  SettleCashDebt
+  Transfer
+}
+
+type Trade @entity {
+  "Currency ID:Account:Transaction hash:logIndex:batchIndex"
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+  transactionOrigin: Bytes!
+
+  account: Account!
+  currency: Currency!
+  market: Market
+
+  tradeType: TradeType!
+  maturity: BigInt!
+  netAssetCash: BigInt!
+  netUnderlyingCash: BigInt!
+  netfCash: BigInt!
+  netLiquidityTokens: BigInt
+  transferOperator: Bytes
+}
+
+type BalanceChange @entity {
+  "Currency ID:Account:Transaction hash:logIndex"
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+  transactionOrigin: Bytes!
+
+  account: Account!
+  currency: Currency!
+
+  assetCashBalanceBefore: BigInt!
+  assetCashBalanceAfter: BigInt!
+  assetCashValueUnderlyingBefore: BigInt!
+  assetCashValueUnderlyingAfter: BigInt!
+
+  nTokenBalanceBefore: BigInt!
+  nTokenBalanceAfter: BigInt!
+  nTokenValueAssetBefore: BigInt!
+  nTokenValueAssetAfter: BigInt!
+  nTokenValueUnderlyingBefore: BigInt!
+  nTokenValueUnderlyingAfter: BigInt!
+
+  lastClaimTimeBefore: Int!
+  lastClaimTimeAfter: Int!
+  lastClaimIntegralSupplyBefore: BigInt
+  lastClaimIntegralSupplyAfter: BigInt
+  accountIncentiveDebtBefore: BigInt
+  accountIncentiveDebtAfter: BigInt
+}
+
+type AssetChange @entity {
+  "Account:CurrencyId:AssetType:Maturity:Transaction hash"
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+  transactionOrigin: Bytes!
+
+  account: Account!
+  currency: Currency!
+
+  maturity: BigInt!
+  settlementDate: BigInt!
+  assetType: AssetType!
+
+  notionalBefore: BigInt!
+  notionalAfter: BigInt!
+}
+
+type nTokenChange @entity {
+  "nTokenAddress:Transaction hash"
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+  transactionOrigin: Bytes!
+
+  nToken: nToken!
+  "Account that mints or redeems nTokens, set to null on initialize markets"
+  account: Account
+
+  assetChanges: [AssetChange!]
+  balanceChange: BalanceChange
+
+  totalSupplyBefore: BigInt!
+  totalSupplyAfter: BigInt!
+  "Deprecated integral total supply before and after"
+  integralTotalSupplyBefore: BigInt
+  integralTotalSupplyAfter: BigInt
+  "Last supply change time before and after, equivalent to last accumulated time"
+  lastSupplyChangeTimeBefore: BigInt!
+  lastSupplyChangeTimeAfter: BigInt!
+  "Represents the accumulated NOTE incentives on the nToken"
+  accumulatedNOTEPerNTokenBefore: BigInt
+  accumulatedNOTEPerNTokenAfter: BigInt
+}
+
+type AssetTransfer @entity {
+  "from:to:assetId:Transaction hash"
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+  transactionOrigin: Bytes!
+
+  fromAssetChange: AssetChange!
+  toAssetChange: AssetChange!
+}
+
+enum LiquidationType {
+  LocalCurrency
+  LocalFcash
+  CollateralCurrency
+  CrossCurrencyFcash
+}
+
+type Liquidation @entity {
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+  transactionOrigin: Bytes!
+
+  type: LiquidationType!
+  account: Account!
+  liquidator: Account!
+  localCurrency: Currency!
+  netLocalFromLiquidator: BigInt!
+  collateralOrFcashCurrency: Currency
+  netCollateralTransfer: BigInt
+  netNTokenTransfer: BigInt
+  fCashMaturities: [BigInt!]
+  fCashNotionalTransfer: [BigInt!]
+}
+
+type LeveragedVaultAccount @entity {
+  "ID is the address of the vault:address of account"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  account: Account!
+  leveragedVault: LeveragedVault!
+  leveragedVaultMaturity: LeveragedVaultMaturity!
+
+  "Maturity that the account is currently in"
+  maturity: Int!
+
+  "Vault shares held in this maturity by the account"
+  vaultShares: BigInt!
+  "Amount of fCash borrowed"
+  primaryBorrowfCash: BigInt!
+
+  "Debt shares of the secondary borrow currencies"
+  secondaryBorrowDebtShares: [BigInt!]
+  trades: [LeveragedVaultTrade!] @derivedFrom(field: "leveragedVaultAccount")
+}
+
+type LeveragedVaultMaturity @entity {
+  "ID is the address of the vault:maturity"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  leveragedVault: LeveragedVault!
+
+  "Maturity of the given vault"
+  maturity: Int!
+
+  "Total fCash borrowed in the primary currency"
+  totalPrimaryfCashBorrowed: BigInt!
+  "Total asset cash held in the vault"
+  totalAssetCash: BigInt!
+  "Total vault shares in the vault"
+  totalVaultShares: BigInt!
+  "Total strategy tokens in the vault"
+  totalStrategyTokens: BigInt!
+  "Total secondary fCash borrowed for secondary borrow currencies"
+  totalSecondaryfCashBorrowed: [BigInt!]
+  "Total secondary debt shares for secondary borrow currencies"
+  totalSecondaryDebtShares: [BigInt!]
+  "Total fees accrued to the reserve in this maturity"
+  totalReserveFeesAccrued: BigInt!
+  "Total fees accrued to the nToken in this maturity"
+  totalNTokenFeesAccrued: BigInt!
+
+  "True if vault is settled"
+  isSettled: Boolean!
+  "Timestamp when the vault was settled"
+  settlementTimestamp: Int
+  "If vault has settled, holds the value of the strategy token"
+  settlementStrategyTokenValue: BigInt
+  "Snapshot of the secondary borrows in fCash prior to settlement (denominated in primary currency)"
+  settlementSecondaryBorrowfCashSnapshot: [BigInt!]
+  "Exchange rates between secondary currency and primary currency"
+  settlementSecondaryBorrowExchangeRate: [BigInt!]
+  "Holds the settlement rate of the primary borrow currency"
+  settlementRate: SettlementRate
+  "Any shortfall to this vault maturity (if any)"
+  shortfall: BigInt
+  "Any insolvency to this vault maturity (if any)"
+  insolvency: BigInt
+
+  "Asset cash remaining for accounts to withdraw post settlement"
+  remainingSettledAssetCash: BigInt
+  "Strategy tokens remaining for accounts to withdraw post settlement"
+  remainingSettledStrategyTokens: BigInt
+
+  "All strategy vault accounts in this maturity"
+  accounts: [LeveragedVaultAccount!] @derivedFrom(field: "leveragedVaultMaturity")
+  historicalValue: [LeveragedVaultHistoricalValue!] @derivedFrom(field: "leveragedVaultMaturity")
+  events: [LeveragedVaultMaturityEvent!] @derivedFrom(field: "leveragedVaultMaturity")
+}
+
+enum VaultTradeType {
+  EnterPosition,
+  RollPosition,
+  ExitPreMaturity,
+  ExitPostMaturity,
+  DeleverageAccount,
+  TransferFromDeleverage,
+  VaultRedeemStrategyToken,
+  VaultMintStrategyToken
+}
+
+type LeveragedVaultTrade @entity {
+  "leveragedVault:account or vault address:transaction hash:log index"
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+  transactionOrigin: Bytes!
+
+  vaultTradeType: VaultTradeType!
+
+  account: Account!
+  leveragedVault: LeveragedVault!
+  leveragedVaultAccount: LeveragedVaultAccount!
+  leveragedVaultMaturityBefore: LeveragedVaultMaturity
+  leveragedVaultMaturityAfter: LeveragedVaultMaturity
+
+  "Net change to fCash borrowed in the primary currencies"
+  primaryBorrowfCashBefore: BigInt!
+  primaryBorrowfCashAfter: BigInt!
+  netPrimaryBorrowfCashChange: BigInt
+
+  "Net change to vault shares"
+  vaultSharesBefore: BigInt!
+  vaultSharesAfter: BigInt!
+  netVaultSharesChange: BigInt
+
+  "Net change to fCash borrowed in the secondary currencies"
+  secondaryDebtSharesBefore: [BigInt!]
+  secondaryDebtSharesAfter: [BigInt!]
+  netSecondaryDebtSharesChange: [BigInt!]
+
+  "Total change in cash between Notional and the vault, positive on entering, negative on exit"
+  netUnderlyingCash: BigInt
+  "Net amount of cash that was borrowed or repaid, positive on enter, negative on exit"
+  netBorrowedUnderlying: BigInt
+  "Net amount of cash that was deposited or withdrawn, positive on enter, negative on exit"
+  netDepositUnderlying: BigInt
+}
+  
+type LeveragedVaultMaturityEvent @entity {
+  "leveragedVault:account or vault address:transaction hash:log index"
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+  transactionOrigin: Bytes!
+
+  leveragedVaultMaturity: LeveragedVaultMaturity!
+  "Net change to strategy tokens"
+  netStrategyTokenChange: BigInt!
+  "Net change to asset cash"
+  netAssetCashChange: BigInt!
+}

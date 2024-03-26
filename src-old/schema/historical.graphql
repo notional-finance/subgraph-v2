@@ -1,0 +1,130 @@
+
+type MarketHistoricalData @entity {
+  "MarketID:Hourly ID for this particular market"
+  id: ID!
+  market: Market!
+
+  "Total fCash available in the market"
+  totalfCash: BigInt!
+  "Total asset cash available in the market"
+  totalAssetCash: BigInt!
+  "Total liquidity tokens available in the market"
+  totalLiquidity: BigInt!
+  "Last annualized interest rate the market traded at"
+  lastImpliedRate: Int!
+  "Oracle rate for the market, must be averaged in using previousTradeTime"
+  oracleRate: Int!
+  "Last time when a trade occurred on the market"
+  previousTradeTime: Int!
+}
+
+type EthExchangeRateHistoricalData @entity {
+  id: ID!
+  timestamp: Int!
+  value: BigInt!
+  currency: Currency!
+}
+
+type AssetExchangeRateHistoricalData @entity {
+  id: ID!
+  timestamp: Int!
+  value: BigInt!
+  currency: Currency!
+}
+
+type NTokenPresentValueHistoricalData @entity {
+  id: ID!
+  timestamp: Int!
+  pvAsset: BigInt!
+  pvUnderlying: BigInt!
+  currency: Currency!
+}
+
+type CurrencyTvl @entity {
+  id: ID!
+  currency: Currency!
+  underlyingValue: BigInt!
+  usdValue: BigInt!
+}
+
+type COMPBalance @entity {
+  id: ID!
+  timestamp: Int!
+  value: BigInt!
+  usdValue: BigInt!
+}
+
+type StakedNoteTvl @entity {
+  id: ID!
+  timestamp: Int!
+
+  "Total sNOTE in the pool"
+  sNOTETotalSupply: BigInt!
+  "Total NOTE in the pool"
+  poolNOTEBalance: BigInt!
+  "Total ETH in the pool"
+  poolETHBalance: BigInt!
+  "Total BPT balance in the pool"
+  poolBPTBalance: BigInt!
+
+  "NOTE/ETH spot price of the pool"
+  spotPrice: BigInt!
+  
+  "Total pool value in each relevant denomination using historical spot prices"
+  totalPoolValueInNOTE: BigInt!
+  totalPoolValueInETH: BigInt!
+}
+
+type TvlHistoricalData @entity {
+  id: ID!
+  timestamp: Int!
+  usdTotal: BigInt
+  perCurrencyTvl: [CurrencyTvl!]
+  compBalance: COMPBalance
+  sNOTETvl: StakedNoteTvl
+}
+
+type LeveragedVaultHistoricalValue @entity {
+  "leveragedVault:maturity:timestamp"
+  id: ID!
+  timestamp: Int!
+
+  leveragedVaultMaturity: LeveragedVaultMaturity!
+  "Value of a single strategy token at the given timestamp"
+  underlyingValueOfStrategyToken: BigInt!
+  
+  "Exchange rate for the primary borrow currency at this timestamp"
+  ethExchangeRate: EthExchangeRateHistoricalData!
+  "Asset rate for the primary borrow currency at this timestamp"
+  assetExchangeRate: AssetExchangeRateHistoricalData!
+}
+
+type MarketInitialization @entity {
+  "Currency ID:time reference timestamp"
+  id: ID!
+  blockHash: Bytes!
+  blockNumber: Int!
+  timestamp: Int!
+  transactionHash: Bytes!
+  transactionOrigin: Bytes!
+
+  "Currency of markets"
+  currency: Currency!
+  "Markets that were initialized during this event"
+  markets: [Market!]!
+}
+
+# Data accumulated and condensed into day stats for lending and borrowing
+type DailyLendBorrowVolume @entity {
+  id: ID!
+  date: Int!
+  currency: Currency!
+  market: Market!
+  trades: [Trade!]!
+  marketIndex: Int!
+  tradeType: TradeType!
+  totalVolumeUnderlyingCash: BigInt!
+  totalVolumeNetAssetCash: BigInt!
+  totalVolumeNetfCash: BigInt!
+  txCount: BigInt!
+}

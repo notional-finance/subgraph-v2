@@ -1,0 +1,347 @@
+enum TokenType {
+  "Token that is the base for a cToken or other mintable token"
+  UnderlyingToken
+  "Compound interest bearing token"
+  cToken
+  "Ether specific Compound interest bearing token"
+  cETH
+  "The one and only Ether"
+  Ether
+  "A token that cannot be minted as a cToken, but can be used as collateral or traded"
+  NonMintable
+}
+
+type Currency @entity {
+  "Auto incrementing unique numeric id"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  "Category of token that this refers to"
+  tokenType: TokenType!
+
+  "Name of the asset currency"
+  name: String!
+  "Symbol of the asset currency"
+  symbol: String!
+  "Address of asset token"
+  tokenAddress: Bytes!
+  "Decimals of the asset token"
+  decimals: BigInt!
+  "If asset token has a transfer fee"
+  hasTransferFee: Boolean!
+  "Maximum total contract balance for collateral, zero if no limit"
+  maxCollateralBalance: BigInt
+
+  "Name of the underlying currency"
+  underlyingName: String
+  "Symbol of the underlying currency"
+  underlyingSymbol: String
+  "Address of underlying token"
+  underlyingTokenAddress: Bytes
+  "Decimals of the underlying token"
+  underlyingDecimals: BigInt
+  "If underlying token has a transfer fee"
+  underlyingHasTransferFee: Boolean
+
+  "Exchange rate from this currency to Eth, used in free collateral calculations"
+  ethExchangeRate: EthExchangeRate! @derivedFrom(field: "baseCurrency")
+  "Exchange rate from this currency to the underlying asset"
+  assetExchangeRate: AssetExchangeRate @derivedFrom(field: "assetCurrency")
+  "Cash group for a currency, if exists"
+  cashGroup: CashGroup @derivedFrom(field: "currency")
+  "nToken for a currency, if exists"
+  nToken: nToken @derivedFrom(field: "currency")
+  "Incentive Migration for a currency, if exists"
+  incentiveMigration: IncentiveMigration @derivedFrom(field: "currency")
+
+  "Hourly data for this currency"
+  ethExchangeRateHistoricalData: [EthExchangeRateHistoricalData!] @derivedFrom(field: "currency")
+  assetExchangeRateHistoricalData: [AssetExchangeRateHistoricalData!] @derivedFrom(field: "currency")
+  nTokenPresentValueHistoricalData: [NTokenPresentValueHistoricalData!] @derivedFrom(field: "currency")
+
+  "Strategy vaults that use this currency as a primary borrow"
+  leveragedVaults: [LeveragedVault!] @derivedFrom(field: "primaryBorrowCurrency")
+}
+
+type EthExchangeRate @entity {
+  "Currency id that this exchange rate refers to"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  "Base currency in the exchange rate"
+  baseCurrency: Currency!
+  "Rate oracle that is used to reference the exchange rate"
+  rateOracle: Bytes!
+  "Decimal places of the exchange rate"
+  rateDecimalPlaces: Int!
+  "Does the exchange rate need to invert"
+  mustInvert: Boolean!
+  "Percentage buffer used when calculating free collateral for debt balances"
+  buffer: Int!
+  "Percentage haircut used when calculating free collateral for collateral balances"
+  haircut: Int!
+  "Exchange rate discount given when liquidating this currency"
+  liquidationDiscount: Int!
+}
+
+type AssetExchangeRate @entity {
+  "Currency id that this asset rate refers to"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  "Asset currency in the exchange rate"
+  assetCurrency: Currency!
+  "Asset rate adapter interface to the asset token"
+  rateAdapterAddress: Bytes!
+  "Decimal places of the underlying token to the asset token"
+  underlyingDecimalPlaces: Int!
+
+  "Asset rates that fCash assets will settle at for given maturities"
+  settlementRates: [SettlementRate!] @derivedFrom(field: "assetExchangeRate")
+}
+
+type SettlementRate @entity {
+  "Currency id and maturity that this settlement rate refers to"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  "Currency of this settlement rate"
+  currency: Currency!
+  "Asset exchange rate referenced by this settlement rate"
+  assetExchangeRate: AssetExchangeRate!
+  "Maturity that this settlement rate refers to"
+  maturity: Int!
+  "Settlement rate value"
+  rate: BigInt!
+}
+
+type CashGroup @entity {
+  "Currency id that this cash group refers to"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  "Currency of this cash group"
+  currency: Currency!
+  "Index of the AMMs on chain that will be made available."
+  maxMarketIndex: Int!
+  "Maximum length of a market maturity in seconds"
+  maxMarketMaturityLengthSeconds: Int!
+
+  "Time window in minutes that the rate oracle will be averaged over"
+  rateOracleTimeWindowSeconds: Int!
+  "Total fees per trade, specified in basis points"
+  totalFeeBasisPoints: Int!
+  "Share of the fees given to the protocol, denominated in percentage"
+  reserveFeeSharePercent: Int!
+  "Debt buffer specified in basis points"
+  debtBufferBasisPoints: Int!
+  "fCash haircut specified in basis points"
+  fCashHaircutBasisPoints: Int!
+  "Penalty for settling a negative cash debt in basis points"
+  settlementPenaltyRateBasisPoints: Int!
+  "Discount on fCash given to the liquidator in basis points"
+  liquidationfCashHaircutBasisPoints: Int!
+  "Discount on negative fCash given to the liquidator in basis points"
+  liquidationDebtBufferBasisPoints: Int!
+
+  "Liquidity token haircut applied to cash claims, specified as a percentage between 0 and 100"
+  liquidityTokenHaircutsPercent: [Int!]!
+  "Rate scalar used to determine the slippage of the market"
+  rateScalars: [Int!]!
+
+  "Current size of reserves accumulated for this cash group"
+  reserveBalance: BigInt!
+  "The minimum threshold of the reserve before they are harvested for buybacks"
+  reserveBuffer: BigInt
+
+  nToken: nToken! @derivedFrom(field: "cashGroup")
+}
+
+type nToken @entity {
+  "Currency id of the nToken"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  "Address of the nToken"
+  tokenAddress: Bytes!
+  name: String!
+  symbol: String!
+  decimals: BigInt!
+  totalSupply: BigInt!
+  integralTotalSupply: BigInt!
+  accumulatedNOTEPerNToken: BigInt
+  lastSupplyChangeTime: BigInt!
+
+  "Cash group that governs this nToken"
+  cashGroup: CashGroup!
+  "Currency of this nToken"
+  currency: Currency!
+
+  "Proportion of deposits that go into each corresponding market"
+  depositShares: [Int!]
+  "Maximum market proportion that the nToken will provide liquidity at"
+  leverageThresholds: [Int!]
+  "Annualized anchor rates used during market initialization"
+  annualizedAnchorRates: [Int!]
+  "Market proportions used during market initialization"
+  proportions: [Int!]
+
+  "Annual incentive emission rate"
+  incentiveEmissionRate: BigInt
+
+  "Residual purchase incentive in basis points"
+  residualPurchaseIncentiveBasisPoints: Int
+  "Seconds until residuals become available to purchase after market initialization"
+  residualPurchaseTimeBufferSeconds: Int
+  "Basis points of cash withholding for negative fCash"
+  cashWithholdingBufferBasisPoints: Int
+  "Percentage of the nToken PV that is used during free collateral"
+  pvHaircutPercentage: Int
+  "Discount on nToken PV given to liquidators"
+  liquidationHaircutPercentage: Int
+
+  "Link to the nToken account object"
+  account: Account @derivedFrom(field: "nToken")
+}
+
+type GlobalTransferOperator @entity {
+  "Address of the global transfer operator"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+}
+
+type AuthorizedCallbackContract @entity {
+  "Address of the callback contract"
+  id: ID!
+  name: String!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+}
+
+type SecondaryIncentiveRewarder @entity {
+  "Address of the rewarder contract"
+  id: ID!
+  currency: Currency!
+  nToken: nToken!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+}
+
+type LeveragedVault @entity {
+  "ID is the address of the vault"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+  "Address of the strategy vault"
+  vaultAddress: Bytes!
+  "Strategy identifier for the vault"
+  strategy: Bytes!
+  "Name of the strategy vault"
+  name: String!
+  "Primary currency the vault borrows in"
+  primaryBorrowCurrency: Currency!
+  "Minimum amount of primary currency that must be borrowed"
+  minAccountBorrowSize: BigInt!
+  "Minimum collateral ratio before liquidation"
+  minCollateralRatioBasisPoints: Int!
+  "Maximum collateral ratio that liquidation can reach"
+  maxDeleverageCollateralRatioBasisPoints: Int!
+  "Fee assessed on primary borrow paid to the nToken and protocol"
+  feeRateBasisPoints: Int!
+  "Share of fee paid to protocol reserve"
+  reserveFeeSharePercent: Int!
+  "Discount rate given to liquidators"
+  liquidationRatePercent: Int!
+  "Maximum market index for borrowing terms"
+  maxBorrowMarketIndex: Int!
+  "Secondary borrow currencies (if any)"
+  secondaryBorrowCurrencies: [Currency!]
+  "Max required collateral ratio for vault accounts"
+  maxRequiredAccountCollateralRatioBasisPoints: Int
+  "Can the vault be entered"
+  enabled: Boolean!
+  "Allows positions to be rolled forward"
+  allowRollPosition: Boolean!
+  "Only the vault can enter"
+  onlyVaultEntry: Boolean!
+  "Only the vault can exit"
+  onlyVaultExit: Boolean!
+  "Only the vault can roll"
+  onlyVaultRoll: Boolean!
+  "Only the vault can liquidate"
+  onlyVaultDeleverage: Boolean!
+  "Only the vault can settle"
+  onlyVaultSettle: Boolean!
+  "Vault is allowed to re-enter Notional"
+  allowsReentrancy: Boolean!
+  "Deleveraging is disabled on this vault"
+  deleverageDisabled: Boolean
+
+  "All maturities of this strategy vault"
+  maturities: [LeveragedVaultMaturity!] @derivedFrom(field: "leveragedVault")
+  vaultCapacity: LeveragedVaultCapacity! @derivedFrom(field: "leveragedVault")
+}
+
+# One off migration for incentive calculation, snapshot values stored here
+type IncentiveMigration @entity {
+  "Currency ID of the migrated entity"
+  id: ID!
+  currency: Currency!
+  "Snapshot of the incentive emission rate at migration"
+  migrationEmissionRate: BigInt!
+  "Snapshot of the integral total supply at migration"
+  finalIntegralTotalSupply: BigInt!
+  "Time when the currency was migrated"
+  migrationTime: BigInt!
+}
+
+type LeveragedVaultDirectory @entity {
+  "ID is always set to 0"
+  id: ID!
+  listedLeveragedVaults: [LeveragedVault!]!
+}
+
+
+type LeveragedVaultCapacity @entity {
+  "ID is the address of the vault"
+  id: ID!
+  lastUpdateBlockHash: Bytes!
+  lastUpdateBlockNumber: Int!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+
+  leveragedVault: LeveragedVault!
+
+  maxPrimaryBorrowCapacity: BigInt!
+  totalUsedPrimaryBorrowCapacity: BigInt!
+
+  maxSecondaryBorrowCapacity: [BigInt!]
+  totalUsedSecondaryBorrowCapacity: [BigInt!]
+}
