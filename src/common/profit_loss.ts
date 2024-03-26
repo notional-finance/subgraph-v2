@@ -7,7 +7,7 @@ import {
   TransferBundle,
 } from "../../generated/schema";
 import { getAccount, getAsset, getNotional } from "./entities";
-import { getBalance, getBalanceSnapshot, updateAccount } from "../balances";
+import { getBalance, getBalanceSnapshot, updateAccount, updateNTokenIncentives } from "../balances";
 import {
   Burn,
   INTERNAL_TOKEN_PRECISION,
@@ -62,6 +62,7 @@ export function processProfitAndLoss(
       continue;
     } else if (token.tokenType == "nToken" && snapshot.previousBalance.le(DUST)) {
       setInitialIncentiveSnapshot(item.account, snapshot, token);
+      updateNTokenIncentives(token.currencyId, event);
     }
 
     let setAdjustedCostBasis = true;
