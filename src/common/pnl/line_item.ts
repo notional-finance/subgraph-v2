@@ -59,10 +59,7 @@ export function createLineItem(
     .div(item.tokenAmount)
     .abs();
 
-  item.spotPrice = underlyingAmountSpot
-    .times(INTERNAL_TOKEN_PRECISION)
-    .div(item.tokenAmount)
-    .abs();
+  item.spotPrice = underlyingAmountSpot.times(INTERNAL_TOKEN_PRECISION).div(item.tokenAmount).abs();
 
   let token = getAsset(item.token);
   if (
@@ -77,17 +74,23 @@ export function createLineItem(
       .abs();
     // Convert the realized price to an implied fixed rate for fixed vault debt
     // and fCash tokens
-    let realizedPriceInRatePrecision: f64 = realizedPriceForImpliedRate
+    let _realizedPriceInRatePrecision = realizedPriceForImpliedRate
       .times(RATE_PRECISION)
-      .div(underlying.precision)
-      .toI64() as f64;
-    let ratePrecision = RATE_PRECISION.toI64() as f64;
-    let timeToMaturity = (token.maturity as BigInt).minus(BigInt.fromI32(bundle.timestamp));
-    let x: f64 = Math.trunc(Math.log(ratePrecision / realizedPriceInRatePrecision) * ratePrecision);
-    if (isFinite(x)) {
-      let r = BigInt.fromI64(x as i64);
-      let fixedRate = r.times(SECONDS_IN_YEAR).div(timeToMaturity);
-      item.impliedFixedRate = fixedRate;
+      .div(underlying.precision);
+
+    if (_realizedPriceInRatePrecision.lt(BigInt.fromI64(i64.MAX_VALUE))) {
+      let realizedPriceInRatePrecision = _realizedPriceInRatePrecision.toI64() as f64;
+      let ratePrecision = RATE_PRECISION.toI64() as f64;
+      let timeToMaturity = (token.maturity as BigInt).minus(BigInt.fromI32(bundle.timestamp));
+      let x: f64 = Math.trunc(
+        Math.log(ratePrecision / realizedPriceInRatePrecision) * ratePrecision
+      );
+
+      if (isFinite(x)) {
+        let r = BigInt.fromI64(x as i64);
+        let fixedRate = r.times(SECONDS_IN_YEAR).div(timeToMaturity);
+        item.impliedFixedRate = fixedRate;
+      }
     }
   }
 
@@ -244,10 +247,7 @@ export function createfCashLineItems(
   let ratio: BigInt | null =
     fCashTrade[2].value === fCashTransfer.value.abs()
       ? null
-      : fCashTransfer.value
-          .times(RATE_PRECISION)
-          .div(fCashTrade[2].value)
-          .abs();
+      : fCashTransfer.value.times(RATE_PRECISION).div(fCashTrade[2].value).abs();
 
   // This is the prime cash transfer
   createLineItem(
