@@ -1,4 +1,4 @@
-import { ethereum, BigInt, Bytes, log } from "@graphprotocol/graph-ts";
+import { ethereum, BigInt } from "@graphprotocol/graph-ts";
 import {
   BalanceSnapshot,
   ProfitLossLineItem,
@@ -109,6 +109,7 @@ export function processProfitAndLoss(
       // Clear all snapshot amounts back to zero if the accumulated balance goes below zero
       // NOTE: _accumulatedCostRealized is not cleared to zero in here. Is that correct?
       snapshot._accumulatedBalance = BigInt.zero();
+      snapshot._lastInterestAccumulator = BigInt.zero();
       snapshot.adjustedCostBasis = BigInt.zero();
       snapshot.currentProfitAndLossAtSnapshot = BigInt.zero();
       snapshot.totalInterestAccrualAtSnapshot = BigInt.zero();

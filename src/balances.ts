@@ -73,6 +73,7 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
     snapshot.totalInterestAccrualAtSnapshot = BigInt.zero();
     snapshot._accumulatedBalance = BigInt.zero();
     snapshot._accumulatedCostRealized = BigInt.zero();
+    snapshot._lastInterestAccumulator = BigInt.zero();
 
     // These features are accumulated over the lifetime of the balance, as long
     // as it is not zero.
@@ -85,11 +86,13 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
         snapshot.totalILAndFeesAtSnapshot = BigInt.zero();
         snapshot._accumulatedBalance = BigInt.zero();
         snapshot._accumulatedCostRealized = BigInt.zero();
+        snapshot._lastInterestAccumulator = BigInt.zero();
         snapshot.impliedFixedRate = null;
       } else {
         snapshot.totalILAndFeesAtSnapshot = prevSnapshot.totalILAndFeesAtSnapshot;
         snapshot._accumulatedBalance = prevSnapshot._accumulatedBalance;
         snapshot._accumulatedCostRealized = prevSnapshot._accumulatedCostRealized;
+        snapshot._lastInterestAccumulator = prevSnapshot._lastInterestAccumulator;
         snapshot.impliedFixedRate = prevSnapshot.impliedFixedRate;
       }
 
@@ -366,8 +369,10 @@ function updateVaultState(
     let pDebtAddress = notional.pDebtAddress(token.currencyId);
     let pDebt = ERC4626.bind(pDebtAddress);
     if (isPrimary) {
-      totalDebtUnderlying = notional.getVaultState(vaultAddress, PRIME_CASH_VAULT_MATURITY)
-        .totalDebtUnderlying;
+      totalDebtUnderlying = notional.getVaultState(
+        vaultAddress,
+        PRIME_CASH_VAULT_MATURITY
+      ).totalDebtUnderlying;
     } else {
       totalDebtUnderlying = notional.getSecondaryBorrow(
         vaultAddress,
@@ -385,8 +390,10 @@ function updateVaultState(
     snapshot.currentBalance = pDebt.convertToShares(totalDebtInExternal);
   } else if (token.tokenType == fCash) {
     if (isPrimary) {
-      totalDebtUnderlying = notional.getVaultState(vaultAddress, token.maturity as BigInt)
-        .totalDebtUnderlying;
+      totalDebtUnderlying = notional.getVaultState(
+        vaultAddress,
+        token.maturity as BigInt
+      ).totalDebtUnderlying;
     } else {
       totalDebtUnderlying = notional.getSecondaryBorrow(
         vaultAddress,
