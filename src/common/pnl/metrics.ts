@@ -1,7 +1,21 @@
 import { ethereum, BigInt } from "@graphprotocol/graph-ts";
 import { BalanceSnapshot, ProfitLossLineItem, Token } from "../../../generated/schema";
 import { convertValueToUnderlying } from "../transfers";
-import { INTERNAL_TOKEN_PRECISION } from "../constants";
+import {
+  INTERNAL_TOKEN_PRECISION,
+  PRIME_CASH_VAULT_MATURITY,
+  PrimeCash,
+  PrimeDebt,
+  RATE_PRECISION,
+  SECONDS_IN_YEAR,
+  VaultDebt,
+  VaultShare,
+  VaultShareInterestAccrued,
+  fCash,
+  nToken,
+  nTokenInterestAccrued,
+} from "../constants";
+import { getOracle, getUnderlying } from "../entities";
 
 export const TRANSIENT_DUST = BigInt.fromI32(5000);
 
@@ -13,10 +27,7 @@ export function updateTotalILAndFees(snapshot: BalanceSnapshot, item: ProfitLoss
   if (ILandFees.ge(BigInt.zero())) {
     snapshot.totalILAndFeesAtSnapshot = snapshot.totalILAndFeesAtSnapshot.plus(ILandFees);
   } else if (
-    snapshot._accumulatedBalance
-      .minus(item.tokenAmount)
-      .abs()
-      .gt(TRANSIENT_DUST) &&
+    snapshot._accumulatedBalance.minus(item.tokenAmount).abs().gt(TRANSIENT_DUST) &&
     // NOTE: for nToken residuals this will not compute IL and fees properly
     !item.tokenAmount.isZero()
   ) {
@@ -36,7 +47,8 @@ export function updateTotalILAndFees(snapshot: BalanceSnapshot, item: ProfitLoss
 export function updateCurrentSnapshotPnL(
   snapshot: BalanceSnapshot,
   token: Token,
-  event: ethereum.Event
+  event: ethereum.Event,
+  item: ProfitLossLineItem | null
 ): void {
   let accumulatedBalanceValueAtSpot = convertValueToUnderlying(
     snapshot._accumulatedBalance,
@@ -51,8 +63,71 @@ export function updateCurrentSnapshotPnL(
     snapshot.totalProfitAndLossAtSnapshot = accumulatedBalanceValueAtSpot.minus(
       snapshot._accumulatedCostRealized
     );
-    snapshot.totalInterestAccrualAtSnapshot = snapshot.currentProfitAndLossAtSnapshot.minus(
-      snapshot.totalILAndFeesAtSnapshot
-    );
+
+    if (token.tokenType == nToken || token.tokenType == VaultShare) {
+      let base = getUnderlying(token.currencyId);
+      let oracle = getOracle(
+        base,
+        token,
+        token.tokenType == nToken ? nTokenInterestAccrued : VaultShareInterestAccrued
+      );
+
+      let lastInterestAccumulator =
+        snapshot._lastInterestAccumulator !== null
+          ? snapshot._lastInterestAccumulator
+          : oracle.latestRate;
+
+      if (oracle.latestRate !== null && lastInterestAccumulator !== null) {
+        if (
+          snapshot.currentBalance.lt(snapshot.previousBalance) &&
+          !snapshot.previousBalance.isZero()
+        ) {
+          snapshot.totalInterestAccrualAtSnapshot = snapshot.totalInterestAccrualAtSnapshot.plus(
+            (oracle.latestRate as BigInt)
+              .minus(lastInterestAccumulator)
+              .times(snapshot.currentBalance)
+              .div(snapshot.previousBalance)
+          );
+        } else {
+          snapshot.totalInterestAccrualAtSnapshot = snapshot.totalInterestAccrualAtSnapshot.plus(
+            (oracle.latestRate as BigInt)
+              .minus(lastInterestAccumulator)
+              .times(snapshot.previousBalance)
+              .div(INTERNAL_TOKEN_PRECISION)
+          );
+        }
+        snapshot._lastInterestAccumulator = oracle.latestRate as BigInt;
+      }
+    } else if (
+      token.tokenType == fCash ||
+      (token.tokenType == VaultDebt && (token.maturity as BigInt) != PRIME_CASH_VAULT_MATURITY)
+    ) {
+      let prevSnapshot = snapshot.previousSnapshot
+        ? BalanceSnapshot.load(snapshot.previousSnapshot as string)
+        : null;
+
+      if (prevSnapshot !== null && !snapshot.previousBalance.isZero()) {
+        let accruedInterest = snapshot._lastInterestAccumulator
+          .times(
+            event.block.timestamp.minus(BigInt.fromI32((prevSnapshot as BalanceSnapshot).timestamp))
+          )
+          .div(SECONDS_IN_YEAR);
+        snapshot.totalInterestAccrualAtSnapshot =
+          snapshot.totalInterestAccrualAtSnapshot.plus(accruedInterest);
+      }
+
+      if (item && item.impliedFixedRate !== null) {
+        snapshot._lastInterestAccumulator = snapshot._lastInterestAccumulator.plus(
+          (item.impliedFixedRate as BigInt).times(item.underlyingAmountRealized).div(RATE_PRECISION)
+        );
+      }
+    } else if (
+      token.tokenType == PrimeCash ||
+      token.tokenType == PrimeDebt ||
+      (token.tokenType == VaultDebt && (token.maturity as BigInt) == PRIME_CASH_VAULT_MATURITY)
+    ) {
+      // For variable rates, the entire PnL is interest accrual
+      snapshot.totalInterestAccrualAtSnapshot = snapshot.currentProfitAndLossAtSnapshot;
+    }
   }
 }
