@@ -42,6 +42,9 @@ import {
   nTokenFeeRate,
   nTokenIncentiveRate,
   nTokenSecondaryIncentiveRate,
+  nTokenInterestAccrued,
+  SECONDS_IN_YEAR,
+  VaultShareInterestAccrued,
 } from "./common/constants";
 import {
   getAsset,
@@ -60,7 +63,29 @@ import { handleUnderlyingSnapshot } from "./external_lending";
 
 const SIX_HOURS = BigInt.fromI32(21_600);
 
-function updateExchangeRate(
+export function accumulateInterestEarnedRate(
+  oracle: Oracle,
+  interestAPY: BigInt,
+  block: ethereum.Block
+): void {
+  let ts = block.timestamp.minus(block.timestamp.mod(SIX_HOURS)).minus(SIX_HOURS);
+  let id = oracle.id + ":" + ts.toString();
+  let previousRate = ExchangeRate.load(id);
+
+  let interestAccrued = RATE_PRECISION;
+  if (previousRate) {
+    let timesSinceLastReinvest = block.timestamp.minus(BigInt.fromI32(previousRate.timestamp));
+    interestAccrued = previousRate.rate
+      .times(interestAPY)
+      .times(timesSinceLastReinvest)
+      .div(SECONDS_IN_YEAR)
+      .div(RATE_PRECISION);
+  }
+
+  updateExchangeRate(oracle, interestAccrued, block, null);
+}
+
+export function updateExchangeRate(
   oracle: Oracle,
   rate: BigInt,
   block: ethereum.Block,
@@ -107,7 +132,8 @@ function updateVaultOracleMaturity(
   vaultAddress: Address,
   maturity: BigInt,
   base: Token,
-  block: ethereum.Block
+  block: ethereum.Block,
+  reinvestAPY: BigInt | null
 ): void {
   let notional = getNotional();
   let vaultConfig = notional.getVaultConfig(vaultAddress);
@@ -116,7 +142,9 @@ function updateVaultOracleMaturity(
   let shareValue = vault.try_getExchangeRate(maturity);
   let value: BigInt;
   if (shareValue.reverted) {
-    value = BigInt.fromI32(0);
+    let v = vault.try_getExchangeRate(maturity);
+    if (!v.reverted) value = v.value;
+    else value = BigInt.zero();
   } else {
     value = shareValue.value;
   }
@@ -136,14 +164,30 @@ function updateVaultOracleMaturity(
   oracle.oracleAddress = vaultAddress;
 
   updateExchangeRate(oracle, value, block, null);
+
+  if (reinvestAPY !== null) {
+    let o = getOracle(base, vaultShareAsset, VaultShareInterestAccrued);
+    o.decimals = RATE_DECIMALS;
+    o.ratePrecision = RATE_PRECISION;
+    o.oracleAddress = vaultAddress;
+
+    accumulateInterestEarnedRate(o, reinvestAPY, block);
+  }
 }
 
-export function updateVaultOracles(vaultAddress: Address, block: ethereum.Block): void {
+export function updateVaultOracles(
+  vaultAddress: Address,
+  block: ethereum.Block,
+  reinvestAPY: BigInt | null
+): void {
   let notional = getNotional();
   let vaultConfig = notional.getVaultConfig(vaultAddress);
   let base = getUnderlying(vaultConfig.borrowCurrencyId);
 
-  updateVaultOracleMaturity(vaultAddress, PRIME_CASH_VAULT_MATURITY, base, block);
+  // prettier-ignore
+  updateVaultOracleMaturity(
+    vaultAddress, PRIME_CASH_VAULT_MATURITY, base, block, reinvestAPY
+  );
 
   let activeMarkets = notional.try_getActiveMarkets(vaultConfig.borrowCurrencyId);
   if (activeMarkets.reverted) return;
@@ -151,7 +195,10 @@ export function updateVaultOracles(vaultAddress: Address, block: ethereum.Block)
   for (let i = 0; i < activeMarkets.value.length; i++) {
     if (i + 1 <= vaultConfig.maxBorrowMarketIndex.toI32()) {
       let a = activeMarkets.value[i];
-      updateVaultOracleMaturity(vaultAddress, a.maturity, base, block);
+      // prettier-ignore
+      updateVaultOracleMaturity(
+        vaultAddress, a.maturity, base, block, reinvestAPY
+      );
     }
   }
 }
@@ -346,6 +393,12 @@ function updateNTokenRates(
     base, nToken, notional._address, block, txnHash
   );
 
+  let o = getOracle(base, nToken, nTokenInterestAccrued);
+  o.decimals = RATE_DECIMALS;
+  o.ratePrecision = RATE_PRECISION;
+  o.oracleAddress = notional._address;
+  accumulateInterestEarnedRate(o, interestAPY, block);
+
   if (nTokenUnderlyingPV.gt(BigInt.zero())) {
     let feeBuffer = getNTokenFeeBuffer(currencyId);
     let underlying = getUnderlying(currencyId);
@@ -461,7 +514,7 @@ export function handleVaultListing(event: VaultUpdated): void {
     registry.listedVaults = listedVaults;
     registry.save();
 
-    updateVaultOracles(vaultAddress, event.block);
+    updateVaultOracles(vaultAddress, event.block, null);
   }
 }
 
@@ -748,7 +801,7 @@ export function handleBlockOracleUpdate(block: ethereum.Block): void {
   }
 
   for (let i = 0; i < registry.listedVaults.length; i++) {
-    updateVaultOracles(Address.fromBytes(registry.listedVaults[i]), block);
+    updateVaultOracles(Address.fromBytes(registry.listedVaults[i]), block, null);
   }
 
   for (let i = 0; i < registry.fCashEnabled.length; i++) {

@@ -2,8 +2,9 @@ import { VaultRewardReinvested } from "../generated/TreasuryManager/TreasuryMana
 import { ISingleSidedLPStrategyVault } from "../generated/TreasuryManager/ISingleSidedLPStrategyVault";
 import { Reinvestment } from "../generated/schema";
 import { BigInt } from "@graphprotocol/graph-ts";
-import { INTERNAL_TOKEN_PRECISION } from "./common/constants";
+import { INTERNAL_TOKEN_PRECISION, RATE_PRECISION, SECONDS_IN_YEAR } from "./common/constants";
 import { createERC20TokenAsset } from "./common/erc20";
+import { updateVaultOracles } from "./exchange_rates";
 
 export function handleVaultRewardReinvested(event: VaultRewardReinvested): void {
   let id =
@@ -55,6 +56,11 @@ export function handleVaultRewardReinvested(event: VaultRewardReinvested): void 
     if (!vaultSharePrice.reverted) {
       reinvestment.vaultSharePrice = vaultSharePrice.value;
     }
+
+    let reinvestAPY = tokensAsVaultShares
+      .times(RATE_PRECISION)
+      .div(context.value.totalVaultShares.minus(tokensAsVaultShares).times(SECONDS_IN_YEAR));
+    updateVaultOracles(event.params.vault, event.block, reinvestAPY);
   }
 
   reinvestment.save();

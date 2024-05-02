@@ -219,8 +219,10 @@ enum OracleType {
   PrimeDebtToMoneyMarketExchangeRate,
   MoneyMarketToUnderlyingExchangeRate
   VaultShareOracleRate,
+  VaultShareInterestAccrued,
   nTokenToUnderlyingExchangeRate,
   nTokenBlendedInterestRate,
+  nTokenInterestAccrued,
   nTokenFeeRate,
   nTokenIncentiveRate,
   nTokenSecondaryIncentiveRate,
