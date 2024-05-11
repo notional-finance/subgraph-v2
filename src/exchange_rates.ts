@@ -72,14 +72,19 @@ export function accumulateInterestEarnedRate(
   let id = oracle.id + ":" + ts.toString();
   let previousRate = ExchangeRate.load(id);
 
-  let interestAccrued = RATE_PRECISION;
+  let interestAccrued = oracle.ratePrecision;
   if (previousRate) {
     let timesSinceLastReinvest = block.timestamp.minus(BigInt.fromI32(previousRate.timestamp));
-    interestAccrued = previousRate.rate
-      .times(interestAPY)
-      .times(timesSinceLastReinvest)
-      .div(SECONDS_IN_YEAR)
-      .div(RATE_PRECISION);
+    // Interest Accrued = previousRate.rate +
+    // 1 unit underlying * (rate * timeSinceLastReinvest / SECONDS_IN_YEAR)
+    // NOTE: interest accrued here is in underlying precision
+    interestAccrued = previousRate.rate.plus(
+      oracle.ratePrecision
+        .times(interestAPY)
+        .times(timesSinceLastReinvest)
+        .div(SECONDS_IN_YEAR)
+        .div(RATE_PRECISION)
+    );
   }
 
   updateExchangeRate(oracle, interestAccrued, block, null);
@@ -133,7 +138,7 @@ function updateVaultOracleMaturity(
   maturity: BigInt,
   base: Token,
   block: ethereum.Block,
-  reinvestAPY: BigInt | null
+  interestAccrued: BigInt | null
 ): void {
   let notional = getNotional();
   let vaultConfig = notional.getVaultConfig(vaultAddress);
@@ -165,20 +170,27 @@ function updateVaultOracleMaturity(
 
   updateExchangeRate(oracle, value, block, null);
 
-  if (reinvestAPY !== null) {
+  if (interestAccrued !== null) {
     let o = getOracle(base, vaultShareAsset, VaultShareInterestAccrued);
-    o.decimals = RATE_DECIMALS;
-    o.ratePrecision = RATE_PRECISION;
+    o.decimals = base.decimals;
+    o.ratePrecision = base.precision;
     o.oracleAddress = vaultAddress;
+    let ts = block.timestamp.minus(block.timestamp.mod(SIX_HOURS)).minus(SIX_HOURS);
+    let id = oracle.id + ":" + ts.toString();
+    let previousRate = ExchangeRate.load(id);
 
-    accumulateInterestEarnedRate(o, reinvestAPY, block);
+    if (previousRate) {
+      // If there is a previous rate then accumulate it
+      interestAccrued = previousRate.rate.plus(interestAccrued);
+    }
+    updateExchangeRate(o, interestAccrued, block, null);
   }
 }
 
 export function updateVaultOracles(
   vaultAddress: Address,
   block: ethereum.Block,
-  reinvestAPY: BigInt | null
+  interestAccrued: BigInt | null
 ): void {
   let notional = getNotional();
   let vaultConfig = notional.getVaultConfig(vaultAddress);
@@ -186,7 +198,7 @@ export function updateVaultOracles(
 
   // prettier-ignore
   updateVaultOracleMaturity(
-    vaultAddress, PRIME_CASH_VAULT_MATURITY, base, block, reinvestAPY
+    vaultAddress, PRIME_CASH_VAULT_MATURITY, base, block, interestAccrued
   );
 
   let activeMarkets = notional.try_getActiveMarkets(vaultConfig.borrowCurrencyId);
@@ -197,7 +209,7 @@ export function updateVaultOracles(
       let a = activeMarkets.value[i];
       // prettier-ignore
       updateVaultOracleMaturity(
-        vaultAddress, a.maturity, base, block, reinvestAPY
+        vaultAddress, a.maturity, base, block, interestAccrued
       );
     }
   }
@@ -394,8 +406,8 @@ function updateNTokenRates(
   );
 
   let o = getOracle(base, nToken, nTokenInterestAccrued);
-  o.decimals = RATE_DECIMALS;
-  o.ratePrecision = RATE_PRECISION;
+  o.decimals = base.decimals;
+  o.ratePrecision = base.precision;
   o.oracleAddress = notional._address;
   accumulateInterestEarnedRate(o, interestAPY, block);
 

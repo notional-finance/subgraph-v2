@@ -52,15 +52,12 @@ export function handleVaultRewardReinvested(event: VaultRewardReinvested): void 
 
     if (!underlyingAmountRealized.reverted) {
       reinvestment.underlyingAmountRealized = underlyingAmountRealized.value;
+      // Interest Accrued = underlyingAmountRealized
+      updateVaultOracles(event.params.vault, event.block, underlyingAmountRealized.value);
     }
     if (!vaultSharePrice.reverted) {
       reinvestment.vaultSharePrice = vaultSharePrice.value;
     }
-
-    let reinvestAPY = tokensAsVaultShares
-      .times(RATE_PRECISION)
-      .div(context.value.totalVaultShares.minus(tokensAsVaultShares).times(SECONDS_IN_YEAR));
-    updateVaultOracles(event.params.vault, event.block, reinvestAPY);
   }
 
   reinvestment.save();

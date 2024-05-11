@@ -72,6 +72,8 @@ export function updateCurrentSnapshotPnL(
         token.tokenType == nToken ? nTokenInterestAccrued : VaultShareInterestAccrued
       );
 
+      // For the nToken and vault shares, the interest accumulator is the latest rate that
+      // we've seen for the total interest accrued.
       let lastInterestAccumulator =
         snapshot._lastInterestAccumulator !== null
           ? snapshot._lastInterestAccumulator
@@ -82,14 +84,18 @@ export function updateCurrentSnapshotPnL(
           snapshot.currentBalance.lt(snapshot.previousBalance) &&
           !snapshot.previousBalance.isZero()
         ) {
+          // totalInterestAccrual += (latestAccumulator - lastInterestAccumulator) * currentBalance / prevBalance
           snapshot.totalInterestAccrualAtSnapshot = snapshot.totalInterestAccrualAtSnapshot.plus(
+            // latestRate and lastInterestAccumulator are both in underlying precision here
             (oracle.latestRate as BigInt)
               .minus(lastInterestAccumulator)
               .times(snapshot.currentBalance)
               .div(snapshot.previousBalance)
           );
         } else {
+          // totalInterestAccrual += (latestAccumulator - lastInterestAccumulator) * prevBalance
           snapshot.totalInterestAccrualAtSnapshot = snapshot.totalInterestAccrualAtSnapshot.plus(
+            // latestRate and lastInterestAccumulator are both in underlying precision here
             (oracle.latestRate as BigInt)
               .minus(lastInterestAccumulator)
               .times(snapshot.previousBalance)
@@ -107,6 +113,9 @@ export function updateCurrentSnapshotPnL(
         : null;
 
       if (prevSnapshot !== null && !snapshot.previousBalance.isZero()) {
+        // For fCash, _lastInterestAccumulator is the amount of interest that the position would accrue
+        // over an entire year, in here we just need to scale it down. accruedInterest is in underlying
+        // precision here, so is totalInterestAccrualAtSnapshot
         let accruedInterest = snapshot._lastInterestAccumulator
           .times(
             event.block.timestamp.minus(BigInt.fromI32((prevSnapshot as BalanceSnapshot).timestamp))
@@ -118,7 +127,9 @@ export function updateCurrentSnapshotPnL(
 
       if (item && item.impliedFixedRate !== null) {
         snapshot._lastInterestAccumulator = snapshot._lastInterestAccumulator.plus(
-          (item.impliedFixedRate as BigInt).times(item.underlyingAmountRealized).div(RATE_PRECISION)
+          (item.impliedFixedRate as BigInt)
+            .times(item.underlyingAmountRealized.neg())
+            .div(RATE_PRECISION)
         );
       }
     } else if (
