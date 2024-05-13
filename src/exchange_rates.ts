@@ -138,7 +138,8 @@ function updateVaultOracleMaturity(
   maturity: BigInt,
   base: Token,
   block: ethereum.Block,
-  interestAccrued: BigInt | null
+  interestAccrued: BigInt | null,
+  txnHash: string | null
 ): void {
   let notional = getNotional();
   let vaultConfig = notional.getVaultConfig(vaultAddress);
@@ -175,22 +176,52 @@ function updateVaultOracleMaturity(
     o.decimals = base.decimals;
     o.ratePrecision = base.precision;
     o.oracleAddress = vaultAddress;
-    let ts = block.timestamp.minus(block.timestamp.mod(SIX_HOURS)).minus(SIX_HOURS);
-    let id = oracle.id + ":" + ts.toString();
-    let previousRate = ExchangeRate.load(id);
 
+    let prevTs = block.timestamp.minus(block.timestamp.mod(SIX_HOURS)).minus(SIX_HOURS);
+    let prevId = oracle.id + ":" + prevTs.toString();
+
+    let currentTs = block.timestamp.minus(block.timestamp.mod(SIX_HOURS));
+    let currentId = oracle.id + ":" + currentTs.toString();
+
+    // Multiple reinvestments happen at the same block so need to accrue reinvestments
+    // at the same timestamp together.
+    let currentRate = ExchangeRate.load(currentId);
+    if (currentRate) {
+      // If there is a current rate then accumulate it, this is the only place
+      // where we do this so we don't call the function here.
+      let newRate = currentRate.rate.plus(interestAccrued);
+
+      currentRate.blockNumber = block.number;
+      currentRate.timestamp = block.timestamp.toI32();
+      currentRate.rate = newRate;
+      currentRate.oracle = oracle.id;
+      currentRate.transaction = txnHash;
+      let quote = getAsset(oracle.quote);
+      currentRate.totalSupply = quote.totalSupply;
+      currentRate.save();
+
+      oracle.latestRate = newRate;
+      oracle.lastUpdateBlockNumber = block.number;
+      oracle.lastUpdateTimestamp = block.timestamp.toI32();
+      oracle.lastUpdateTransaction = txnHash;
+      oracle.save();
+    } else {
+      let previousRate = ExchangeRate.load(prevId);
+      let newRate = interestAccrued;
     if (previousRate) {
-      // If there is a previous rate then accumulate it
-      interestAccrued = previousRate.rate.plus(interestAccrued);
+        // If there is a previous rate then accrue that into the object
+        newRate = previousRate.rate.plus(interestAccrued);
     }
-    updateExchangeRate(o, interestAccrued, block, null);
+      updateExchangeRate(o, newRate, block, txnHash);
+    }
   }
 }
 
 export function updateVaultOracles(
   vaultAddress: Address,
   block: ethereum.Block,
-  interestAccrued: BigInt | null
+  interestAccrued: BigInt | null,
+  txnHash: string | null
 ): void {
   let notional = getNotional();
   let vaultConfig = notional.getVaultConfig(vaultAddress);
@@ -198,7 +229,7 @@ export function updateVaultOracles(
 
   // prettier-ignore
   updateVaultOracleMaturity(
-    vaultAddress, PRIME_CASH_VAULT_MATURITY, base, block, interestAccrued
+    vaultAddress, PRIME_CASH_VAULT_MATURITY, base, block, interestAccrued, txnHash
   );
 
   let activeMarkets = notional.try_getActiveMarkets(vaultConfig.borrowCurrencyId);
@@ -209,7 +240,7 @@ export function updateVaultOracles(
       let a = activeMarkets.value[i];
       // prettier-ignore
       updateVaultOracleMaturity(
-        vaultAddress, a.maturity, base, block, interestAccrued
+        vaultAddress, a.maturity, base, block, interestAccrued, txnHash
       );
     }
   }
@@ -526,7 +557,7 @@ export function handleVaultListing(event: VaultUpdated): void {
     registry.listedVaults = listedVaults;
     registry.save();
 
-    updateVaultOracles(vaultAddress, event.block, null);
+    updateVaultOracles(vaultAddress, event.block, null, null);
   }
 }
 
@@ -813,7 +844,7 @@ export function handleBlockOracleUpdate(block: ethereum.Block): void {
   }
 
   for (let i = 0; i < registry.listedVaults.length; i++) {
-    updateVaultOracles(Address.fromBytes(registry.listedVaults[i]), block, null);
+    updateVaultOracles(Address.fromBytes(registry.listedVaults[i]), block, null, null);
   }
 
   for (let i = 0; i < registry.fCashEnabled.length; i++) {

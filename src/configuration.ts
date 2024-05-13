@@ -413,7 +413,7 @@ export function handleMarketsInitialized(event: MarketsInitialized): void {
     let vaultAddress = Address.fromBytes(registry.listedVaults[i]);
     let vaultConfig = notional.getVaultConfig(vaultAddress);
     if (vaultConfig.borrowCurrencyId == event.params.currencyId) {
-      updateVaultOracles(vaultAddress, event.block, null);
+      updateVaultOracles(vaultAddress, event.block, null, null);
     }
   }
 }

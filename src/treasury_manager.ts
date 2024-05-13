@@ -1,10 +1,11 @@
 import { VaultRewardReinvested } from "../generated/TreasuryManager/TreasuryManager";
 import { ISingleSidedLPStrategyVault } from "../generated/TreasuryManager/ISingleSidedLPStrategyVault";
 import { Reinvestment } from "../generated/schema";
-import { BigInt } from "@graphprotocol/graph-ts";
-import { INTERNAL_TOKEN_PRECISION, RATE_PRECISION, SECONDS_IN_YEAR } from "./common/constants";
+import { BigInt, log } from "@graphprotocol/graph-ts";
+import { INTERNAL_TOKEN_PRECISION, SCALAR_PRECISION } from "./common/constants";
 import { createERC20TokenAsset } from "./common/erc20";
 import { updateVaultOracles } from "./exchange_rates";
+import { getNotional, getUnderlying } from "./common/entities";
 
 export function handleVaultRewardReinvested(event: VaultRewardReinvested): void {
   let id =
@@ -52,8 +53,27 @@ export function handleVaultRewardReinvested(event: VaultRewardReinvested): void 
 
     if (!underlyingAmountRealized.reverted) {
       reinvestment.underlyingAmountRealized = underlyingAmountRealized.value;
-      // Interest Accrued = underlyingAmountRealized
-      updateVaultOracles(event.params.vault, event.block, underlyingAmountRealized.value);
+      let notional = getNotional();
+      let vaultConfig = notional.getVaultConfig(event.params.vault);
+      let base = getUnderlying(vaultConfig.borrowCurrencyId);
+      // Total Interest Accrued = underlyingAmountRealized
+      // Then normalize to one vault share but in 18 decimals
+      let interestPerVaultShare = underlyingAmountRealized.value
+        .times(context.value.totalVaultShares)
+        .times(SCALAR_PRECISION)
+        .div(INTERNAL_TOKEN_PRECISION)
+        .div(base.precision);
+
+      log.debug("Vault Share Interest Accrued calling reinvestment {} {}", [
+        event.params.vault.toString(),
+        interestPerVaultShare.toString(),
+      ]);
+      updateVaultOracles(
+        event.params.vault,
+        event.block,
+        interestPerVaultShare,
+        event.transaction.hash.toString()
+      );
     }
     if (!vaultSharePrice.reverted) {
       reinvestment.vaultSharePrice = vaultSharePrice.value;
