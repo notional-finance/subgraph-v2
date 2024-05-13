@@ -7,6 +7,7 @@ import {
   PrimeCash,
   PrimeDebt,
   RATE_PRECISION,
+  SCALAR_PRECISION,
   SECONDS_IN_YEAR,
   VaultDebt,
   VaultShare,
@@ -86,20 +87,24 @@ export function updateCurrentSnapshotPnL(
         ) {
           // totalInterestAccrual += (latestAccumulator - lastInterestAccumulator) * currentBalance / prevBalance
           snapshot.totalInterestAccrualAtSnapshot = snapshot.totalInterestAccrualAtSnapshot.plus(
-            // latestRate and lastInterestAccumulator are both in underlying precision here
+            // latestRate and lastInterestAccumulator are both in SCALAR_PRECISION
             (oracle.latestRate as BigInt)
               .minus(lastInterestAccumulator)
+              .times(base.precision)
               .times(snapshot.currentBalance)
               .div(snapshot.previousBalance)
+              .div(SCALAR_PRECISION)
           );
         } else {
           // totalInterestAccrual += (latestAccumulator - lastInterestAccumulator) * prevBalance
           snapshot.totalInterestAccrualAtSnapshot = snapshot.totalInterestAccrualAtSnapshot.plus(
-            // latestRate and lastInterestAccumulator are both in underlying precision here
+            // latestRate and lastInterestAccumulator are both in SCALAR_PRECISION
             (oracle.latestRate as BigInt)
               .minus(lastInterestAccumulator)
+              .times(base.precision)
               .times(snapshot.previousBalance)
               .div(INTERNAL_TOKEN_PRECISION)
+              .div(SCALAR_PRECISION)
           );
         }
         snapshot._lastInterestAccumulator = oracle.latestRate as BigInt;

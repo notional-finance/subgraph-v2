@@ -1,4 +1,4 @@
-import { ethereum, BigInt, Address } from "@graphprotocol/graph-ts";
+import { ethereum, BigInt, Address, log } from "@graphprotocol/graph-ts";
 import {
   PrimeCashInterestAccrued,
   UpdateETHRate,
@@ -72,9 +72,21 @@ export function accumulateInterestEarnedRate(
   let id = oracle.id + ":" + ts.toString();
   let previousRate = ExchangeRate.load(id);
 
-  let interestAccrued = oracle.ratePrecision;
+  let interestAccrued = BigInt.zero();
+  log.debug("nToken Interest Accrued Finding Previous Rate {}", [id]);
   if (previousRate) {
     let timesSinceLastReinvest = block.timestamp.minus(BigInt.fromI32(previousRate.timestamp));
+    log.debug("nToken Interest Accrued Calculation {} {} {} {}", [
+      timesSinceLastReinvest.toString(),
+      interestAPY.toString(),
+      oracle.ratePrecision
+        .times(interestAPY)
+        .times(timesSinceLastReinvest)
+        .div(SECONDS_IN_YEAR)
+        .div(RATE_PRECISION)
+        .toString(),
+      previousRate.rate.toString(),
+    ]);
     // Interest Accrued = previousRate.rate +
     // 1 unit underlying * (rate * timeSinceLastReinvest / SECONDS_IN_YEAR)
     // NOTE: interest accrued here is in underlying precision
@@ -87,6 +99,7 @@ export function accumulateInterestEarnedRate(
     );
   }
 
+  log.debug("nToken Interest Accrued Final Value {}", [interestAccrued.toString()]);
   updateExchangeRate(oracle, interestAccrued, block, null);
 }
 
@@ -208,10 +221,10 @@ function updateVaultOracleMaturity(
     } else {
       let previousRate = ExchangeRate.load(prevId);
       let newRate = interestAccrued;
-    if (previousRate) {
+      if (previousRate) {
         // If there is a previous rate then accrue that into the object
         newRate = previousRate.rate.plus(interestAccrued);
-    }
+      }
       updateExchangeRate(o, newRate, block, txnHash);
     }
   }
@@ -438,7 +451,7 @@ function updateNTokenRates(
 
   let o = getOracle(base, nToken, nTokenInterestAccrued);
   o.decimals = base.decimals;
-  o.ratePrecision = base.precision;
+  o.ratePrecision = SCALAR_PRECISION;
   o.oracleAddress = notional._address;
   accumulateInterestEarnedRate(o, interestAPY, block);
 
