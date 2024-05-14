@@ -9,6 +9,7 @@ import {
   RATE_PRECISION,
   SCALAR_PRECISION,
   SECONDS_IN_YEAR,
+  VaultCash,
   VaultDebt,
   VaultShare,
   VaultShareInterestAccrued,
@@ -140,7 +141,8 @@ export function updateCurrentSnapshotPnL(
     } else if (
       token.tokenType == PrimeCash ||
       token.tokenType == PrimeDebt ||
-      (token.tokenType == VaultDebt && (token.maturity as BigInt) == PRIME_CASH_VAULT_MATURITY)
+      (token.tokenType == VaultDebt && (token.maturity as BigInt) == PRIME_CASH_VAULT_MATURITY) ||
+      token.tokenType == VaultCash
     ) {
       // For variable rates, the entire PnL is interest accrual
       snapshot.totalInterestAccrualAtSnapshot = snapshot.currentProfitAndLossAtSnapshot;

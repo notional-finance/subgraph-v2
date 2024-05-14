@@ -176,25 +176,31 @@ function updateVaultOracleMaturity(
     false
   ) as BigInt;
   let vaultShareAsset = getOrCreateERC1155Asset(vaultShareId, block, null);
-  let oracle = getOracle(base, vaultShareAsset, VaultShareOracleRate);
-  // These will never change but set them here just in case
-  oracle.decimals = base.decimals;
-  oracle.ratePrecision = base.precision;
-  oracle.oracleAddress = vaultAddress;
+  {
+    let oracle = getOracle(base, vaultShareAsset, VaultShareOracleRate);
+    // These will never change but set them here just in case
+    oracle.decimals = base.decimals;
+    oracle.ratePrecision = base.precision;
+    oracle.oracleAddress = vaultAddress;
 
-  updateExchangeRate(oracle, value, block, null);
+    updateExchangeRate(oracle, value, block, null);
+  }
 
   if (interestAccrued !== null) {
     let o = getOracle(base, vaultShareAsset, VaultShareInterestAccrued);
-    o.decimals = base.decimals;
-    o.ratePrecision = base.precision;
+    o.decimals = SCALAR_DECIMALS;
+    o.ratePrecision = SCALAR_PRECISION;
     o.oracleAddress = vaultAddress;
 
-    let prevTs = block.timestamp.minus(block.timestamp.mod(SIX_HOURS)).minus(SIX_HOURS);
-    let prevId = oracle.id + ":" + prevTs.toString();
+    // NOTE: reinvestments are not six hours apart so we look at the last time the oracle was updated
+    // to find the exchange rate id
+    let lastTs =
+      o.get("lastUpdateTimestamp") != null ? BigInt.fromI32(o.lastUpdateTimestamp) : BigInt.zero();
+    let prevTs = lastTs.minus(lastTs.mod(SIX_HOURS));
+    let prevId = o.id + ":" + prevTs.toString();
 
     let currentTs = block.timestamp.minus(block.timestamp.mod(SIX_HOURS));
-    let currentId = oracle.id + ":" + currentTs.toString();
+    let currentId = o.id + ":" + currentTs.toString();
 
     // Multiple reinvestments happen at the same block so need to accrue reinvestments
     // at the same timestamp together.
@@ -207,17 +213,17 @@ function updateVaultOracleMaturity(
       currentRate.blockNumber = block.number;
       currentRate.timestamp = block.timestamp.toI32();
       currentRate.rate = newRate;
-      currentRate.oracle = oracle.id;
+      currentRate.oracle = o.id;
       currentRate.transaction = txnHash;
-      let quote = getAsset(oracle.quote);
+      let quote = getAsset(o.quote);
       currentRate.totalSupply = quote.totalSupply;
       currentRate.save();
 
-      oracle.latestRate = newRate;
-      oracle.lastUpdateBlockNumber = block.number;
-      oracle.lastUpdateTimestamp = block.timestamp.toI32();
-      oracle.lastUpdateTransaction = txnHash;
-      oracle.save();
+      o.latestRate = newRate;
+      o.lastUpdateBlockNumber = block.number;
+      o.lastUpdateTimestamp = block.timestamp.toI32();
+      o.lastUpdateTransaction = txnHash;
+      o.save();
     } else {
       let previousRate = ExchangeRate.load(prevId);
       let newRate = interestAccrued;
@@ -450,7 +456,7 @@ function updateNTokenRates(
   );
 
   let o = getOracle(base, nToken, nTokenInterestAccrued);
-  o.decimals = base.decimals;
+  o.decimals = SCALAR_DECIMALS;
   o.ratePrecision = SCALAR_PRECISION;
   o.oracleAddress = notional._address;
   accumulateInterestEarnedRate(o, interestAPY, block);

@@ -1,7 +1,7 @@
 import { VaultRewardReinvested } from "../generated/TreasuryManager/TreasuryManager";
 import { ISingleSidedLPStrategyVault } from "../generated/TreasuryManager/ISingleSidedLPStrategyVault";
 import { Reinvestment } from "../generated/schema";
-import { BigInt, log } from "@graphprotocol/graph-ts";
+import { BigInt } from "@graphprotocol/graph-ts";
 import { INTERNAL_TOKEN_PRECISION, SCALAR_PRECISION } from "./common/constants";
 import { createERC20TokenAsset } from "./common/erc20";
 import { updateVaultOracles } from "./exchange_rates";
@@ -59,20 +59,16 @@ export function handleVaultRewardReinvested(event: VaultRewardReinvested): void 
       // Total Interest Accrued = underlyingAmountRealized
       // Then normalize to one vault share but in 18 decimals
       let interestPerVaultShare = underlyingAmountRealized.value
-        .times(context.value.totalVaultShares)
+        .times(INTERNAL_TOKEN_PRECISION)
         .times(SCALAR_PRECISION)
-        .div(INTERNAL_TOKEN_PRECISION)
+        .div(context.value.totalVaultShares)
         .div(base.precision);
 
-      log.debug("Vault Share Interest Accrued calling reinvestment {} {}", [
-        event.params.vault.toString(),
-        interestPerVaultShare.toString(),
-      ]);
       updateVaultOracles(
         event.params.vault,
         event.block,
         interestPerVaultShare,
-        event.transaction.hash.toString()
+        event.transaction.hash.toHexString()
       );
     }
     if (!vaultSharePrice.reverted) {
