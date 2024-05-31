@@ -29,6 +29,7 @@ import {
   NOTE,
   Notional,
   NTOKEN_FEE_BUFFER_WINDOW,
+  FEE_RESERVE,
 } from "./common/constants";
 import { getAccount, getAsset, getIncentives, getNotional, getUnderlying } from "./common/entities";
 import { updatePrimeCashMarket } from "./common/market";
@@ -144,7 +145,7 @@ function _updateBalance(
   if (systemAccount == ZeroAddress) {
     return;
   } else if (systemAccount == nToken) {
-    updateNToken(token, account, balance, event);
+    updateNToken(token, account, balance, transfer, event);
   } else if (systemAccount == Vault) {
     updateVaultState(token, account, balance, transfer, event);
   } else if (systemAccount == FeeReserve || systemAccount == SettlementReserve) {
@@ -315,6 +316,7 @@ function updateNToken(
   token: Token,
   nTokenAccount: Account,
   balance: Balance,
+  transfer: Transfer,
   event: ethereum.Event
 ): void {
   let notional = getNotional();
@@ -342,7 +344,28 @@ function updateNToken(
       return t.plus(m.totalPrimeCash);
     }, acct.getCashBalance());
     snapshot.currentBalance = totalCash;
+
+    if (transfer.fromSystemAccount == Vault && event.logIndex.toI32() > 1) {
+      let prevLog = event.receipt?.logs[event.logIndex.toI32() - 1];
+      if (
+        prevLog &&
+        prevLog.address.toHexString() === transfer.token &&
+        prevLog.topics[0].toHexString() ==
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+      ) {
+        // This is a transfer event
+        let from = ethereum.decode("address", prevLog.topics[1])?.toAddress();
+        let to = ethereum.decode("address", prevLog.topics[2])?.toAddress();
+        if (
+          from?.toHexString() === transfer.from &&
+          to?.toHexString() === FEE_RESERVE.toHexString()
+        ) {
+          updateNTokenFeeBuffer(token.currencyId, transfer, event, true);
+        }
+      }
+    }
   }
+
   _saveBalance(balance, snapshot);
 }
 
@@ -416,7 +439,12 @@ function updateVaultState(
   _saveBalance(balance, snapshot);
 }
 
-function updateNTokenFeeBuffer(currencyId: i32, transfer: Transfer, event: ethereum.Event): void {
+function updateNTokenFeeBuffer(
+  currencyId: i32,
+  transfer: Transfer,
+  event: ethereum.Event,
+  isVaultFee: boolean
+): void {
   let config = getCurrencyConfiguration(currencyId);
   if (config == null) return;
   // Only execute if the nToken has been created.
@@ -444,9 +472,11 @@ function updateNTokenFeeBuffer(currencyId: i32, transfer: Transfer, event: ether
   }
 
   let transferAmount = transfer.valueInUnderlying
-    ? (transfer.valueInUnderlying as BigInt)
-        .times(BigInt.fromI32(100 - fCashReserveFeeSharePercent))
-        .div(BigInt.fromI32(100))
+    ? isVaultFee
+      ? (transfer.valueInUnderlying as BigInt)
+      : (transfer.valueInUnderlying as BigInt)
+          .times(BigInt.fromI32(100 - fCashReserveFeeSharePercent))
+          .div(BigInt.fromI32(100))
     : BigInt.zero();
   feeTransferAmount.push(transferAmount);
   feeTransfers.push(transfer.id);
@@ -501,8 +531,9 @@ function updateReserves(
 
   _saveBalance(balance, snapshot);
 
-  if (reserve.systemAccountType == FeeReserve) {
-    updateNTokenFeeBuffer(currencyId, transfer, event);
+  if (reserve.systemAccountType == FeeReserve && transfer.fromSystemAccount != Vault) {
+    // Vault fee transfers are direct to the nToken
+    updateNTokenFeeBuffer(currencyId, transfer, event, false);
   }
 }
 
