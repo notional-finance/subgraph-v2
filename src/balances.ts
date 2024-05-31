@@ -345,20 +345,25 @@ function updateNToken(
     }, acct.getCashBalance());
     snapshot.currentBalance = totalCash;
 
-    if (transfer.fromSystemAccount == Vault && event.logIndex.toI32() > 1) {
-      let prevLog = event.receipt?.logs[event.logIndex.toI32() - 1];
+    if (
+      transfer.fromSystemAccount == Vault &&
+      event.logIndex.toI32() > 1 &&
+      event.receipt !== null
+    ) {
+      let prevLog = (event.receipt as ethereum.TransactionReceipt).logs[event.logIndex.toI32() - 1];
       if (
-        prevLog &&
         prevLog.address.toHexString() === transfer.token &&
         prevLog.topics[0].toHexString() ==
           "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
       ) {
         // This is a transfer event
-        let from = ethereum.decode("address", prevLog.topics[1])?.toAddress();
-        let to = ethereum.decode("address", prevLog.topics[2])?.toAddress();
+        let from = ethereum.decode("address", prevLog.topics[1]);
+        let to = ethereum.decode("address", prevLog.topics[2]);
         if (
-          from?.toHexString() === transfer.from &&
-          to?.toHexString() === FEE_RESERVE.toHexString()
+          from !== null &&
+          from.toAddress().toHexString() === transfer.from &&
+          to !== null &&
+          to.toAddress().toHexString() === FEE_RESERVE.toHexString()
         ) {
           updateNTokenFeeBuffer(token.currencyId, transfer, event, true);
         }
