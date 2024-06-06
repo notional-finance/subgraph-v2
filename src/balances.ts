@@ -346,26 +346,32 @@ function updateNToken(
     snapshot.currentBalance = totalCash;
 
     if (
+      transfer !== null &&
+      event.receipt !== null &&
       transfer.fromSystemAccount == Vault &&
-      event.logIndex.toI32() > 1 &&
-      event.receipt !== null
+      event.logIndex.toI32() > 1
     ) {
-      let prevLog = (event.receipt as ethereum.TransactionReceipt).logs[event.logIndex.toI32() - 1];
-      if (
-        prevLog.address.toHexString() === transfer.token &&
-        prevLog.topics[0].toHexString() ==
-          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
-      ) {
-        // This is a transfer event
-        let from = ethereum.decode("address", prevLog.topics[1]);
-        let to = ethereum.decode("address", prevLog.topics[2]);
+      if ((event.receipt as ethereum.TransactionReceipt).logs.length >= event.logIndex.toI32()) {
+        let prevLog = (event.receipt as ethereum.TransactionReceipt).logs[
+          event.logIndex.toI32() - 1
+        ];
         if (
-          from !== null &&
-          from.toAddress().toHexString() === transfer.from &&
-          to !== null &&
-          to.toAddress().toHexString() === FEE_RESERVE.toHexString()
+          prevLog.address.toHexString() === transfer.token &&
+          prevLog.topics.length == 3 &&
+          prevLog.topics[0].toHexString() ==
+            "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
         ) {
-          updateNTokenFeeBuffer(token.currencyId, transfer, event, true);
+          // This is a transfer event
+          let from = ethereum.decode("address", prevLog.topics[1]);
+          let to = ethereum.decode("address", prevLog.topics[2]);
+          if (
+            from !== null &&
+            from.toAddress().toHexString() === transfer.from &&
+            to !== null &&
+            to.toAddress().toHexString() === FEE_RESERVE.toHexString()
+          ) {
+            updateNTokenFeeBuffer(token.currencyId, transfer, event, true);
+          }
         }
       }
     }
