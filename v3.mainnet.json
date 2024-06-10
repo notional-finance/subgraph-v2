@@ -5,6 +5,6 @@
   "notional": "0x6e7058c91F85E0F6db4fc9da2CA41241f5e4263f",
   "tradingModule": "0x594734c7e06C3D483466ADBCe401C6Bd269746C8",
   "treasuryManager": "0x53144559c0d4a3304e2dd9dafbd685247429216d",
-  "startBlock": 19306415,
+  "startBlock": 19302361,
   "pollingInterval": 1800
 }

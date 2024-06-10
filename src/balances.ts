@@ -429,10 +429,11 @@ function updateNTokenFeeBuffer(currencyId: i32, transfer: Transfer, event: ether
     if (transfer == null || transfer.timestamp < minTransferTimestamp) {
       feeTransfers.shift();
       feeTransferAmount.shift();
+    } else {
+      // Fee transfers should always be in chronological order so we can break once
+      // we stop shifting transfers.
+      break;
     }
-    // Fee transfers should always be in chronological order so we can break once
-    // we stop shifting transfers.
-    break;
   }
 
   let transferAmount = transfer.valueInUnderlying
