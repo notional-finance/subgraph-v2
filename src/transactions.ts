@@ -1,4 +1,4 @@
-import { Address, ethereum, log, BigInt } from "@graphprotocol/graph-ts";
+import { Address, ethereum, log, BigInt, dataSource } from "@graphprotocol/graph-ts";
 import { TransferBatch, TransferSingle } from "../generated/Transactions/Notional";
 import { ERC20, Transfer as TransferEvent } from "../generated/templates/ERC20Proxy/ERC20";
 import { updateBalance } from "./balances";
@@ -14,6 +14,29 @@ import {
 import { ProxyRenamed } from "../generated/Transactions/ERC4626";
 import { getTokenNameAndSymbol } from "./common/erc20";
 
+export const V2_MIGRATION = Address.fromString("0xa9f0fb2528a8ada9b11be582ac1d13bdbfb8d437");
+
+function getMigrationAddress(event: ethereum.Event): Address {
+  if (
+    event.transaction.hash.toHexString() ===
+    "0xbcaf4f2069b95ad6382e1631c3c60a9daf6fd1b469486ccb9beab233a6d6924a"
+  ) {
+    return Address.fromString("0xCC57354E7E6A13D519dEc111A781823F9aA058C6");
+  } else if (
+    event.transaction.hash.toHexString() ===
+    "0x404fd9098a2f3cd6233f4bbb4c770ab60d8ca70f922908626592b18c9baccb8e"
+  ) {
+    return Address.fromString("0x9Ca55348524a85148b17e053E16e6e2f2D8B7D29");
+  } else if (
+    event.transaction.hash.toHexString() ===
+    "0xa9821d73a1e92575cdd52b0a8d77e203d08e95119e56c7b027e9ed00dec47fd6"
+  ) {
+    return Address.fromString("0xA9F0Fb2528a8ada9B11bE582aC1D13BdbFB8d437");
+  } else {
+    return V2_MIGRATION;
+  }
+}
+
 export function _logTransfer(
   from: Address,
   to: Address,
@@ -22,6 +45,13 @@ export function _logTransfer(
   transfer: Transfer,
   token: Token
 ): void {
+  // The V2 migration has incorrectly emitted transfer events. We need to rewrite the
+  // from or to address to the correct address via a lookup table.
+  if (dataSource.network() == "mainnet") {
+    if (from.equals(V2_MIGRATION)) from = getMigrationAddress(event);
+    if (to.equals(V2_MIGRATION)) to = getMigrationAddress(event);
+  }
+
   // decode transfer type
   transfer.from = from.toHexString();
   transfer.fromSystemAccount = decodeSystemAccount(from, event);
