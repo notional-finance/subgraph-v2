@@ -3,45 +3,45 @@ description: Notional V2 Subgraph
 repository: https://github.com/notional-finance/notional
 # Enable these lines to spin up grafting. Note that you must
 # deploy to a newly created subgraph.
-# features:
-#   - grafting
-# graft:
-#   base: QmTxiLxLzsopCB65JxQ5zJeeo6hGbK6PyKHkdgdGyE9CHb
-#   block: 16236646
+features:
+  - grafting
+graft:
+  base: QmQm8S1RYGCn5S4GLedDLoa8z9sBTcrjwxUm9Cqqm3qSeP
+  block: {{ endBlock }}
 schema:
   file: ./schema.graphql
 dataSources:
-  - kind: ethereum/contract
-    name: Governor
-    network: {{networkName}}
-    source:
-      address: '{{ governor }}'
-      abi: Governor
-      startBlock: {{startBlock}}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.6
-      language: wasm/assemblyscript
-      entities:
-        - Proposal
-        - Vote
-        - Delegate
-      abis:
-        - name: Governor
-          file: ./abi/Governor.json
-      eventHandlers:
-        # TODO: need to update threshold, blocks, minDelay etc
-        - event: ProposalCreated(indexed uint256,indexed address,address[],uint256[],bytes[],uint256,uint256)
-          handler: handleProposalCreated
-        - event: VoteCast(indexed address,indexed uint256,bool,uint256)
-          handler: handleVoteCast
-        - event: ProposalCanceled(indexed uint256)
-          handler: handleProposalCanceled
-        - event: ProposalQueued(indexed uint256,uint256)
-          handler: handleProposalQueued
-        - event: ProposalExecuted(indexed uint256)
-          handler: handleProposalExecuted
-      file: ./src/governor.ts
+  # - kind: ethereum/contract
+  #   name: Governor
+  #   network: {{networkName}}
+  #   source:
+  #     address: '{{ governor }}'
+  #     abi: Governor
+  #     startBlock: {{startBlock}}
+  #   mapping:
+  #     kind: ethereum/events
+  #     apiVersion: 0.0.6
+  #     language: wasm/assemblyscript
+  #     entities:
+  #       - Proposal
+  #       - Vote
+  #       - Delegate
+  #     abis:
+  #       - name: Governor
+  #         file: ./abi/Governor.json
+  #     eventHandlers:
+  #       # TODO: need to update threshold, blocks, minDelay etc
+  #       - event: ProposalCreated(indexed uint256,indexed address,address[],uint256[],bytes[],uint256,uint256)
+  #         handler: handleProposalCreated
+  #       - event: VoteCast(indexed address,indexed uint256,bool,uint256)
+  #         handler: handleVoteCast
+  #       - event: ProposalCanceled(indexed uint256)
+  #         handler: handleProposalCanceled
+  #       - event: ProposalQueued(indexed uint256,uint256)
+  #         handler: handleProposalQueued
+  #       - event: ProposalExecuted(indexed uint256)
+  #         handler: handleProposalExecuted
+  #     file: ./src/governor.ts
   - kind: ethereum/contract
     name: NoteERC20
     network: {{networkName}}
@@ -66,34 +66,34 @@ dataSources:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleTransfer
       file: ./src/note.ts
-  - kind: ethereum/contract
-    name: Comptroller
-    network: {{networkName}}
-    source:
-      address: '{{ compound.comptroller }}'
-      abi: Comptroller
-      startBlock: {{startBlock}}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.6
-      language: wasm/assemblyscript
-      entities:
-        - TvlHistoricalData
-      abis:
-        - name: Comptroller
-          file: ./abi/Comptroller.json
-        - name: Aggregator
-          file: ./abi/Aggregator.json
-        - name: Notional
-          file: ./abi/Notional.json
-        - name: ERC20
-          file: ./abi/ERC20.json
-      eventHandlers:
-        - event: DistributedSupplierComp(indexed address,indexed address,uint256,uint256)
-          handler: handleDistributedSupplierComp
-      blockHandlers:
-        - handler: handleBlockUpdates
-      file: ./src/comptroller.ts
+  # - kind: ethereum/contract
+  #   name: Comptroller
+  #   network: {{networkName}}
+  #   source:
+  #     address: '{{ compound.comptroller }}'
+  #     abi: Comptroller
+  #     startBlock: {{startBlock}}
+  #   mapping:
+  #     kind: ethereum/events
+  #     apiVersion: 0.0.6
+  #     language: wasm/assemblyscript
+  #     entities:
+  #       - TvlHistoricalData
+  #     abis:
+  #       - name: Comptroller
+  #         file: ./abi/Comptroller.json
+  #       - name: Aggregator
+  #         file: ./abi/Aggregator.json
+  #       - name: Notional
+  #         file: ./abi/Notional.json
+  #       - name: ERC20
+  #         file: ./abi/ERC20.json
+  #     eventHandlers:
+  #       - event: DistributedSupplierComp(indexed address,indexed address,uint256,uint256)
+  #         handler: handleDistributedSupplierComp
+  #     blockHandlers:
+  #       - handler: handleBlockUpdates
+  #     file: ./src/comptroller.ts
   - kind: ethereum/contract
     name: StakedNote
     network: {{networkName}}
@@ -168,204 +168,204 @@ dataSources:
         - event: InvestmentCoolDownUpdated(uint256)
           handler: handleInvestmentCoolDownUpdated
       file: ./src/treasury.ts
-  - kind: ethereum/contract
-    name: ExchangeV3
-    network: {{networkName}}
-    source:
-      address: '{{ staking.exchangeV3 }}'
-      abi: ExchangeV3
-      startBlock: {{startBlock}}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.6
-      language: wasm/assemblyscript
-      entities:
-        - StakedNoteInvestment
-        - TreasuryManager
-      abis:
-        - name: ExchangeV3
-          file: ./abi/ExchangeV3.json
-        - name: TreasuryManager
-          file: ./abi/TreasuryManager.json
-        - name: Aggregator
-          file: ./abi/Aggregator.json
-        - name: ERC20
-          file: ./abi/ERC20.json
-      eventHandlers:
-        - event: Fill(indexed address,indexed address,bytes,bytes,bytes,bytes,indexed bytes32,address,address,uint256,uint256,uint256,uint256,uint256)
-          handler: handleOrderFilled
-      file: ./src/treasury.ts
-  - kind: ethereum/contract
-    name: Notional
-    network: {{networkName}}
-    source:
-      address: '{{ notional }}'
-      abi: Notional
-      startBlock: {{startBlock}}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.6
-      language: wasm/assemblyscript
-      entities:
-        - Currency
-        - ETHExchangeRate
-        - AssetExchangeRate
-        - CashGroup
-        - nToken
-        - TransferOperator
-      abis:
-        - name: Notional
-          file: ./abi/Notional.json
-        - name: ERC20
-          file: ./abi/ERC20.json
-        - name: IStrategyVault
-          file: ./abi/IStrategyVault.json
-      blockHandlers:
-        - handler: handleBlockUpdates
-      eventHandlers:
-        # Governance Events
-        - event: ListCurrency(uint16)
-          handler: handleListCurrency
-        - event: UpdateETHRate(uint16)
-          handler: handleUpdateETHRate
-        - event: UpdateAssetRate(uint16)
-          handler: handleUpdateAssetRate
-        - event: UpdateCashGroup(uint16)
-          handler: handleUpdateCashGroup
-        - event: DeployNToken(uint16,address)
-          handler: handleDeployNToken
-        - event: UpdateDepositParameters(uint16)
-          handler: handleUpdateDepositParameters
-        - event: UpdateInitializationParameters(uint16)
-          handler: handleUpdateInitializationParameters
-        - event: UpdateIncentiveEmissionRate(uint16,uint32)
-          handler: handleUpdateIncentiveEmissionRate
-        - event: UpdateTokenCollateralParameters(uint16)
-          handler: handleUpdateTokenCollateralParameters
-        - event: UpdateGlobalTransferOperator(address,bool)
-          handler: handleUpdateGlobalTransferOperator
-        - event: UpdateAuthorizedCallbackContract(address,bool)
-          handler: handleUpdateAuthorizedCallbackContract
-        - event: UpdateMaxCollateralBalance(uint16,uint72)
-          handler: handleUpdateMaxCollateralBalance
-        - event: SetSettlementRate(indexed uint256,indexed uint256,uint128)
-          handler: handleSetSettlementRate
-        - event: MarketsInitialized(uint16)
-          handler: handleMarketsInitialized
-        - event: SweepCashIntoMarkets(uint16,int256)
-          handler: handleSweepCashIntoMarkets
-        - event: UpdateSecondaryIncentiveRewarder(indexed uint16,address)
-          handler: handleUpdateSecondaryIncentiveRewarder
-        # These two events update the whole account
-        - event: AccountContextUpdate(indexed address)
-          handler: handleAccountContextUpdate
-        - event: AccountSettled(indexed address)
-          handler: handleAccountSettled
-        # Does account update for nToken
-        - event: nTokenSupplyChange(indexed address,indexed uint16,int256)
-          handler: handleNTokenSupplyChange
-        # Updates markets and emits trade events
-        - event: LendBorrowTrade(indexed address,indexed uint16,uint40,int256,int256)
-          handler: handleLendBorrowTrade
-        - event: AddRemoveLiquidity(indexed address,indexed uint16,uint40,int256,int256,int256)
-          handler: handleAddRemoveLiquidity
-        - event: SettledCashDebt(indexed address,indexed uint16,indexed address,int256,int256)
-          handler: handleSettledCashDebt
-        - event: nTokenResidualPurchase(indexed uint16,indexed uint40,indexed address,int256,int256)
-          handler: handleNTokenResidualPurchase
-        # fCash Transfers: only need to mark Trade events
-        - event: TransferSingle(indexed address,indexed address,indexed address,uint256,uint256)
-          handler: handleERC1155Transfer
-        - event: TransferBatch(indexed address,indexed address,indexed address,uint256[],uint256[])
-          handler: handleERC1155BatchTransfer
-        - event: LiquidateLocalCurrency(indexed address,indexed address,uint16,int256)
-          handler: handleLiquidateLocalCurrency
-        - event: LiquidateCollateralCurrency(indexed address,indexed address,uint16,uint16,int256,int256,int256)
-          handler: handleLiquidateCollateralCurrency
-        - event: LiquidatefCashEvent(indexed address,indexed address,uint16,uint16,int256,uint256[],int256[])
-          handler: handleLiquidatefCash
-        - event: IncentivesMigrated(uint16,uint256,uint256,uint256)
-          handler: handleIncentivesMigrated
-        # Reserve balances
-        - event: ReserveBalanceUpdated(indexed uint16,int256)
-          handler: handleReserveBalanceUpdated
-        - event: ExcessReserveBalanceHarvested(indexed uint16,int256)
-          handler: handleExcessReserveBalanceHarvested
-        - event: TreasuryManagerChanged(indexed address,indexed address)
-          handler: handleTreasuryManagerChanged
-        - event: ReserveBufferUpdated(uint16,uint256)
-          handler: handleReserveBufferUpdated
-      file: ./src/notional.ts
-  - kind: ethereum/contract
-    name: NotionalVaults
-    network: {{networkName}}
-    source:
-      address: '{{ notional }}'
-      abi: Notional
-      startBlock: {{startBlock}}
-    mapping:
-      kind: ethereum/events
-      apiVersion: 0.0.6
-      language: wasm/assemblyscript
-      entities:
-        - LeveragedVault
-        - LeveragedVaultAccount
-        - LeveragedVaultMaturity
-        - LeveragedVaultTrade
-        - LeveragedVaultHistoricalValue
-        - LeveragedVaultCapacity
-      abis:
-        - name: Notional
-          file: ./abi/Notional.json
-        - name: IStrategyVault
-          file: ./abi/IStrategyVault.json
-      eventHandlers:
-        # Vault Configuration
-        - event: VaultUpdated(indexed address,bool,uint80)
-          handler: handleVaultUpdated
-        - event: VaultPauseStatus(indexed address,bool)
-          handler: handleVaultPauseStatus
-        - event: VaultDeleverageStatus(indexed address,bool)
-          handler: handleVaultDeleverageStatus
-        - event: VaultUpdateSecondaryBorrowCapacity(indexed address,indexed uint16,uint80)
-          handler: handleVaultUpdateSecondaryBorrowCapacity
-        # Account Entry Events
-        - event: VaultEnterMaturity(indexed address,indexed uint256,indexed address,uint256,uint256,uint256,uint256)
-          handler: handleVaultEnterMaturity
-        - event: VaultSecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256,uint256)
-          handler: handleVaultSecondaryBorrow
-        - event: VaultFeeAccrued(indexed address,indexed uint16,indexed uint256,int256,int256)
-          handler: handleVaultFeeAccrued
-        # Account Exit Events
-        - event: VaultExitPostMaturity(indexed address,indexed address,indexed uint256,uint256)
-          handler: handleVaultExitPostMaturity
-        - event: VaultExitPreMaturity(indexed address,indexed address,indexed uint256,uint256,uint256,uint256)
-          handler: handleVaultExitPreMaturity
-        - event: VaultRepaySecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256,uint256)
-          handler: handleVaultRepaySecondaryBorrow
-        # Account Other Events
-        - event: VaultDeleverageAccount(indexed address,indexed address,uint256,int256)
-          handler: handleDeleverageAccount
-        - event: VaultLiquidatorProfit(indexed address,indexed address,indexed address,uint256,bool)
-          handler: handleUpdateLiquidator
-        # Vault Level Events
-        - event: VaultSettledAssetsRemaining(indexed address,indexed uint256,int256,uint256)
-          handler: handleVaultSettledAssetsRemaining
-        - event: VaultRedeemStrategyToken(indexed address,indexed uint256,int256,uint256)
-          handler: handleVaultRedeemStrategyToken
-        - event: VaultMintStrategyToken(indexed address,indexed uint256,uint256,uint256)
-          handler: handleVaultMintStrategyToken
-        - event: VaultShortfall(indexed address,indexed uint16,indexed uint256,int256)
-          handler: handleVaultShortfall
-        - event: ProtocolInsolvency(indexed address,indexed uint16,indexed uint256,int256)
-          handler: handleVaultInsolvency
-        # Generic Vault Event
-        - event: VaultStateUpdate(indexed address,indexed uint256,int256,uint256,uint256,uint256)
-          handler: handleVaultStateUpdate
-        - event: VaultBorrowCapacityChange(indexed address,indexed uint16,uint256) 
-          handler: handleVaultBorrowCapacityChange
-        - event: VaultSecondaryBorrowSnapshot(indexed address,indexed uint16,indexed uint256,int256,int256)
-          handler: handleVaultSecondaryBorrowSnapshot
-        - event: VaultSettled(indexed address,indexed uint256,int256,uint256,uint256,uint256,int256)
-          handler: handleVaultSettled
-      file: ./src/vaults.ts
+  # - kind: ethereum/contract
+  #   name: ExchangeV3
+  #   network: {{networkName}}
+  #   source:
+  #     address: '{{ staking.exchangeV3 }}'
+  #     abi: ExchangeV3
+  #     startBlock: {{startBlock}}
+  #   mapping:
+  #     kind: ethereum/events
+  #     apiVersion: 0.0.6
+  #     language: wasm/assemblyscript
+  #     entities:
+  #       - StakedNoteInvestment
+  #       - TreasuryManager
+  #     abis:
+  #       - name: ExchangeV3
+  #         file: ./abi/ExchangeV3.json
+  #       - name: TreasuryManager
+  #         file: ./abi/TreasuryManager.json
+  #       - name: Aggregator
+  #         file: ./abi/Aggregator.json
+  #       - name: ERC20
+  #         file: ./abi/ERC20.json
+  #     eventHandlers:
+  #       - event: Fill(indexed address,indexed address,bytes,bytes,bytes,bytes,indexed bytes32,address,address,uint256,uint256,uint256,uint256,uint256)
+  #         handler: handleOrderFilled
+  #     file: ./src/treasury.ts
+  # - kind: ethereum/contract
+  #   name: Notional
+  #   network: {{networkName}}
+  #   source:
+  #     address: '{{ notional }}'
+  #     abi: Notional
+  #     startBlock: {{startBlock}}
+  #   mapping:
+  #     kind: ethereum/events
+  #     apiVersion: 0.0.6
+  #     language: wasm/assemblyscript
+  #     entities:
+  #       - Currency
+  #       - ETHExchangeRate
+  #       - AssetExchangeRate
+  #       - CashGroup
+  #       - nToken
+  #       - TransferOperator
+  #     abis:
+  #       - name: Notional
+  #         file: ./abi/Notional.json
+  #       - name: ERC20
+  #         file: ./abi/ERC20.json
+  #       - name: IStrategyVault
+  #         file: ./abi/IStrategyVault.json
+  #     # blockHandlers:
+  #     #   - handler: handleBlockUpdates
+  #     eventHandlers:
+  #       # Governance Events
+  #       - event: ListCurrency(uint16)
+  #         handler: handleListCurrency
+  #       - event: UpdateETHRate(uint16)
+  #         handler: handleUpdateETHRate
+  #       - event: UpdateAssetRate(uint16)
+  #         handler: handleUpdateAssetRate
+  #       - event: UpdateCashGroup(uint16)
+  #         handler: handleUpdateCashGroup
+  #       - event: DeployNToken(uint16,address)
+  #         handler: handleDeployNToken
+  #       - event: UpdateDepositParameters(uint16)
+  #         handler: handleUpdateDepositParameters
+  #       - event: UpdateInitializationParameters(uint16)
+  #         handler: handleUpdateInitializationParameters
+  #       - event: UpdateIncentiveEmissionRate(uint16,uint32)
+  #         handler: handleUpdateIncentiveEmissionRate
+  #       - event: UpdateTokenCollateralParameters(uint16)
+  #         handler: handleUpdateTokenCollateralParameters
+  #       - event: UpdateGlobalTransferOperator(address,bool)
+  #         handler: handleUpdateGlobalTransferOperator
+  #       - event: UpdateAuthorizedCallbackContract(address,bool)
+  #         handler: handleUpdateAuthorizedCallbackContract
+  #       - event: UpdateMaxCollateralBalance(uint16,uint72)
+  #         handler: handleUpdateMaxCollateralBalance
+  #       - event: SetSettlementRate(indexed uint256,indexed uint256,uint128)
+  #         handler: handleSetSettlementRate
+  #       - event: MarketsInitialized(uint16)
+  #         handler: handleMarketsInitialized
+  #       - event: SweepCashIntoMarkets(uint16,int256)
+  #         handler: handleSweepCashIntoMarkets
+  #       - event: UpdateSecondaryIncentiveRewarder(indexed uint16,address)
+  #         handler: handleUpdateSecondaryIncentiveRewarder
+  #       # These two events update the whole account
+  #       - event: AccountContextUpdate(indexed address)
+  #         handler: handleAccountContextUpdate
+  #       - event: AccountSettled(indexed address)
+  #         handler: handleAccountSettled
+  #       # Does account update for nToken
+  #       - event: nTokenSupplyChange(indexed address,indexed uint16,int256)
+  #         handler: handleNTokenSupplyChange
+  #       # Updates markets and emits trade events
+  #       - event: LendBorrowTrade(indexed address,indexed uint16,uint40,int256,int256)
+  #         handler: handleLendBorrowTrade
+  #       - event: AddRemoveLiquidity(indexed address,indexed uint16,uint40,int256,int256,int256)
+  #         handler: handleAddRemoveLiquidity
+  #       - event: SettledCashDebt(indexed address,indexed uint16,indexed address,int256,int256)
+  #         handler: handleSettledCashDebt
+  #       - event: nTokenResidualPurchase(indexed uint16,indexed uint40,indexed address,int256,int256)
+  #         handler: handleNTokenResidualPurchase
+  #       # fCash Transfers: only need to mark Trade events
+  #       - event: TransferSingle(indexed address,indexed address,indexed address,uint256,uint256)
+  #         handler: handleERC1155Transfer
+  #       - event: TransferBatch(indexed address,indexed address,indexed address,uint256[],uint256[])
+  #         handler: handleERC1155BatchTransfer
+  #       - event: LiquidateLocalCurrency(indexed address,indexed address,uint16,int256)
+  #         handler: handleLiquidateLocalCurrency
+  #       - event: LiquidateCollateralCurrency(indexed address,indexed address,uint16,uint16,int256,int256,int256)
+  #         handler: handleLiquidateCollateralCurrency
+  #       - event: LiquidatefCashEvent(indexed address,indexed address,uint16,uint16,int256,uint256[],int256[])
+  #         handler: handleLiquidatefCash
+  #       - event: IncentivesMigrated(uint16,uint256,uint256,uint256)
+  #         handler: handleIncentivesMigrated
+  #       # Reserve balances
+  #       - event: ReserveBalanceUpdated(indexed uint16,int256)
+  #         handler: handleReserveBalanceUpdated
+  #       - event: ExcessReserveBalanceHarvested(indexed uint16,int256)
+  #         handler: handleExcessReserveBalanceHarvested
+  #       - event: TreasuryManagerChanged(indexed address,indexed address)
+  #         handler: handleTreasuryManagerChanged
+  #       - event: ReserveBufferUpdated(uint16,uint256)
+  #         handler: handleReserveBufferUpdated
+  #     file: ./src/notional.ts
+  # - kind: ethereum/contract
+  #   name: NotionalVaults
+  #   network: {{networkName}}
+  #   source:
+  #     address: '{{ notional }}'
+  #     abi: Notional
+  #     startBlock: {{startBlock}}
+  #   mapping:
+  #     kind: ethereum/events
+  #     apiVersion: 0.0.6
+  #     language: wasm/assemblyscript
+  #     entities:
+  #       - LeveragedVault
+  #       - LeveragedVaultAccount
+  #       - LeveragedVaultMaturity
+  #       - LeveragedVaultTrade
+  #       - LeveragedVaultHistoricalValue
+  #       - LeveragedVaultCapacity
+  #     abis:
+  #       - name: Notional
+  #         file: ./abi/Notional.json
+  #       - name: IStrategyVault
+  #         file: ./abi/IStrategyVault.json
+  #     eventHandlers:
+  #       # Vault Configuration
+  #       - event: VaultUpdated(indexed address,bool,uint80)
+  #         handler: handleVaultUpdated
+  #       - event: VaultPauseStatus(indexed address,bool)
+  #         handler: handleVaultPauseStatus
+  #       - event: VaultDeleverageStatus(indexed address,bool)
+  #         handler: handleVaultDeleverageStatus
+  #       - event: VaultUpdateSecondaryBorrowCapacity(indexed address,indexed uint16,uint80)
+  #         handler: handleVaultUpdateSecondaryBorrowCapacity
+  #       # Account Entry Events
+  #       - event: VaultEnterMaturity(indexed address,indexed uint256,indexed address,uint256,uint256,uint256,uint256)
+  #         handler: handleVaultEnterMaturity
+  #       - event: VaultSecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256,uint256)
+  #         handler: handleVaultSecondaryBorrow
+  #       - event: VaultFeeAccrued(indexed address,indexed uint16,indexed uint256,int256,int256)
+  #         handler: handleVaultFeeAccrued
+  #       # Account Exit Events
+  #       - event: VaultExitPostMaturity(indexed address,indexed address,indexed uint256,uint256)
+  #         handler: handleVaultExitPostMaturity
+  #       - event: VaultExitPreMaturity(indexed address,indexed address,indexed uint256,uint256,uint256,uint256)
+  #         handler: handleVaultExitPreMaturity
+  #       - event: VaultRepaySecondaryBorrow(indexed address,indexed address,indexed uint16,uint256,uint256,uint256)
+  #         handler: handleVaultRepaySecondaryBorrow
+  #       # Account Other Events
+  #       - event: VaultDeleverageAccount(indexed address,indexed address,uint256,int256)
+  #         handler: handleDeleverageAccount
+  #       - event: VaultLiquidatorProfit(indexed address,indexed address,indexed address,uint256,bool)
+  #         handler: handleUpdateLiquidator
+  #       # Vault Level Events
+  #       - event: VaultSettledAssetsRemaining(indexed address,indexed uint256,int256,uint256)
+  #         handler: handleVaultSettledAssetsRemaining
+  #       - event: VaultRedeemStrategyToken(indexed address,indexed uint256,int256,uint256)
+  #         handler: handleVaultRedeemStrategyToken
+  #       - event: VaultMintStrategyToken(indexed address,indexed uint256,uint256,uint256)
+  #         handler: handleVaultMintStrategyToken
+  #       - event: VaultShortfall(indexed address,indexed uint16,indexed uint256,int256)
+  #         handler: handleVaultShortfall
+  #       - event: ProtocolInsolvency(indexed address,indexed uint16,indexed uint256,int256)
+  #         handler: handleVaultInsolvency
+  #       # Generic Vault Event
+  #       - event: VaultStateUpdate(indexed address,indexed uint256,int256,uint256,uint256,uint256)
+  #         handler: handleVaultStateUpdate
+  #       - event: VaultBorrowCapacityChange(indexed address,indexed uint16,uint256) 
+  #         handler: handleVaultBorrowCapacityChange
+  #       - event: VaultSecondaryBorrowSnapshot(indexed address,indexed uint16,indexed uint256,int256,int256)
+  #         handler: handleVaultSecondaryBorrowSnapshot
+  #       - event: VaultSettled(indexed address,indexed uint256,int256,uint256,uint256,uint256,int256)
+  #         handler: handleVaultSettled
+  #     file: ./src/vaults.ts
