@@ -113,11 +113,7 @@ function updateVaultOracleMaturity(
   let vaultConfig = notional.getVaultConfig(vaultAddress);
   let vault = IStrategyVault.bind(vaultAddress);
 
-  let shareValue = vault.try_convertStrategyToUnderlying(
-    vaultAddress,
-    INTERNAL_TOKEN_PRECISION,
-    maturity
-  );
+  let shareValue = vault.try_getExchangeRate(maturity);
   let value: BigInt;
   if (shareValue.reverted) {
     value = BigInt.fromI32(0);

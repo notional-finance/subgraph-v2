@@ -3,11 +3,11 @@ description: Notional V3 Subgraph
 repository: https://github.com/notional-finance/contracts-v2
 # Enable these lines to spin up grafting. Note that you must
 # deploy to a newly created subgraph.
-# features:
-#   - grafting
-# graft:
-#   base: QmYCYEJdnLTtxnndfLXVAy2LSYTpT9UejZeou2R7ffDrWt
-#   block: 164974495
+features:
+  - grafting
+graft:
+  base: QmW854zioxS1eGC3BMF2Y6jWpkr998GQ9hcLijmYmPP3fU
+  block: 206639962 # May 1, 2024
 schema:
   file: ./schema.graphql
 dataSources:
