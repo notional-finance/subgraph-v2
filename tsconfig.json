@@ -1,6 +1,4 @@
 {
   "extends": "./node_modules/assemblyscript/std/assembly.json",
-  "include": [
-    "./src/*.ts"
-  ]
+  "include": [ "src-old/*.ts" , "src-old/utils/common.ts"  ]
 }

@@ -3,29 +3,27 @@
   "version": "0.0.1",
   "license": "MIT",
   "scripts": {
-    "subgraph:up": "npm run sandbox:down && npm run prepare:local && ./start.sh",
-    "subgraph:down": "docker-compose -f docker-compose.yml down",
-    "prepare:local": "hbs --stdout --helper ./helpers.js --data ./v2.local.json subgraph.template.yaml > subgraph.yaml",
-    "prepare:kovan": "hbs --stdout --helper ./helpers.js --data ./v2.kovan.json subgraph.template.yaml > subgraph.yaml",
-    "prepare:goerli": "hbs --stdout --helper ./helpers.js --data ./v2.goerli.json subgraph.template.yaml > subgraph.yaml",
-    "prepare:mainnet": "hbs --stdout --helper ./helpers.js --data ./v2.mainnet.json subgraph.template.yaml > subgraph.yaml",
+    "prepare:local": "hbs --stdout --helper ./helpers.js --data ./v2.local.json ./templates/v3.template.yaml > subgraph.yaml",
+    "prepare:arbitrum-one": "hbs --stdout --helper ./helpers.js --data ./v3.arbitrum-one.json ./templates/v3.template.yaml > subgraph.yaml",
+    "prepare:mainnet": "hbs --stdout --helper ./helpers.js --data ./v3.mainnet.json ./templates/v3.template.yaml > subgraph.yaml",
     "codegen": "yarn run graph codegen",
     "build": "yarn run graph build",
-    "deploy:local": "graph create --node http://127.0.0.1:8020 notional-finance/local-v2 && graph deploy notional-finance/local-v2 ./subgraph.yaml --ipfs http://localhost:5001 --node http://127.0.0.1:8020",
-    "deploy:kovan": "yarn run prepare:kovan && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/kovan-v2",
+    "deploy:local": "graph create --node http://127.0.0.1:8020 notional-finance/local-v2 && graph deploy notional-finance/local-v2 ./subgraph.yaml --ipfs http://localhost:5001 --node http://127.0.0.1:8020 --version-label 0.0.1",
     "deploy:goerli": "yarn run prepare:goerli && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/goerli-v2",
     "deploy:mainnet": "yarn run prepare:mainnet && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/mainnet-v2",
     "deploy:mainnet-debug": "yarn run prepare:mainnet && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/mainnet-debug",
-    "deploy:studio:mainnet": "yarn run prepare:mainnet && yarn run codegen && yarn run graph deploy --studio notional-finance",
-    "testenv:up": "cd ../subgraph && ./start.sh",
-    "testenv:down": "cd ../subgraph && docker-compose down",
+    "deploy:studio:arbitrum-debug": "yarn run prepare:arbitrum-one && yarn run codegen && yarn run graph deploy --studio notional-finance-v3-arbitrum",
+    "deploy:studio:arbitrum": "yarn run prepare:arbitrum-one && yarn run codegen && yarn run graph deploy --studio notional-v3-arbitrum",
+    "deploy:studio:mainnet": "yarn run prepare:mainnet && yarn run codegen && yarn run graph deploy --studio notional-v3-mainnet",
+    "subgraph:up": "./start.sh",
+    "subgraph:down": "docker-compose down",
     "compile:subgraph": "yarn run prepare:local && yarn run codegen && yarn run build && yarn run deploy:local"
   },
-  "dependencies": {
-    "@graphprotocol/graph-cli": "^0.29.0",
-    "@graphprotocol/graph-ts": "^0.26.0"
-  },
   "devDependencies": {
-    "hbs-cli": "^1.4.0"
+    "@goldskycom/cli": "^1.12.0",
+    "@graphprotocol/graph-cli": "^0.79.2",
+    "@graphprotocol/graph-ts": "^0.31.0",
+    "hbs-cli": "^1.4.0",
+    "matchstick-as": "^0.5.2"
   }
 }

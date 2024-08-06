@@ -1,298 +1,357 @@
-type Proposal @entity {
-  "Proposal's unique identifier"
-  id: ID!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
-  createdAt: Int!
-  proposer: Delegate!
-  votes: [Vote!]!
-  history: [ProposalState!]
-  targets: [Bytes!]!
-  values: [BigInt!]!
-  calldatas: [Bytes!]!
-  startBlock: Int!
-  endBlock: Int!
-  isCancelled: Boolean
-  isQueued: Boolean
-  isExecuted: Boolean
+enum TokenType {
+  Underlying,
+  nToken,
+  WrappedfCash,
+  PrimeCash,
+  PrimeDebt,
+  fCash,
+  VaultShare,
+  VaultDebt,
+  VaultCash,
+  NOTE,
+  Fiat
 }
 
-type Vote @entity {
-  "Address and proposal combined as the unique identifier"
-  id: ID!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
-  proposal: Proposal!
-  delegate: Delegate!
-  yesToProposal: Boolean!
-  votingPower: BigInt!
+enum SystemAccount {
+  None,
+  ZeroAddress,
+  FeeReserve,
+  SettlementReserve,
+  Vault,
+  nToken,
+  PrimeCash,
+  PrimeDebt,
+  Notional,
+  NOTE,
+  SecondaryIncentiveRewarder
 }
 
-type Delegate @entity {
-  "Ethereum address"
-  id: ID!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
+enum TokenInterface {
+  ERC20,
+  ERC1155,
+  "Used to designate off chain fiat currencies like USD, JPY, etc"
+  FIAT
+}
 
-  sNOTEVotingPower: BigInt!
-  NOTEVotingPower: BigInt!
-  totalVotingPower: BigInt!
+enum TransferType {
+  Mint,
+  Burn,
+  Transfer
+}
+
+type Token @entity {
+  """ID space varies by token type:
+    - ERC20: token address
+    - ERC1155: `emitter address:tokenId`
+  """
+  id: ID!
+
+  firstUpdateBlockNumber: BigInt!
+  firstUpdateTimestamp: Int!
+  firstUpdateTransactionHash: Bytes
+
+  lastUpdateBlockNumber: BigInt!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes
+
+  tokenType: TokenType!
+  tokenInterface: TokenInterface!
+  "A link to the underlying token if this token is not underlying itself"
+  underlying: Token
+  "Set to the notional currency id if this token is listed on Notional"
+  currencyId: Int
+  
+  name: String!
+  symbol: String!
+  decimals: Int!
+  precision: BigInt!
+  "Only updated for Notional entities"
+  totalSupply: BigInt
+  "Set to true for underlying tokens that have a transfer fee"
+  hasTransferFee: Boolean!
+
+  isfCashDebt: Boolean!
+  "Maturities are only set for some token types"
+  maturity: BigInt
+  "Vault address is set for vault token types"
+  vaultAddress: Bytes
+
+  "Set to the ERC20 address or Notional Proxy for ERC1155 addresses"
+  tokenAddress: Bytes!
+
+  balanceOf: [Balance!] @derivedFrom(field: "token")
+  transfers: [Transfer!] @derivedFrom(field: "token")
+  oracles: [Oracle!] @derivedFrom(field: "quote")
+  activeMarkets: ActiveMarket @derivedFrom(field: "underlying")
+}
+
+type Transfer @entity(immutable: true) {
+  "Transaction Hash:Log Index"
+  id: ID!
+  blockNumber: BigInt!
+  timestamp: Int!
+  transactionHash: Transaction!
+  logIndex: Int!
+
+  from: Account!
+  to: Account!
+  "Operator is logged for ERC1155 transfer events"
+  operator: Account
+  "Categorizes the transfer as a mint, burn or transfer"
+  transferType: TransferType!
+  fromSystemAccount: SystemAccount!
+  toSystemAccount: SystemAccount!
+
+  value: BigInt!
+  "Value of the transfer in underlying terms at the time of transfer"
+  valueInUnderlying: BigInt
+
+  "Link to the token entity for this transfer"
+  token: Token!
+  tokenType: TokenType!
+  underlying: Token!
+  "Only set for some transfer types"
+  maturity: BigInt
+}
+
+type TransferBundle @entity(immutable: true) {
+  "Transaction Hash:Start Log Index:End Log Index:Bundle Name"
+  id: ID!
+  blockNumber: BigInt!
+  timestamp: Int!
+  transactionHash: Transaction!
+
+  bundleName: String!
+  startLogIndex: Int!
+  endLogIndex: Int!
+  transfers: [Transfer!]!
+
+  profitLossLineItems: [ProfitLossLineItem!] @derivedFrom(field: "bundle")
+}
+
+type ProfitLossLineItem @entity(immutable: true) {
+  "Bundle ID:Index"
+  id: ID!
+  blockNumber: BigInt!
+  timestamp: Int!
+  transactionHash: Transaction!
+
+  bundle: TransferBundle!
+  balanceSnapshot: BalanceSnapshot!
+
   account: Account!
+  tokenAmount: BigInt!
+  token: Token!
 
-  delegatedNote: [NoteBalance!] @derivedFrom(field: "delegate")
-  delegatedStakedNote: [StakedNoteBalance!] @derivedFrom(field: "delegate")
-  votingPowerChange: [VotingPowerChange!] @derivedFrom(field: "delegate")
-  votes: [Vote!] @derivedFrom(field: "delegate")
-  proposals: [Proposal!] @derivedFrom(field: "proposer")
+  underlyingAmountRealized: BigInt!
+  underlyingAmountSpot: BigInt!
+  underlyingToken: Token!
+
+  realizedPrice: BigInt!
+  spotPrice: BigInt!
+  impliedFixedRate: BigInt
+  "Set to true for line items that do not materially change the balance at the end of the txn"
+  isTransientLineItem: Boolean!
+
+  "Set to a value that points to the token that generated an incentive payment"
+  incentivizedToken: Token
 }
 
-enum VotingPowerSource {
-  sNOTE,
-  NOTE
-}
-
-type VotingPowerChange @entity {
-  "TokenAddress:TxnHash:LogIndex"
+type Transaction @entity(immutable: true) {
+  "Transaction Hash"
   id: ID!
-  blockHash: Bytes!
-  blockNumber: Int!
+  blockNumber: BigInt!
   timestamp: Int!
   transactionHash: Bytes!
 
-  source: VotingPowerSource!
-  delegate: Delegate!
-  votingPowerBefore: BigInt!
-  votingPowerAfter: BigInt!
+  _transfers: [Transfer!]!
+  _transferBundles: [TransferBundle!]!
+  "Internal index of the next index in _transfer to start scanning at"
+  _nextStartIndex: Int!
+
+  transfers: [Transfer!] @derivedFrom(field: "transactionHash")
+  transferBundles: [TransferBundle!] @derivedFrom(field: "transactionHash")
+  profitLossLineItems: [ProfitLossLineItem!] @derivedFrom(field: "transactionHash")
 }
 
-type ProposalState @entity {
+type Account @entity {
+  "Address of Account"
   id: ID!
-  state: ProposalStateEnum!
-  transactionHash: Bytes!
-  lastUpdateTimestamp: Int!
-}
 
-enum TokenType {
-  "Token that is the base for a cToken or other mintable token"
-  UnderlyingToken
-  "Compound interest bearing token"
-  cToken
-  "Ether specific Compound interest bearing token"
-  cETH
-  "The one and only Ether"
-  Ether
-  "A token that cannot be minted as a cToken, but can be used as collateral or traded"
-  NonMintable
-}
+  firstUpdateBlockNumber: BigInt!
+  firstUpdateTimestamp: Int!
+  firstUpdateTransactionHash: Bytes!
 
-enum ProposalStateEnum {
-  PENDING
-  CANCELLED
-  QUEUED
-  EXECUTED
-}
-
-type Currency @entity {
-  "Auto incrementing unique numeric id"
-  id: ID!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
+  lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
+  systemAccountType: SystemAccount!
 
-  "Category of token that this refers to"
-  tokenType: TokenType!
+  allowPrimeBorrow: Boolean
+  nextSettleTime: BigInt
+  hasPortfolioAssetDebt: Boolean
+  hasCashDebt: Boolean
+  bitmapCurrencyId: Int
 
-  "Name of the asset currency"
-  name: String!
-  "Symbol of the asset currency"
-  symbol: String!
-  "Address of asset token"
-  tokenAddress: Bytes!
-  "Decimals of the asset token"
-  decimals: BigInt!
-  "If asset token has a transfer fee"
-  hasTransferFee: Boolean!
-  "Maximum total contract balance for collateral, zero if no limit"
-  maxCollateralBalance: BigInt
-
-  "Name of the underlying currency"
-  underlyingName: String
-  "Symbol of the underlying currency"
-  underlyingSymbol: String
-  "Address of underlying token"
-  underlyingTokenAddress: Bytes
-  "Decimals of the underlying token"
-  underlyingDecimals: BigInt
-  "If underlying token has a transfer fee"
-  underlyingHasTransferFee: Boolean
-
-  "Exchange rate from this currency to Eth, used in free collateral calculations"
-  ethExchangeRate: EthExchangeRate! @derivedFrom(field: "baseCurrency")
-  "Exchange rate from this currency to the underlying asset"
-  assetExchangeRate: AssetExchangeRate @derivedFrom(field: "assetCurrency")
-  "Cash group for a currency, if exists"
-  cashGroup: CashGroup @derivedFrom(field: "currency")
-  "nToken for a currency, if exists"
-  nToken: nToken @derivedFrom(field: "currency")
-  "Incentive Migration for a currency, if exists"
-  incentiveMigration: IncentiveMigration @derivedFrom(field: "currency")
-
-  "Hourly data for this currency"
-  ethExchangeRateHistoricalData: [EthExchangeRateHistoricalData!] @derivedFrom(field: "currency")
-  assetExchangeRateHistoricalData: [AssetExchangeRateHistoricalData!] @derivedFrom(field: "currency")
-  nTokenPresentValueHistoricalData: [NTokenPresentValueHistoricalData!] @derivedFrom(field: "currency")
-
-  "Strategy vaults that use this currency as a primary borrow"
-  leveragedVaults: [LeveragedVault!] @derivedFrom(field: "primaryBorrowCurrency")
+  "All current balances linked to this account"
+  balances: [Balance!] @derivedFrom(field: "account")
+  "All historical token transfers linked to this account"
+  transfersFrom: [Transfer!] @derivedFrom(field: "from")
+  transfersTo: [Transfer!] @derivedFrom(field: "to")
+  profitLossLineItems: [ProfitLossLineItem!] @derivedFrom(field: "account")
 }
 
-type EthExchangeRate @entity {
-  "Currency id that this exchange rate refers to"
-  id: ID!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
+### Exchange Rates ###
 
-  "Base currency in the exchange rate"
-  baseCurrency: Currency!
-  "Rate oracle that is used to reference the exchange rate"
-  rateOracle: Bytes!
-  "Decimal places of the exchange rate"
-  rateDecimalPlaces: Int!
-  "Does the exchange rate need to invert"
+enum OracleType {
+  Chainlink,
+  fCashOracleRate,
+  fCashSettlementRate,
+  fCashToUnderlyingExchangeRate,
+  fCashSpotRate,
+  PrimeCashToUnderlyingOracleInterestRate,
+  PrimeCashPremiumInterestRate,
+  PrimeDebtPremiumInterestRate,
+  PrimeCashExternalLendingInterestRate,
+  PrimeCashToUnderlyingExchangeRate,
+  PrimeCashToMoneyMarketExchangeRate,
+  PrimeDebtToUnderlyingExchangeRate,
+  PrimeDebtToMoneyMarketExchangeRate,
+  MoneyMarketToUnderlyingExchangeRate
+  VaultShareOracleRate,
+  nTokenToUnderlyingExchangeRate,
+  nTokenBlendedInterestRate,
+  nTokenFeeRate,
+  nTokenIncentiveRate,
+  nTokenSecondaryIncentiveRate,
+}
+
+type nTokenFeeBuffer @entity {
+  "Currency ID"
+  id: ID!
+  lastUpdateBlockNumber: BigInt!
+  lastUpdateTimestamp: Int!
+
+  "Circular buffer of transfers over the last 30 days, used for nToken fee APY calculation"
+  feeTransfers: [Transfer!]!
+  feeTransferAmount: [BigInt!]!
+  "Current sum of the nToken fees over the last 30 days"
+  last30DayNTokenFees: BigInt!
+}
+
+type OracleRegistry @entity {
+  "ID is hardcoded to zero"
+  id: ID!
+  lastRefreshBlockNumber: BigInt!
+  lastRefreshTimestamp: Int!
+
+  chainlinkOracles: [Oracle!]!
+  "Underlying tokens that have fCash listed"
+  fCashEnabled: [Token!]!
+  "Vault Addresses"
+  listedVaults: [Bytes!]!
+}
+
+type Oracle @entity {
+  "Base Token Id:Quote Token Id:Oracle Type"
+  id: ID!
+
+  lastUpdateBlockNumber: BigInt!
+  lastUpdateTimestamp: Int!
+  "Some oracles are updated via block handlers and do not have a txn hash for updates"
+  lastUpdateTransaction: Transaction
+
+  base: Token!
+  quote: Token!
+  decimals: Int!
+  ratePrecision: BigInt!
+  oracleAddress: Bytes!
+  oracleType: OracleType!
   mustInvert: Boolean!
-  "Percentage buffer used when calculating free collateral for debt balances"
-  buffer: Int!
-  "Percentage haircut used when calculating free collateral for collateral balances"
-  haircut: Int!
-  "Exchange rate discount given when liquidating this currency"
-  liquidationDiscount: Int!
+  latestRate: BigInt
+  matured: Boolean!
+
+  historicalRates: [ExchangeRate!] @derivedFrom(field: "oracle")
 }
 
-type AssetExchangeRate @entity {
-  "Currency id that this asset rate refers to"
+type ExchangeRate @entity(immutable: true) {
+  "External Oracle ID:Block Number:Transaction Hash"
   id: ID!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
+  blockNumber: BigInt!
+  timestamp: Int!
+  transaction: Transaction
+  oracle: Oracle!
 
-  "Asset currency in the exchange rate"
-  assetCurrency: Currency!
-  "Asset rate adapter interface to the asset token"
-  rateAdapterAddress: Bytes!
-  "Decimal places of the underlying token to the asset token"
-  underlyingDecimalPlaces: Int!
-
-  "Asset rates that fCash assets will settle at for given maturities"
-  settlementRates: [SettlementRate!] @derivedFrom(field: "assetExchangeRate")
-}
-
-type SettlementRate @entity {
-  "Currency id and maturity that this settlement rate refers to"
-  id: ID!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
-
-  "Currency of this settlement rate"
-  currency: Currency!
-  "Asset exchange rate referenced by this settlement rate"
-  assetExchangeRate: AssetExchangeRate!
-  "Maturity that this settlement rate refers to"
-  maturity: Int!
-  "Settlement rate value"
   rate: BigInt!
+  totalSupply: BigInt
 }
 
-type CashGroup @entity {
-  "Currency id that this cash group refers to"
+### Configuration ###
+
+type CurrencyConfiguration @entity {
+  "Currency ID"
   id: ID!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
+  lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
 
-  "Currency of this cash group"
-  currency: Currency!
-  "Index of the AMMs on chain that will be made available."
-  maxMarketIndex: Int!
-  "Maximum length of a market maturity in seconds"
-  maxMarketMaturityLengthSeconds: Int!
+  underlying: Token
+  pCash: Token
+  "Some currencies will not allow prime debt"
+  pDebt: Token
 
-  "Time window in minutes that the rate oracle will be averaged over"
-  rateOracleTimeWindowSeconds: Int!
-  "Total fees per trade, specified in basis points"
-  totalFeeBasisPoints: Int!
+  "Maximum supply in underlying terms (in 8 decimals)"
+  maxUnderlyingSupply: BigInt
+  "Maximum utilization of the max underlying supply by prime debt"
+  maxPrimeDebtUtilization: BigInt
+
+  "Exchange Rate Parameters"
+  collateralHaircut: Int
+  debtBuffer: Int
+  liquidationDiscount: Int
+
+  "Prime Cash Parameters"
+  primeCashRateOracleTimeWindowSeconds: Int
+  primeCashHoldingsOracle: Bytes
+  primeCashCurve: InterestRateCurve
+  primeDebtAllowed: Boolean
+
+  "Time window in seconds that the rate oracle will be averaged over"
+  fCashRateOracleTimeWindowSeconds: Int
   "Share of the fees given to the protocol, denominated in percentage"
-  reserveFeeSharePercent: Int!
+  fCashReserveFeeSharePercent: Int
   "Debt buffer specified in basis points"
-  debtBufferBasisPoints: Int!
+  fCashDebtBufferBasisPoints: Int
   "fCash haircut specified in basis points"
-  fCashHaircutBasisPoints: Int!
-  "Penalty for settling a negative cash debt in basis points"
-  settlementPenaltyRateBasisPoints: Int!
+  fCashHaircutBasisPoints: Int
+  "Minimum oracle rate applied to fCash haircut"
+  fCashMinOracleRate: Int
+  "Maximum oracle rate applied to fCash buffer"
+  fCashMaxOracleRate: Int
+  "Maximum discount factor applied to fCash haircut"
+  fCashMaxDiscountFactor: Int
   "Discount on fCash given to the liquidator in basis points"
-  liquidationfCashHaircutBasisPoints: Int!
+  fCashLiquidationHaircutBasisPoints: Int
   "Discount on negative fCash given to the liquidator in basis points"
-  liquidationDebtBufferBasisPoints: Int!
+  fCashLiquidationDebtBufferBasisPoints: Int
+  "Current set of interest rate curves for the fCash markets"
+  fCashActiveCurves: [InterestRateCurve!]
+  "Next set of interest rate curves for the fCash markets"
+  fCashNextCurves: [InterestRateCurve!]
 
-  "Liquidity token haircut applied to cash claims, specified as a percentage between 0 and 100"
-  liquidityTokenHaircutsPercent: [Int!]!
-  "Rate scalar used to determine the slippage of the market"
-  rateScalars: [Int!]!
-
-  "Current size of reserves accumulated for this cash group"
-  reserveBalance: BigInt!
-  "The minimum threshold of the reserve before they are harvested for buybacks"
-  reserveBuffer: BigInt
-
-  nToken: nToken! @derivedFrom(field: "cashGroup")
-}
-
-type nToken @entity {
-  "Currency id of the nToken"
-  id: ID!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
-
-  "Address of the nToken"
-  tokenAddress: Bytes!
-  name: String!
-  symbol: String!
-  decimals: BigInt!
-  totalSupply: BigInt!
-  integralTotalSupply: BigInt!
-  accumulatedNOTEPerNToken: BigInt
-  lastSupplyChangeTime: BigInt!
-
-  "Cash group that governs this nToken"
-  cashGroup: CashGroup!
-  "Currency of this nToken"
-  currency: Currency!
+  "The minimum threshold of the reserve before they can be harvested"
+  treasuryReserveBuffer: BigInt
+  
+  "Addresses of potential prime cash holdings"
+  primeCashHoldings: [Bytes!]
 
   "Proportion of deposits that go into each corresponding market"
   depositShares: [Int!]
   "Maximum market proportion that the nToken will provide liquidity at"
   leverageThresholds: [Int!]
-  "Annualized anchor rates used during market initialization"
-  annualizedAnchorRates: [Int!]
   "Market proportions used during market initialization"
   proportions: [Int!]
-
-  "Annual incentive emission rate"
-  incentiveEmissionRate: BigInt
+  deprecated_anchorRates: [Int!]
 
   "Residual purchase incentive in basis points"
   residualPurchaseIncentiveBasisPoints: Int
@@ -304,672 +363,35 @@ type nToken @entity {
   pvHaircutPercentage: Int
   "Discount on nToken PV given to liquidators"
   liquidationHaircutPercentage: Int
+  "Maximum valuation deviation in basis points for nToken minting"
+  maxMintDeviationBasisPoints: Int
 
-  "Link to the nToken account object"
-  account: Account @derivedFrom(field: "nToken")
+  incentives: Incentive @derivedFrom(field: "currencyConfiguration")
+  externalLending: ExternalLending @derivedFrom(field: "currencyConfiguration")
 }
 
-type GlobalTransferOperator @entity {
-  "Address of the global transfer operator"
+type InterestRateCurve @entity {
+  "ID is the currency id:market index:true if current"
   id: ID!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
-}
-
-type AuthorizedCallbackContract @entity {
-  "Address of the callback contract"
-  id: ID!
-  name: String!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
-}
-
-type SecondaryIncentiveRewarder @entity {
-  "Address of the rewarder contract"
-  id: ID!
-  currency: Currency!
-  nToken: nToken!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
-}
-
-enum AssetType {
-  fCash
-  LiquidityToken_3Month
-  LiquidityToken_6Month
-  LiquidityToken_1Year
-  LiquidityToken_2Year
-  LiquidityToken_5Year
-  LiquidityToken_10Year
-  LiquidityToken_20Year
-}
-
-type Account @entity {
-  "Account address"
-  id: ID!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
+  lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
 
-  "Timestamp of the next time that the account will require settlement"
-  nextSettleTime: BigInt!
-  "True if the account's portfolio has debt assets"
-  hasPortfolioAssetDebt: Boolean!
-  "True if the account's cash balances have debt, may be temporarily inconsistent after a SettleCashEvent"
-  hasCashDebt: Boolean!
-
-  "Currency id of an asset bitmap, if set"
-  assetBitmapCurrency: Currency
-  "Account's balances of both cash and nTokens"
-  balances: [Balance!]!
-  "Account's portfolio assets"
-  portfolio: [Asset!]!
-
-  "A link to the nToken object if this is an nToken"
-  nToken: nToken
-
-  tradeHistory: [Trade!] @derivedFrom(field: "account")
-  balanceChanges: [BalanceChange!] @derivedFrom(field: "account")
-  assetChanges: [AssetChange!] @derivedFrom(field: "account")
-  nTokenChanges: [nTokenChange!] @derivedFrom(field: "account")
-  leveragedVaults: [LeveragedVaultAccount!] @derivedFrom(field: "account")
-
-  stakedNoteBalance: StakedNoteBalance @derivedFrom(field: "account")
-  stakedNoteChanges: [StakedNoteChange!] @derivedFrom(field: "account")
+  kinkUtilization1: Int!
+  kinkUtilization2: Int!
+  kinkRate1: Int!
+  kinkRate2: Int!
+  maxRate: Int!
+  minFeeRate: Int!
+  maxFeeRate: Int!
+  feeRatePercent: Int!
 }
 
-type Balance @entity {
-  "Account Address:Currency ID combination"
-  id: ID!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
-
-  "Reference to currency that this balance represents"
-  currency: Currency!
-
-  "Cash balance denominated in asset cash terms"
-  assetCashBalance: BigInt!
-  "nToken balance of this currency"
-  nTokenBalance: BigInt!
-  "Last time token incentives were claimed on this balance"
-  lastClaimTime: Int!
-  "Last stored integral total supply amount, used to calculate incentives in the original method"
-  lastClaimIntegralSupply: BigInt
-  "Accumulator for incentive calculation"
-  accountIncentiveDebt: BigInt
-  "True if the account has migrated to the new incentive scheme"
-  didMigrateIncentives: Boolean
-}
-
-type Asset @entity {
-  "Account:CurrencyId:AssetType:Maturity"
-  id: ID!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
-
-  "Reference to currency that this balance represents"
-  currency: Currency!
-  "Timestamp when fCash matures, if liquidity token this will still refer to fCash maturity date"
-  maturity: BigInt!
-  "Date when assets will be settled, quarterly for liquidity tokens and at maturity for fCash"
-  settlementDate: BigInt!
-  "Asset type"
-  assetType: AssetType!
-  "Notional amount"
-  notional: BigInt!
-}
-
-type Market @entity {
-  "Currency Id:Settlement Date:Maturity combination"
-  id: ID!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
-
-  "Currency of this market"
-  currency: Currency!
-  "Date that fCash from this market will mature"
-  maturity: Int!
-  "Date that this market will settle"
-  settlementDate: Int!
-  "Market index"
-  marketIndex: Int!
-  "Length of market maturity in seconds"
-  marketMaturityLengthSeconds: Int!
-
-  "Total fCash available in the market"
-  totalfCash: BigInt!
-  "Total asset cash available in the market"
-  totalAssetCash: BigInt!
-  "Total liquidity tokens available in the market"
-  totalLiquidity: BigInt!
-  "Last annualized interest rate the market traded at"
-  lastImpliedRate: Int!
-  "Oracle rate for the market, must be averaged in using previousTradeTime"
-  oracleRate: Int!
-  "Last time when a trade occurred on the market"
-  previousTradeTime: Int!
-
-  historicalData: [MarketHistoricalData!] @derivedFrom(field: "market")
-}
-
-type MarketHistoricalData @entity {
-  "MarketID:Hourly ID for this particular market"
-  id: ID!
-  market: Market!
-
-  "Total fCash available in the market"
-  totalfCash: BigInt!
-  "Total asset cash available in the market"
-  totalAssetCash: BigInt!
-  "Total liquidity tokens available in the market"
-  totalLiquidity: BigInt!
-  "Last annualized interest rate the market traded at"
-  lastImpliedRate: Int!
-  "Oracle rate for the market, must be averaged in using previousTradeTime"
-  oracleRate: Int!
-  "Last time when a trade occurred on the market"
-  previousTradeTime: Int!
-}
-
-type MarketInitialization @entity {
-  "Currency ID:time reference timestamp"
-  id: ID!
-  blockHash: Bytes!
-  blockNumber: Int!
-  timestamp: Int!
-  transactionHash: Bytes!
-  transactionOrigin: Bytes!
-
-  "Currency of markets"
-  currency: Currency!
-  "Markets that were initialized during this event"
-  markets: [Market!]!
-}
-
-enum TradeType {
-  Lend
-  Borrow
-  AddLiquidity
-  RemoveLiquidity
-  PurchaseNTokenResidual
-  SettleCashDebt
-  Transfer
-}
-
-type Trade @entity {
-  "Currency ID:Account:Transaction hash:logIndex:batchIndex"
-  id: ID!
-  blockHash: Bytes!
-  blockNumber: Int!
-  timestamp: Int!
-  transactionHash: Bytes!
-  transactionOrigin: Bytes!
-
-  account: Account!
-  currency: Currency!
-  market: Market
-
-  tradeType: TradeType!
-  maturity: BigInt!
-  netAssetCash: BigInt!
-  netUnderlyingCash: BigInt!
-  netfCash: BigInt!
-  netLiquidityTokens: BigInt
-  transferOperator: Bytes
-}
-
-type BalanceChange @entity {
-  "Currency ID:Account:Transaction hash:logIndex"
-  id: ID!
-  blockHash: Bytes!
-  blockNumber: Int!
-  timestamp: Int!
-  transactionHash: Bytes!
-  transactionOrigin: Bytes!
-
-  account: Account!
-  currency: Currency!
-
-  assetCashBalanceBefore: BigInt!
-  assetCashBalanceAfter: BigInt!
-  assetCashValueUnderlyingBefore: BigInt!
-  assetCashValueUnderlyingAfter: BigInt!
-
-  nTokenBalanceBefore: BigInt!
-  nTokenBalanceAfter: BigInt!
-  nTokenValueAssetBefore: BigInt!
-  nTokenValueAssetAfter: BigInt!
-  nTokenValueUnderlyingBefore: BigInt!
-  nTokenValueUnderlyingAfter: BigInt!
-
-  lastClaimTimeBefore: Int!
-  lastClaimTimeAfter: Int!
-  lastClaimIntegralSupplyBefore: BigInt
-  lastClaimIntegralSupplyAfter: BigInt
-  accountIncentiveDebtBefore: BigInt
-  accountIncentiveDebtAfter: BigInt
-}
-
-type AssetChange @entity {
-  "Account:CurrencyId:AssetType:Maturity:Transaction hash"
-  id: ID!
-  blockHash: Bytes!
-  blockNumber: Int!
-  timestamp: Int!
-  transactionHash: Bytes!
-  transactionOrigin: Bytes!
-
-  account: Account!
-  currency: Currency!
-
-  maturity: BigInt!
-  settlementDate: BigInt!
-  assetType: AssetType!
-
-  notionalBefore: BigInt!
-  notionalAfter: BigInt!
-}
-
-type nTokenChange @entity {
-  "nTokenAddress:Transaction hash"
-  id: ID!
-  blockHash: Bytes!
-  blockNumber: Int!
-  timestamp: Int!
-  transactionHash: Bytes!
-  transactionOrigin: Bytes!
-
-  nToken: nToken!
-  "Account that mints or redeems nTokens, set to null on initialize markets"
-  account: Account
-
-  assetChanges: [AssetChange!]
-  balanceChange: BalanceChange
-
-  totalSupplyBefore: BigInt!
-  totalSupplyAfter: BigInt!
-  "Deprecated integral total supply before and after"
-  integralTotalSupplyBefore: BigInt
-  integralTotalSupplyAfter: BigInt
-  "Last supply change time before and after, equivalent to last accumulated time"
-  lastSupplyChangeTimeBefore: BigInt!
-  lastSupplyChangeTimeAfter: BigInt!
-  "Represents the accumulated NOTE incentives on the nToken"
-  accumulatedNOTEPerNTokenBefore: BigInt
-  accumulatedNOTEPerNTokenAfter: BigInt
-}
-
-type EthExchangeRateHistoricalData @entity {
-  id: ID!
-  timestamp: Int!
-  value: BigInt!
-  currency: Currency!
-}
-
-type AssetExchangeRateHistoricalData @entity {
-  id: ID!
-  timestamp: Int!
-  value: BigInt!
-  currency: Currency!
-}
-
-type NTokenPresentValueHistoricalData @entity {
-  id: ID!
-  timestamp: Int!
-  pvAsset: BigInt!
-  pvUnderlying: BigInt!
-  currency: Currency!
-}
-
-type CurrencyTvl @entity {
-  id: ID!
-  currency: Currency!
-  underlyingValue: BigInt!
-  usdValue: BigInt!
-}
-
-type COMPBalance @entity {
-  id: ID!
-  timestamp: Int!
-  value: BigInt!
-  usdValue: BigInt!
-}
-
-type StakedNoteTvl @entity {
-  id: ID!
-  timestamp: Int!
-
-  "Total sNOTE in the pool"
-  sNOTETotalSupply: BigInt!
-  "Total NOTE in the pool"
-  poolNOTEBalance: BigInt!
-  "Total ETH in the pool"
-  poolETHBalance: BigInt!
-  "Total BPT balance in the pool"
-  poolBPTBalance: BigInt!
-
-  "NOTE/ETH spot price of the pool"
-  spotPrice: BigInt!
-  
-  "Total pool value in each relevant denomination using historical spot prices"
-  totalPoolValueInNOTE: BigInt!
-  totalPoolValueInETH: BigInt!
-}
-
-type TvlHistoricalData @entity {
-  id: ID!
-  timestamp: Int!
-  usdTotal: BigInt
-  perCurrencyTvl: [CurrencyTvl!]
-  compBalance: COMPBalance
-  sNOTETvl: StakedNoteTvl
-}
-
-type AssetTransfer @entity {
-  "from:to:assetId:Transaction hash"
-  id: ID!
-  blockHash: Bytes!
-  blockNumber: Int!
-  timestamp: Int!
-  transactionHash: Bytes!
-  transactionOrigin: Bytes!
-
-  fromAssetChange: AssetChange!
-  toAssetChange: AssetChange!
-}
-
-enum LiquidationType {
-  LocalCurrency
-  LocalFcash
-  CollateralCurrency
-  CrossCurrencyFcash
-}
-
-type Liquidation @entity {
-  id: ID!
-  blockHash: Bytes!
-  blockNumber: Int!
-  timestamp: Int!
-  transactionHash: Bytes!
-  transactionOrigin: Bytes!
-
-  type: LiquidationType!
-  account: Account!
-  liquidator: Account!
-  localCurrency: Currency!
-  netLocalFromLiquidator: BigInt!
-  collateralOrFcashCurrency: Currency
-  netCollateralTransfer: BigInt
-  netNTokenTransfer: BigInt
-  fCashMaturities: [BigInt!]
-  fCashNotionalTransfer: [BigInt!]
-}
-
-# Data accumulated and condensed into day stats for lending and borrowing
-type DailyLendBorrowVolume @entity {
-  id: ID!
-  date: Int!
-  currency: Currency!
-  market: Market!
-  trades: [Trade!]!
-  marketIndex: Int!
-  tradeType: TradeType!
-  totalVolumeUnderlyingCash: BigInt!
-  totalVolumeNetAssetCash: BigInt!
-  totalVolumeNetfCash: BigInt!
-  txCount: BigInt!
-}
-
-# One off migration for incentive calculation, snapshot values stored here
-type IncentiveMigration @entity {
-  "Currency ID of the migrated entity"
-  id: ID!
-  currency: Currency!
-  "Snapshot of the incentive emission rate at migration"
-  migrationEmissionRate: BigInt!
-  "Snapshot of the integral total supply at migration"
-  finalIntegralTotalSupply: BigInt!
-  "Time when the currency was migrated"
-  migrationTime: BigInt!
-}
-
-type NoteBalance @entity {
-  "Account address"
-  id: ID!
-  "Provides a link to a NOTE holder's Notional accounts (if they exist)"
-  account: Account!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
-
-  delegate: Delegate
-  noteBalance: BigInt!
-  noteBalanceChanges: [NoteBalanceChange!]! @derivedFrom(field: "noteBalance")
-}
-
-type NoteBalanceChange @entity {
-  "Account address:TransactionHash:LogIndex"
-  id: ID!
-  blockHash: Bytes!
-  blockNumber: Int!
-  timestamp: Int!
-  transactionHash: Bytes!
-
-  account: Account!
-  noteBalance: NoteBalance!
-
-  noteBalanceBefore: BigInt!
-  noteBalanceAfter: BigInt!
-  sender: Bytes!
-  receiver: Bytes!
-}
-
-type StakedNoteBalance @entity {
-  "Account address"
-  id: ID!
-  "Provides a link to a staker's Notional accounts (if they exist)"
-  account: Account!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
-  delegate: Delegate
-
-  "Current sNOTE balance of the account"
-  sNOTEBalance: BigInt!
-  "Total amount of ETH/WETH used to join the pool"
-  ethAmountJoined: BigInt!
-  "Total amount of NOTE used to join the pool"
-  noteAmountJoined: BigInt!
-
-  "Total amount of ethRedeemed from the pool"
-  ethAmountRedeemed: BigInt!
-  "Total amount of noteRedeemed from the pool"
-  noteAmountRedeemed: BigInt!
-
-  currentCoolDown: StakedNoteCoolDown
-  coolDowns: [StakedNoteCoolDown!] @derivedFrom(field: "stakedNoteBalance")
-  stakedNoteChanges: [StakedNoteChange!]! @derivedFrom(field: "stakedNoteBalance")
-}
-
-type StakedNoteCoolDown @entity {
-  id: ID!
-  startedBlockHash: Bytes!
-  startedBlockNumber: Int!
-  startedTimestamp: Int!
-  startedTransactionHash: Bytes!
-
-  endedBlockHash: Bytes
-  endedBlockNumber: Int
-  endedTimestamp: Int
-  endedTransactionHash: Bytes
-
-  stakedNoteBalance: StakedNoteBalance!
-  userEndedCoolDown: Boolean
-  redeemWindowBegin: Int!
-  redeemWindowEnd: Int!
-}
-
-enum sNOTEChangeType {
-  Transfer,
-  Stake,
-  Unstake
-}
-
-type StakedNoteChange @entity {
-  id: ID!
-  blockHash: Bytes!
-  blockNumber: Int!
-  timestamp: Int!
-  transactionHash: Bytes!
-
-  account: Account!
-  stakedNoteBalance: StakedNoteBalance!
-
-  sNOTEChangeType: sNOTEChangeType!
-  sNOTEAmountBefore: BigInt!
-  sNOTEAmountAfter: BigInt!
-  ethAmountChange: BigInt!
-  noteAmountChange: BigInt!
-  bptAmountChange: BigInt!
-
-  sender: Bytes
-  receiver: Bytes
-}
-
-type StakedNotePool @entity {
-  "Staked NOTE address"
-  id: ID!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
-
-  totalBPTTokens: BigInt!
-  totalSupply: BigInt!
-  bptPerSNOTE: BigInt!
-}
-
-type StakedNoteInvestment @entity {
-  id: ID!
-  blockHash: Bytes!
-  blockNumber: Int!
-  timestamp: Int!
-  transactionHash: Bytes!
-  "The treasury manager who executed the investment"
-  manager: TreasuryManager!
-
-  bptPerSNOTEBefore: BigInt!
-  bptPerSNOTEAfter: BigInt!
-  totalETHInvested: BigInt!
-  totalNOTEInvested: BigInt!
-  totalSNOTESupply: BigInt!
-}
-
-type Treasury @entity {
-  "ID hardcoded to zero"
-  id: ID!
-  contractAddress: Bytes!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
-
-  activeManager: TreasuryManager
-  investmentCoolDownInSeconds: BigInt
-  NOTEPurchaseLimit: BigInt
-  tradingLimits: [TreasuryManagerTradingLimit!] @derivedFrom(field: "treasury")
-
-  "A list of all treasury managers"
-  managers: [TreasuryManager!] @derivedFrom(field: "treasury")
-}
-
-type TreasuryManager @entity {
-  "ID is the manager's ethereum address"
-  id: ID!
-  startedBlockHash: Bytes!
-  startedBlockNumber: Int!
-  startedTimestamp: Int!
-  startedTransactionHash: Bytes!
-
-  endedBlockHash: Bytes!
-  endedBlockNumber: Int!
-  endedTimestamp: Int!
-  endedTransactionHash: Bytes!
-
-  "Set to true for the manager who is currently active"
-  isActiveManager: Boolean!
-  treasury: Treasury!
-  sNOTEInvestments: [StakedNoteInvestment!] @derivedFrom(field: "manager")
-  tokenTrades: [TreasuryTokenTrade!] @derivedFrom(field: "manager")
-}
-
-type TreasuryManagerTradingLimit @entity {
-  "ID is the token address"
-  id: ID!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
-
-  treasury: Treasury!
-  tokenAddress: Bytes!
-  symbol: String!
-  name: String!
-  oracle: Bytes
-  slippageLimit: BigInt
-}
-
-type TreasuryTokenTrade @entity {
-  "ID is the 0x order hash"
-  id: ID!
-  blockHash: Bytes!
-  blockNumber: Int!
-  timestamp: Int!
-  transactionHash: Bytes!
-
-  manager: TreasuryManager!
-  "Taker that filled the order"
-  takerAddress: Bytes!
-  "Token that the treasury sold"
-  makerAsset: TreasuryManagerTradingLimit!
-  "Token that the taker sent back to the treasury"
-  takerAsset: Bytes!
-  takerAssetSymbol: String
-  takerAssetName: String
-  takerAssetDecimals: Int
-
-  makerAssetFilledAmount: BigInt!
-  takerAssetFilledAmount: BigInt!
-  oraclePrice: BigInt
-  oracleDecimals: Int
-}
-
-type LeveragedVaultDirectory @entity {
-  "ID is always set to 0"
-  id: ID!
-  listedLeveragedVaults: [LeveragedVault!]!
-}
-
-type LeveragedVault @entity {
+type VaultConfiguration @entity {
   "ID is the address of the vault"
   id: ID!
   lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
+  lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
   "Address of the strategy vault"
@@ -979,7 +401,7 @@ type LeveragedVault @entity {
   "Name of the strategy vault"
   name: String!
   "Primary currency the vault borrows in"
-  primaryBorrowCurrency: Currency!
+  primaryBorrowCurrency: Token!
   "Minimum amount of primary currency that must be borrowed"
   minAccountBorrowSize: BigInt!
   "Minimum collateral ratio before liquidation"
@@ -995,7 +417,7 @@ type LeveragedVault @entity {
   "Maximum market index for borrowing terms"
   maxBorrowMarketIndex: Int!
   "Secondary borrow currencies (if any)"
-  secondaryBorrowCurrencies: [Currency!]
+  secondaryBorrowCurrencies: [Token!]
   "Max required collateral ratio for vault accounts"
   maxRequiredAccountCollateralRatioBasisPoints: Int
   "Can the vault be entered"
@@ -1012,195 +434,429 @@ type LeveragedVault @entity {
   onlyVaultDeleverage: Boolean!
   "Only the vault can settle"
   onlyVaultSettle: Boolean!
+  "fCash discounting is enabled on the vault"
+  discountfCash: Boolean
   "Vault is allowed to re-enter Notional"
   allowsReentrancy: Boolean!
   "Deleveraging is disabled on this vault"
   deleverageDisabled: Boolean
-
-  "All maturities of this strategy vault"
-  maturities: [LeveragedVaultMaturity!] @derivedFrom(field: "leveragedVault")
-  vaultCapacity: LeveragedVaultCapacity! @derivedFrom(field: "leveragedVault")
-}
-
-type LeveragedVaultCapacity @entity {
-  "ID is the address of the vault"
-  id: ID!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
-  lastUpdateTimestamp: Int!
-  lastUpdateTransactionHash: Bytes!
-
-  leveragedVault: LeveragedVault!
 
   maxPrimaryBorrowCapacity: BigInt!
   totalUsedPrimaryBorrowCapacity: BigInt!
 
   maxSecondaryBorrowCapacity: [BigInt!]
   totalUsedSecondaryBorrowCapacity: [BigInt!]
+  minAccountSecondaryBorrow: [BigInt!]
 }
 
-type LeveragedVaultAccount @entity {
-  "ID is the address of the vault:address of account"
+enum WhitelistedCapability {
+  GlobalTransferOperator,
+  AuthorizedCallbackContract
+  SecondaryIncentiveRewarder,
+  DetachedSecondaryIncentiveRewarder
+}
+
+type WhitelistedContract @entity {
   id: ID!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
+  lastUpdateBlockNumber: BigInt!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+  capability: [WhitelistedCapability!]!
+  name: String!
+
+  # If this whitelisted contract is linked to a specific contract
+  currency: CurrencyConfiguration
+}
+
+### Balances ###
+
+type Balance @entity {
+  "Account:Token ID"
+  id: ID!
+  "Link back to the token"
+  token: Token!
+  "Address of the account that holds this balance"
+  account: Account!
+
+  firstUpdateBlockNumber: BigInt!
+  firstUpdateTimestamp: Int!
+  firstUpdateTransactionHash: Bytes!
+
+  lastUpdateBlockNumber: BigInt!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransactionHash: Bytes!
+  
+  current: BalanceSnapshot!
+  snapshots: [BalanceSnapshot!] @derivedFrom(field: "balance")
+}
+
+type BalanceSnapshot @entity(immutable: true) {
+  "Address of Account:ID of Token:Block Number"
+  id: ID!
+  blockNumber: BigInt!
+  timestamp: Int!
+  transaction: Transaction!
+
+  "Link to previous snapshot, if it exists"
+  previousSnapshot: BalanceSnapshot
+
+  "Link to the balance entity for this token"
+  balance: Balance!
+
+  "Current balance of the token at this block"
+  currentBalance: BigInt!
+  "Balance before this snapshot"
+  previousBalance: BigInt!
+
+  "Adjusted cost basis at this snapshot for the token"
+  adjustedCostBasis: BigInt!
+  "Current profit and loss at the snapshot"
+  currentProfitAndLossAtSnapshot: BigInt!
+  "Total profit or loss at the snapshot since balance inception"
+  totalProfitAndLossAtSnapshot: BigInt!
+  "Portion of the PnL due to market movements in price"
+  totalILAndFeesAtSnapshot: BigInt!
+  "Portion of the PnL due to interest accrual"
+  totalInterestAccrualAtSnapshot: BigInt!
+  "Implied Fixed Rate for fCash balances"
+  impliedFixedRate: BigInt
+  
+  "Cumulative balance used for internal PnL calculations"
+  _accumulatedBalance: BigInt!
+  "Cumulative realized cost for internal PnL calculations"
+  _accumulatedCostRealized: BigInt!
+
+  profitLossLineItems: [ProfitLossLineItem!] @derivedFrom(field: "balanceSnapshot")
+  "Snapshots of the secondary incentives"
+  incentives: [IncentiveSnapshot!] @derivedFrom(field: "balanceSnapshot")
+}
+
+type IncentiveSnapshot @entity(immutable: true) {
+  "Balance Snapshot ID:Reward Token"
+  id: ID!
+  blockNumber: BigInt!
+  timestamp: Int!
+  transaction: Transaction!
+
+  "Link back to the balance snapshot for this secondary incentive"
+  balanceSnapshot: BalanceSnapshot!
+
+  "Reward token associated with this snapshot"
+  rewardToken: Token!
+
+  "Current account incentive debt for reward"
+  currentIncentiveDebt: BigInt!
+  "Previous account incentive debt for reward"
+  previousIncentiveDebt: BigInt!
+
+  "Total reward accrued over the lifetime of this balance"
+  totalClaimed: BigInt!
+  "Reward earnings adjusted for balance changes"
+  adjustedClaimed: BigInt!
+}
+
+### Markets ###
+
+type ActiveMarket @entity {
+  "Currency ID"
+  id: ID!
+  lastUpdateBlockNumber: BigInt!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransaction: Transaction
+  
+  underlying: Token!
+  pCashMarket: PrimeCashMarket!
+  fCashMarkets: [fCashMarket!]!
+}
+
+type PrimeCashMarket @entity {
+  "Currency ID"
+  id: ID!
+  lastUpdateBlockNumber: BigInt!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransaction: Transaction
+
+  "Currency of this market"
+  underlying: Token!
+  "Prime Cash token for this market"
+  primeCash: Token!
+  "Prime Debt token for this market"
+  primeDebt: Token
+
+  current: PrimeCashMarketSnapshot!
+  snapshots: [PrimeCashMarketSnapshot!] @derivedFrom(field: "market")
+}
+
+type PrimeCashMarketSnapshot @entity(immutable: true) {
+  "Currency ID:Block Number:Transaction Hash"
+  id: ID!
+  blockNumber: BigInt!
+  timestamp: Int!
+  transaction: Transaction
+
+  market: PrimeCashMarket!
+
+  "Total Prime Cash Supply"
+  totalPrimeCash: BigInt!
+  "Total Prime Debt"
+  totalPrimeDebt: BigInt!
+  "Total underlying held by the contract"
+  totalUnderlyingHeld: BigInt!
+  "Total prime cash converted to underlying"
+  totalPrimeCashInUnderlying: BigInt
+  "Total prime debt converted to underlying"
+  totalPrimeDebtInUnderlying: BigInt
+  "Snapshot value of the supply scalar"
+  supplyScalar: BigInt!
+  "Snapshot value of the debt scalar"
+  debtScalar: BigInt!
+  "Snapshot value of the underlying scalar"
+  underlyingScalar: BigInt!
+  "Prime cash premium interest rate"
+  supplyInterestRate: BigInt
+  "Prime debt premium interest rate"
+  debtInterestRate: BigInt
+  "External lending interest rate"
+  externalLendingRate: BigInt
+}
+
+type fCashMarket @entity {
+  "Currency Id:Settlement Date:Maturity combination"
+  id: ID!
+  lastUpdateBlockNumber: BigInt!
+  lastUpdateTimestamp: Int!
+  lastUpdateTransaction: Transaction
+
+  "Currency of this market"
+  underlying: Token!
+  "fCash token traded by this market"
+  fCash: Token!
+  "Date that fCash from this market will mature"
+  maturity: Int!
+  "Date that this market will settle"
+  settlementDate: Int!
+  "Market index"
+  marketIndex: Int!
+  "Length of market maturity in seconds"
+  marketMaturityLengthSeconds: Int!
+
+  current: fCashMarketSnapshot!
+  snapshots: [fCashMarketSnapshot!] @derivedFrom(field: "market")
+}
+
+type fCashMarketSnapshot @entity(immutable: true) {
+  "Market ID:Block Number"
+  id: ID!
+  blockNumber: BigInt!
+  timestamp: Int!
+  transaction: Transaction
+
+  market: fCashMarket!
+
+  "Total fCash available in the market"
+  totalfCash: BigInt!
+  "Total prime cash available in the market"
+  totalPrimeCash: BigInt!
+  "Total liquidity tokens available in the market"
+  totalLiquidity: BigInt!
+  "Last annualized interest rate the market traded at"
+  lastImpliedRate: Int!
+  "Oracle rate for the market, must be averaged in using previousTradeTime"
+  oracleRate: Int!
+  "Last time when a trade occurred on the market"
+  previousTradeTime: Int!
+
+  "Total prime cash converted to underlying in the market"
+  totalPrimeCashInUnderlying: BigInt
+  "Total fCash converted to present value in the market"
+  totalfCashPresentValue: BigInt
+
+  "Total fCash debt outstanding for the given fCash asset"
+  totalfCashDebtOutstanding: BigInt!
+  "Total fCash debt outstanding in present value terms for the given fCash asset"
+  totalfCashDebtOutstandingPresentValue: BigInt
+}
+
+### Treasury ###
+
+type Incentive @entity {
+  "ID is the currency id"
+  id: ID!
+  lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
 
-  account: Account!
-  leveragedVault: LeveragedVault!
-  leveragedVaultMaturity: LeveragedVaultMaturity!
+  currencyConfiguration: CurrencyConfiguration!
 
-  "Maturity that the account is currently in"
-  maturity: Int!
+  "If set, a secondary incentive rewarder is set"
+  secondaryIncentiveRewarder: Bytes
 
-  "Vault shares held in this maturity by the account"
-  vaultShares: BigInt!
-  "Amount of fCash borrowed"
-  primaryBorrowfCash: BigInt!
+  "Annual incentive emission rate for NOTE"
+  incentiveEmissionRate: BigInt
+  "Current accumulated NOTE per nToken"
+  accumulatedNOTEPerNToken: BigInt
+  "Last accumulation time"
+  lastAccumulatedTime: BigInt
 
-  "Debt shares of the secondary borrow currencies"
-  secondaryBorrowDebtShares: [BigInt!]
-  trades: [LeveragedVaultTrade!] @derivedFrom(field: "leveragedVaultAccount")
+  "Deprecated last supply change time value"
+  deprecated_lastSupplyChangeTime: BigInt
+  "Deprecated integral total supply value"
+  deprecated_integralTotalSupply: BigInt
+  "Snapshot of the incentive emission rate at migration"
+  migrationEmissionRate: BigInt
+  "Snapshot of the integral total supply at migration"
+  finalIntegralTotalSupply: BigInt
+  "Time when the currency was migrated"
+  migrationTime: BigInt
+
+  "Current secondary reward token set for this currency"
+  currentSecondaryReward: Token
+  "Total accumulated secondary reward per nToken for the current rewarder"
+  accumulatedSecondaryRewardPerNToken: BigInt
+  "Last accumulated time for the current rewarder"
+  lastSecondaryAccumulatedTime: BigInt
+
+  "Secondary incentive emission rate in INTERNAL_TOKEN_PRECISION"
+  secondaryEmissionRate: BigInt
+  "End time for the current secondary rewarder"
+  secondaryRewardEndTime: BigInt
 }
 
-type LeveragedVaultMaturity @entity {
-  "ID is the address of the vault:maturity"
+### Trading Module ###
+
+enum DEX {
+  _UNUSED,
+  UNISWAP_V2,
+  UNISWAP_V3,
+  ZERO_EX,
+  BALANCER_V2,
+  CURVE,
+  NOTIONAL_VAULT,
+  CURVE_V2
+}
+
+enum TradeType {
+  EXACT_IN_SINGLE,
+  EXACT_OUT_SINGLE,
+  EXACT_IN_BATCH,
+  EXACT_OUT_BATCH
+}
+
+type TradingModulePermission @entity {
   id: ID!
-  lastUpdateBlockHash: Bytes!
-  lastUpdateBlockNumber: Int!
+  lastUpdateBlockNumber: BigInt!
   lastUpdateTimestamp: Int!
   lastUpdateTransactionHash: Bytes!
 
-  leveragedVault: LeveragedVault!
+  sender: Account!
+  token: Token
+  tokenAddress: Bytes!
+  name: String!
+  symbol: String!
 
-  "Maturity of the given vault"
-  maturity: Int!
-
-  "Total fCash borrowed in the primary currency"
-  totalPrimaryfCashBorrowed: BigInt!
-  "Total asset cash held in the vault"
-  totalAssetCash: BigInt!
-  "Total vault shares in the vault"
-  totalVaultShares: BigInt!
-  "Total strategy tokens in the vault"
-  totalStrategyTokens: BigInt!
-  "Total secondary fCash borrowed for secondary borrow currencies"
-  totalSecondaryfCashBorrowed: [BigInt!]
-  "Total secondary debt shares for secondary borrow currencies"
-  totalSecondaryDebtShares: [BigInt!]
-  "Total fees accrued to the reserve in this maturity"
-  totalReserveFeesAccrued: BigInt!
-  "Total fees accrued to the nToken in this maturity"
-  totalNTokenFeesAccrued: BigInt!
-
-  "True if vault is settled"
-  isSettled: Boolean!
-  "Timestamp when the vault was settled"
-  settlementTimestamp: Int
-  "If vault has settled, holds the value of the strategy token"
-  settlementStrategyTokenValue: BigInt
-  "Snapshot of the secondary borrows in fCash prior to settlement (denominated in primary currency)"
-  settlementSecondaryBorrowfCashSnapshot: [BigInt!]
-  "Exchange rates between secondary currency and primary currency"
-  settlementSecondaryBorrowExchangeRate: [BigInt!]
-  "Holds the settlement rate of the primary borrow currency"
-  settlementRate: SettlementRate
-  "Any shortfall to this vault maturity (if any)"
-  shortfall: BigInt
-  "Any insolvency to this vault maturity (if any)"
-  insolvency: BigInt
-
-  "Asset cash remaining for accounts to withdraw post settlement"
-  remainingSettledAssetCash: BigInt
-  "Strategy tokens remaining for accounts to withdraw post settlement"
-  remainingSettledStrategyTokens: BigInt
-
-  "All strategy vault accounts in this maturity"
-  accounts: [LeveragedVaultAccount!] @derivedFrom(field: "leveragedVaultMaturity")
-  historicalValue: [LeveragedVaultHistoricalValue!] @derivedFrom(field: "leveragedVaultMaturity")
-  events: [LeveragedVaultMaturityEvent!] @derivedFrom(field: "leveragedVaultMaturity")
+  allowedDexes: [DEX!]!
+  allowSell: Boolean!
+  allowedTradeTypes: [TradeType!]!
 }
 
-enum VaultTradeType {
-  EnterPosition,
-  RollPosition,
-  ExitPreMaturity,
-  ExitPostMaturity,
-  DeleverageAccount,
-  TransferFromDeleverage,
-  VaultRedeemStrategyToken,
-  VaultMintStrategyToken
-}
-
-type LeveragedVaultTrade @entity {
-  "leveragedVault:account or vault address:transaction hash:log index"
+type Reinvestment @entity {
+  "Vault:TxnHash"
   id: ID!
-  blockHash: Bytes!
-  blockNumber: Int!
+  blockNumber: BigInt!
   timestamp: Int!
   transactionHash: Bytes!
-  transactionOrigin: Bytes!
 
-  vaultTradeType: VaultTradeType!
+  vault: VaultConfiguration!
 
-  account: Account!
-  leveragedVault: LeveragedVault!
-  leveragedVaultAccount: LeveragedVaultAccount!
-  leveragedVaultMaturityBefore: LeveragedVaultMaturity
-  leveragedVaultMaturityAfter: LeveragedVaultMaturity
+  "Address of the token sold"
+  rewardTokenSold: Token!
+  "Amount of reward tokens sold"
+  rewardAmountSold: BigInt!
 
-  "Net change to fCash borrowed in the primary currencies"
-  primaryBorrowfCashBefore: BigInt!
-  primaryBorrowfCashAfter: BigInt!
-  netPrimaryBorrowfCashChange: BigInt
+  "Amount of LP tokens reinvested"
+  tokensReinvested: BigInt!
 
-  "Net change to vault shares"
-  vaultSharesBefore: BigInt!
-  vaultSharesAfter: BigInt!
-  netVaultSharesChange: BigInt
-
-  "Net change to fCash borrowed in the secondary currencies"
-  secondaryDebtSharesBefore: [BigInt!]
-  secondaryDebtSharesAfter: [BigInt!]
-  netSecondaryDebtSharesChange: [BigInt!]
-
-  "Total change in cash between Notional and the vault, positive on entering, negative on exit"
-  netUnderlyingCash: BigInt
-  "Net amount of cash that was borrowed or repaid, positive on enter, negative on exit"
-  netBorrowedUnderlying: BigInt
-  "Net amount of cash that was deposited or withdrawn, positive on enter, negative on exit"
-  netDepositUnderlying: BigInt
+  tokensPerVaultShare: BigInt
+  "Value of the tokens reinvested"
+  underlyingAmountRealized: BigInt
+  "Vault Share Price after Reinvestment"
+  vaultSharePrice: BigInt
 }
-  
-type LeveragedVaultMaturityEvent @entity {
-  "leveragedVault:account or vault address:transaction hash:log index"
+
+type ExternalLending @entity {
+  "Currency ID"
   id: ID!
-  blockHash: Bytes!
-  blockNumber: Int!
-  timestamp: Int!
+
+  lastUpdateBlockNumber: BigInt!
+  lastUpdateTimestamp: Int!
+
+  currencyConfiguration: CurrencyConfiguration!
+
+  "Reference to the underlying token"
+  underlying: Token!
+
+  "Accumulate the revenue from snapshots"
+  protocolRevenueAllTime: BigInt!
+
+  currentExternal: ExternalLendingSnapshot
+  externalSnapshots: [ExternalLendingSnapshot!] @derivedFrom(field: "externalLending")
+
+  currentUnderlying: UnderlyingSnapshot!
+  underlyingSnapshots: [UnderlyingSnapshot!] @derivedFrom(field: "externalLending")
+}
+
+type UnderlyingSnapshot @entity(immutable: true) {
+  id: ID!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  transaction: Transaction
+
+  "Reference to the parent object"
+  externalLending: ExternalLending!
+  prevSnapshot: UnderlyingSnapshot
+  "Direct balanceOf the underlying token held by the contract"
+  balanceOf: BigInt!
+  "Stored balanceOf of the underlying token held by the contract"
+  storedBalanceOf: BigInt!
+}
+
+type ExternalLendingSnapshot @entity(immutable: true) {
+  "CurrencyID:ExternalLendingToken:Block Number"
+  id: ID!
+  blockNumber: BigInt!
+  timestamp: BigInt!
   transactionHash: Bytes!
-  transactionOrigin: Bytes!
 
-  leveragedVaultMaturity: LeveragedVaultMaturity!
-  "Net change to strategy tokens"
-  netStrategyTokenChange: BigInt!
-  "Net change to asset cash"
-  netAssetCashChange: BigInt!
-}
+  "Reference to the parent object"
+  externalLending: ExternalLending!
+  prevSnapshot: ExternalLendingSnapshot
 
+  "Reference to the external lending token, this may change over time so referenced inside the snapshot"
+  externalLendingToken: Token!
 
-type LeveragedVaultHistoricalValue @entity {
-  "leveragedVault:maturity:timestamp"
-  id: ID!
-  timestamp: Int!
+  "Direct balanceOf the external lending token held by the contract"
+  balanceOf: BigInt!
+  "Direct balanceOf the external lending token in underlying of held by the contract"
+  balanceOfUnderlying: BigInt!
+  "Stored balanceOf of the external lending token held by the contract"
+  storedBalanceOf: BigInt!
+  "Stored balanceOf in underlying of the external lending held by the contract"
+  storedBalanceOfUnderlying: BigInt!
 
-  leveragedVaultMaturity: LeveragedVaultMaturity!
-  "Value of a single strategy token at the given timestamp"
-  underlyingValueOfStrategyToken: BigInt!
-  
-  "Exchange rate for the primary borrow currency at this timestamp"
-  ethExchangeRate: EthExchangeRateHistoricalData!
-  "Asset rate for the primary borrow currency at this timestamp"
-  assetExchangeRate: AssetExchangeRateHistoricalData!
+  "Lending revenue accrued to protocol"
+  protocolRevenueSinceLastSnapshot: BigInt!
+
+  "Updated when protocol interest has been harvested"
+  protocolInterestHarvested: BigInt!
+
+  "Target time between rebalance calls"
+  cooldownTime: Int!
+  "Required threshold to withdraw from external lending protocol"
+  withdrawThreshold: Int!
+  "Target utilization for external lending"
+  targetUtilization: Int!
+  "Current utilization of the market at the snapshot"
+  currentUtilization: Int!
+  "Amount in underlying available to withdraw of the holding from the external market"
+  holdingAvailableToWithdraw: BigInt!
 }
