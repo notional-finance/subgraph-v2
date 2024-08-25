@@ -450,21 +450,26 @@ function updateVaultState(
   _saveBalance(balance, snapshot);
 }
 
+export function calculateTotalFCashFee(currencyId: i32, valueInUnderlying: BigInt): BigInt {
+  let config = getCurrencyConfiguration(currencyId);
+  if (config == null) return BigInt.zero();
+
+  return valueInUnderlying
+    .times(BigInt.fromI32(100 - config.fCashReserveFeeSharePercent))
+    .div(BigInt.fromI32(100));
+}
+
 function updateNTokenFeeBuffer(
   currencyId: i32,
   transfer: Transfer,
   event: ethereum.Event,
   isVaultFee: boolean
 ): void {
-  let config = getCurrencyConfiguration(currencyId);
-  if (config == null) return;
   // Only execute if the nToken has been created.
   let nTokenAddress = getNotional().try_nTokenAddress(currencyId);
   if (nTokenAddress.reverted) return;
 
-  let fCashReserveFeeSharePercent = config.fCashReserveFeeSharePercent;
   let feeBuffer = getNTokenFeeBuffer(currencyId);
-
   let minTransferTimestamp = event.block.timestamp.minus(NTOKEN_FEE_BUFFER_WINDOW).toI32();
   let feeTransfers = feeBuffer.feeTransfers;
   let feeTransferAmount = feeBuffer.feeTransferAmount;
@@ -485,9 +490,7 @@ function updateNTokenFeeBuffer(
   let transferAmount = transfer.valueInUnderlying
     ? isVaultFee
       ? (transfer.valueInUnderlying as BigInt)
-      : (transfer.valueInUnderlying as BigInt)
-          .times(BigInt.fromI32(100 - fCashReserveFeeSharePercent))
-          .div(BigInt.fromI32(100))
+      : calculateTotalFCashFee(currencyId, transfer.valueInUnderlying as BigInt)
     : BigInt.zero();
   feeTransferAmount.push(transferAmount);
   feeTransfers.push(transfer.id);

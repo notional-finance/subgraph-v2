@@ -155,6 +155,9 @@ type ProfitLossLineItem @entity(immutable: true) {
 
   "Set to a value that points to the token that generated an incentive payment"
   incentivizedToken: Token
+
+  "Set to the amount of fees paid, if applicable"
+  feesPaid: BigInt
 }
 
 type Transaction @entity(immutable: true) {
