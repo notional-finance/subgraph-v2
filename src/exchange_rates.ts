@@ -313,6 +313,10 @@ export function updatefCashOraclesAndMarkets(
     pCashAsset,
     block.timestamp
   );
+  let nTokenFCashAssets = notional
+    .getNTokenPortfolio(Address.fromBytes(nToken.tokenAddress))
+    .getNetfCashAssets();
+
   if (nTokenCash === null) nTokenCash = BigInt.zero();
   let nTokenBlendedInterestNumerator = nTokenCash.times(pCashSupplyRate);
   let nTokenBlendedInterestDenominator = nTokenCash;
@@ -370,11 +374,15 @@ export function updatefCashOraclesAndMarkets(
     updatefCashMarket(currencyId, a.maturity.toI32(), block, txnHash);
 
     // Updates blended interest rate factors
-    let fCashPV = convertValueToUnderlying(
-      activeMarkets.value[i].totalfCash,
-      posFCash,
-      block.timestamp
-    );
+    let fCashHeld = BigInt.zero();
+    for (let j = 0; j < nTokenFCashAssets.length; j++) {
+      if (nTokenFCashAssets[j].maturity == a.maturity) {
+        fCashHeld = nTokenFCashAssets[j].notional;
+        break;
+      }
+    }
+    let netNTokenFCash = activeMarkets.value[i].totalfCash.plus(fCashHeld);
+    let fCashPV = convertValueToUnderlying(netNTokenFCash, posFCash, block.timestamp);
 
     let cashPV = convertValueToUnderlying(
       activeMarkets.value[i].totalPrimeCash,
