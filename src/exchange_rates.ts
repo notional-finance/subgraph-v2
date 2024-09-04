@@ -1,4 +1,4 @@
-import { ethereum, BigInt, Address } from "@graphprotocol/graph-ts";
+import { ethereum, BigInt, Address, log } from "@graphprotocol/graph-ts";
 import {
   PrimeCashInterestAccrued,
   UpdateETHRate,
@@ -42,6 +42,9 @@ import {
   nTokenFeeRate,
   nTokenIncentiveRate,
   nTokenSecondaryIncentiveRate,
+  nTokenInterestAccrued,
+  SECONDS_IN_YEAR,
+  VaultShareInterestAccrued,
 } from "./common/constants";
 import {
   getAsset,
@@ -60,7 +63,47 @@ import { handleUnderlyingSnapshot } from "./external_lending";
 
 const SIX_HOURS = BigInt.fromI32(21_600);
 
-function updateExchangeRate(
+export function accumulateInterestEarnedRate(
+  oracle: Oracle,
+  interestAPY: BigInt,
+  block: ethereum.Block
+): void {
+  let ts = block.timestamp.minus(block.timestamp.mod(SIX_HOURS)).minus(SIX_HOURS);
+  let id = oracle.id + ":" + ts.toString();
+  let previousRate = ExchangeRate.load(id);
+
+  let interestAccrued = BigInt.zero();
+  log.debug("nToken Interest Accrued Finding Previous Rate {}", [id]);
+  if (previousRate) {
+    let timesSinceLastReinvest = block.timestamp.minus(BigInt.fromI32(previousRate.timestamp));
+    log.debug("nToken Interest Accrued Calculation {} {} {} {}", [
+      timesSinceLastReinvest.toString(),
+      interestAPY.toString(),
+      oracle.ratePrecision
+        .times(interestAPY)
+        .times(timesSinceLastReinvest)
+        .div(SECONDS_IN_YEAR)
+        .div(RATE_PRECISION)
+        .toString(),
+      previousRate.rate.toString(),
+    ]);
+    // Interest Accrued = previousRate.rate +
+    // 1 unit underlying * (rate * timeSinceLastReinvest / SECONDS_IN_YEAR)
+    // NOTE: interest accrued here is in underlying precision
+    interestAccrued = previousRate.rate.plus(
+      oracle.ratePrecision
+        .times(interestAPY)
+        .times(timesSinceLastReinvest)
+        .div(SECONDS_IN_YEAR)
+        .div(RATE_PRECISION)
+    );
+  }
+
+  log.debug("nToken Interest Accrued Final Value {}", [interestAccrued.toString()]);
+  updateExchangeRate(oracle, interestAccrued, block, null);
+}
+
+export function updateExchangeRate(
   oracle: Oracle,
   rate: BigInt,
   block: ethereum.Block,
@@ -107,20 +150,20 @@ function updateVaultOracleMaturity(
   vaultAddress: Address,
   maturity: BigInt,
   base: Token,
-  block: ethereum.Block
+  block: ethereum.Block,
+  interestAccrued: BigInt | null,
+  txnHash: string | null
 ): void {
   let notional = getNotional();
   let vaultConfig = notional.getVaultConfig(vaultAddress);
   let vault = IStrategyVault.bind(vaultAddress);
 
-  let shareValue = vault.try_convertStrategyToUnderlying(
-    vaultAddress,
-    INTERNAL_TOKEN_PRECISION,
-    maturity
-  );
+  let shareValue = vault.try_getExchangeRate(maturity);
   let value: BigInt;
   if (shareValue.reverted) {
-    value = BigInt.fromI32(0);
+    let v = vault.try_getExchangeRate(maturity);
+    if (!v.reverted) value = v.value;
+    else value = BigInt.zero();
   } else {
     value = shareValue.value;
   }
@@ -133,21 +176,80 @@ function updateVaultOracleMaturity(
     false
   ) as BigInt;
   let vaultShareAsset = getOrCreateERC1155Asset(vaultShareId, block, null);
-  let oracle = getOracle(base, vaultShareAsset, VaultShareOracleRate);
-  // These will never change but set them here just in case
-  oracle.decimals = base.decimals;
-  oracle.ratePrecision = base.precision;
-  oracle.oracleAddress = vaultAddress;
+  {
+    let oracle = getOracle(base, vaultShareAsset, VaultShareOracleRate);
+    // These will never change but set them here just in case
+    oracle.decimals = base.decimals;
+    oracle.ratePrecision = base.precision;
+    oracle.oracleAddress = vaultAddress;
 
-  updateExchangeRate(oracle, value, block, null);
+    updateExchangeRate(oracle, value, block, null);
+  }
+
+  if (interestAccrued !== null) {
+    let o = getOracle(base, vaultShareAsset, VaultShareInterestAccrued);
+    o.decimals = SCALAR_DECIMALS;
+    o.ratePrecision = SCALAR_PRECISION;
+    o.oracleAddress = vaultAddress;
+
+    // NOTE: reinvestments are not six hours apart so we look at the last time the oracle was updated
+    // to find the exchange rate id
+    let lastTs =
+      o.get("lastUpdateTimestamp") != null ? BigInt.fromI32(o.lastUpdateTimestamp) : BigInt.zero();
+    let prevTs = lastTs.minus(lastTs.mod(SIX_HOURS));
+    let prevId = o.id + ":" + prevTs.toString();
+
+    let currentTs = block.timestamp.minus(block.timestamp.mod(SIX_HOURS));
+    let currentId = o.id + ":" + currentTs.toString();
+
+    // Multiple reinvestments happen at the same block so need to accrue reinvestments
+    // at the same timestamp together.
+    let currentRate = ExchangeRate.load(currentId);
+    if (currentRate) {
+      // If there is a current rate then accumulate it, this is the only place
+      // where we do this so we don't call the function here.
+      let newRate = currentRate.rate.plus(interestAccrued);
+
+      currentRate.blockNumber = block.number;
+      currentRate.timestamp = block.timestamp.toI32();
+      currentRate.rate = newRate;
+      currentRate.oracle = o.id;
+      currentRate.transaction = txnHash;
+      let quote = getAsset(o.quote);
+      currentRate.totalSupply = quote.totalSupply;
+      currentRate.save();
+
+      o.latestRate = newRate;
+      o.lastUpdateBlockNumber = block.number;
+      o.lastUpdateTimestamp = block.timestamp.toI32();
+      o.lastUpdateTransaction = txnHash;
+      o.save();
+    } else {
+      let previousRate = ExchangeRate.load(prevId);
+      let newRate = interestAccrued;
+      if (previousRate) {
+        // If there is a previous rate then accrue that into the object
+        newRate = previousRate.rate.plus(interestAccrued);
+      }
+      updateExchangeRate(o, newRate, block, txnHash);
+    }
+  }
 }
 
-export function updateVaultOracles(vaultAddress: Address, block: ethereum.Block): void {
+export function updateVaultOracles(
+  vaultAddress: Address,
+  block: ethereum.Block,
+  interestAccrued: BigInt | null,
+  txnHash: string | null
+): void {
   let notional = getNotional();
   let vaultConfig = notional.getVaultConfig(vaultAddress);
   let base = getUnderlying(vaultConfig.borrowCurrencyId);
 
-  updateVaultOracleMaturity(vaultAddress, PRIME_CASH_VAULT_MATURITY, base, block);
+  // prettier-ignore
+  updateVaultOracleMaturity(
+    vaultAddress, PRIME_CASH_VAULT_MATURITY, base, block, interestAccrued, txnHash
+  );
 
   let activeMarkets = notional.try_getActiveMarkets(vaultConfig.borrowCurrencyId);
   if (activeMarkets.reverted) return;
@@ -155,7 +257,10 @@ export function updateVaultOracles(vaultAddress: Address, block: ethereum.Block)
   for (let i = 0; i < activeMarkets.value.length; i++) {
     if (i + 1 <= vaultConfig.maxBorrowMarketIndex.toI32()) {
       let a = activeMarkets.value[i];
-      updateVaultOracleMaturity(vaultAddress, a.maturity, base, block);
+      // prettier-ignore
+      updateVaultOracleMaturity(
+        vaultAddress, a.maturity, base, block, interestAccrued, txnHash
+      );
     }
   }
 }
@@ -208,6 +313,10 @@ export function updatefCashOraclesAndMarkets(
     pCashAsset,
     block.timestamp
   );
+  let nTokenFCashAssets = notional
+    .getNTokenPortfolio(Address.fromBytes(nToken.tokenAddress))
+    .getNetfCashAssets();
+
   if (nTokenCash === null) nTokenCash = BigInt.zero();
   let nTokenBlendedInterestNumerator = nTokenCash.times(pCashSupplyRate);
   let nTokenBlendedInterestDenominator = nTokenCash;
@@ -265,11 +374,15 @@ export function updatefCashOraclesAndMarkets(
     updatefCashMarket(currencyId, a.maturity.toI32(), block, txnHash);
 
     // Updates blended interest rate factors
-    let fCashPV = convertValueToUnderlying(
-      activeMarkets.value[i].totalfCash,
-      posFCash,
-      block.timestamp
-    );
+    let fCashHeld = BigInt.zero();
+    for (let j = 0; j < nTokenFCashAssets.length; j++) {
+      if (nTokenFCashAssets[j].maturity == a.maturity) {
+        fCashHeld = nTokenFCashAssets[j].notional;
+        break;
+      }
+    }
+    let netNTokenFCash = activeMarkets.value[i].totalfCash.plus(fCashHeld);
+    let fCashPV = convertValueToUnderlying(netNTokenFCash, posFCash, block.timestamp);
 
     let cashPV = convertValueToUnderlying(
       activeMarkets.value[i].totalPrimeCash,
@@ -349,6 +462,12 @@ function updateNTokenRates(
     interestAPY,
     base, nToken, notional._address, block, txnHash
   );
+
+  let o = getOracle(base, nToken, nTokenInterestAccrued);
+  o.decimals = SCALAR_DECIMALS;
+  o.ratePrecision = SCALAR_PRECISION;
+  o.oracleAddress = notional._address;
+  accumulateInterestEarnedRate(o, interestAPY, block);
 
   if (nTokenUnderlyingPV.gt(BigInt.zero())) {
     let feeBuffer = getNTokenFeeBuffer(currencyId);
@@ -465,7 +584,7 @@ export function handleVaultListing(event: VaultUpdated): void {
     registry.listedVaults = listedVaults;
     registry.save();
 
-    updateVaultOracles(vaultAddress, event.block);
+    updateVaultOracles(vaultAddress, event.block, null, null);
   }
 }
 
@@ -752,7 +871,7 @@ export function handleBlockOracleUpdate(block: ethereum.Block): void {
   }
 
   for (let i = 0; i < registry.listedVaults.length; i++) {
-    updateVaultOracles(Address.fromBytes(registry.listedVaults[i]), block);
+    updateVaultOracles(Address.fromBytes(registry.listedVaults[i]), block, null, null);
   }
 
   for (let i = 0; i < registry.fCashEnabled.length; i++) {

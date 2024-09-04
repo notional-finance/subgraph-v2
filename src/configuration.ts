@@ -413,7 +413,7 @@ export function handleMarketsInitialized(event: MarketsInitialized): void {
     let vaultAddress = Address.fromBytes(registry.listedVaults[i]);
     let vaultConfig = notional.getVaultConfig(vaultAddress);
     if (vaultConfig.borrowCurrencyId == event.params.currencyId) {
-      updateVaultOracles(vaultAddress, event.block);
+      updateVaultOracles(vaultAddress, event.block, null, null);
     }
   }
 }
@@ -597,7 +597,8 @@ export function handleVaultUpdated(event: VaultUpdated): void {
   vault.reserveFeeSharePercent = vaultConfig.reserveFeeShare.toI32();
   vault.liquidationRatePercent = vaultConfig.liquidationRate.toI32();
   vault.maxBorrowMarketIndex = vaultConfig.maxBorrowMarketIndex.toI32();
-  vault.maxRequiredAccountCollateralRatioBasisPoints = vaultConfig.maxRequiredAccountCollateralRatio.toI32();
+  vault.maxRequiredAccountCollateralRatioBasisPoints =
+    vaultConfig.maxRequiredAccountCollateralRatio.toI32();
 
   if (
     vaultConfig.secondaryBorrowCurrencies[0] == 0 &&

@@ -13,6 +13,7 @@
     "deploy:mainnet": "yarn run prepare:mainnet && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/mainnet-v2",
     "deploy:mainnet-debug": "yarn run prepare:mainnet && yarn run codegen && graph deploy --node https://api.thegraph.com/deploy/ --ipfs https://api.thegraph.com/ipfs/ notional-finance/mainnet-debug",
     "deploy:studio:arbitrum-debug": "yarn run prepare:arbitrum-one && yarn run codegen && yarn run graph deploy --studio notional-finance-v3-arbitrum",
+    "deploy:studio:mainnet-debug": "yarn run prepare:mainnet && yarn run codegen && yarn run graph deploy --studio notional-finance-v3-mainnet",
     "deploy:studio:arbitrum": "yarn run prepare:arbitrum-one && yarn run codegen && yarn run graph deploy --studio notional-v3-arbitrum",
     "deploy:studio:mainnet": "yarn run prepare:mainnet && yarn run codegen && yarn run graph deploy --studio notional-v3-mainnet",
     "subgraph:up": "./start.sh",
@@ -20,8 +21,7 @@
     "compile:subgraph": "yarn run prepare:local && yarn run codegen && yarn run build && yarn run deploy:local"
   },
   "devDependencies": {
-    "@goldskycom/cli": "^1.12.0",
-    "@graphprotocol/graph-cli": "^0.79.2",
+    "@graphprotocol/graph-cli": "^0.80.1",
     "@graphprotocol/graph-ts": "^0.31.0",
     "hbs-cli": "^1.4.0",
     "matchstick-as": "^0.5.2"

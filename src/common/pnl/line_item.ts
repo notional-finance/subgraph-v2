@@ -10,6 +10,7 @@ import {
   nToken,
 } from "../constants";
 import { getAsset, getUnderlying } from "../entities";
+import { calculateTotalFCashFee } from "../../balances";
 
 export function createLineItem(
   bundle: TransferBundle,
@@ -19,7 +20,8 @@ export function createLineItem(
   underlyingAmountRealized: BigInt,
   underlyingAmountSpot: BigInt,
   ratio: BigInt | null = null,
-  underlyingAmountForImpliedRate: BigInt | null = null
+  underlyingAmountForImpliedRate: BigInt | null = null,
+  feesPaid: BigInt | null = null
 ): void {
   let item = new ProfitLossLineItem(bundle.id + ":" + lineItems.length.toString());
   item.bundle = bundle.id;
@@ -28,6 +30,7 @@ export function createLineItem(
   item.transactionHash = bundle.transactionHash;
   item.token = tokenTransfer.token;
   item.underlyingToken = tokenTransfer.underlying;
+  item.feesPaid = feesPaid;
 
   if (transferType == Mint) {
     item.account = tokenTransfer.to;
@@ -273,6 +276,8 @@ export function createfCashLineItems(
 
   // This is the fCash cash transfer
   let underlyingAmountRealized = getfCashAmountRealized(isBuy, fCashTrade);
+  let currencyId = getAsset(fCashTrade[0].token).currencyId;
+  let totalFCashFee = calculateTotalFCashFee(currencyId, fCashTrade[0].valueInUnderlying as BigInt);
   createLineItem(
     bundle,
     fCashTransfer,
@@ -281,6 +286,7 @@ export function createfCashLineItems(
     underlyingAmountRealized,
     fCashTransfer.valueInUnderlying as BigInt,
     ratio,
-    fCashTrade[0].valueInUnderlying // For the implied rate, do not include the fee
+    fCashTrade[0].valueInUnderlying, // For the implied rate, do not include the fee
+    totalFCashFee
   );
 }

@@ -29,6 +29,7 @@ import {
   NOTE,
   Notional,
   NTOKEN_FEE_BUFFER_WINDOW,
+  FEE_RESERVE,
 } from "./common/constants";
 import { getAccount, getAsset, getIncentives, getNotional, getUnderlying } from "./common/entities";
 import { updatePrimeCashMarket } from "./common/market";
@@ -73,6 +74,7 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
     snapshot.totalInterestAccrualAtSnapshot = BigInt.zero();
     snapshot._accumulatedBalance = BigInt.zero();
     snapshot._accumulatedCostRealized = BigInt.zero();
+    snapshot._lastInterestAccumulator = BigInt.zero();
 
     // These features are accumulated over the lifetime of the balance, as long
     // as it is not zero.
@@ -85,11 +87,13 @@ export function getBalanceSnapshot(balance: Balance, event: ethereum.Event): Bal
         snapshot.totalILAndFeesAtSnapshot = BigInt.zero();
         snapshot._accumulatedBalance = BigInt.zero();
         snapshot._accumulatedCostRealized = BigInt.zero();
+        snapshot._lastInterestAccumulator = BigInt.zero();
         snapshot.impliedFixedRate = null;
       } else {
         snapshot.totalILAndFeesAtSnapshot = prevSnapshot.totalILAndFeesAtSnapshot;
         snapshot._accumulatedBalance = prevSnapshot._accumulatedBalance;
         snapshot._accumulatedCostRealized = prevSnapshot._accumulatedCostRealized;
+        snapshot._lastInterestAccumulator = prevSnapshot._lastInterestAccumulator;
         snapshot.impliedFixedRate = prevSnapshot.impliedFixedRate;
       }
 
@@ -141,7 +145,7 @@ function _updateBalance(
   if (systemAccount == ZeroAddress) {
     return;
   } else if (systemAccount == nToken) {
-    updateNToken(token, account, balance, event);
+    updateNToken(token, account, balance, transfer, event);
   } else if (systemAccount == Vault) {
     updateVaultState(token, account, balance, transfer, event);
   } else if (systemAccount == FeeReserve || systemAccount == SettlementReserve) {
@@ -312,6 +316,7 @@ function updateNToken(
   token: Token,
   nTokenAccount: Account,
   balance: Balance,
+  transfer: Transfer,
   event: ethereum.Event
 ): void {
   let notional = getNotional();
@@ -339,7 +344,39 @@ function updateNToken(
       return t.plus(m.totalPrimeCash);
     }, acct.getCashBalance());
     snapshot.currentBalance = totalCash;
+
+    if (
+      transfer !== null &&
+      event.receipt !== null &&
+      transfer.fromSystemAccount == Vault &&
+      event.logIndex.toI32() > 1
+    ) {
+      if ((event.receipt as ethereum.TransactionReceipt).logs.length >= event.logIndex.toI32()) {
+        let prevLog = (event.receipt as ethereum.TransactionReceipt).logs[
+          event.logIndex.toI32() - 1
+        ];
+        if (
+          prevLog.address.toHexString() === transfer.token &&
+          prevLog.topics.length == 3 &&
+          prevLog.topics[0].toHexString() ==
+            "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
+        ) {
+          // This is a transfer event
+          let from = ethereum.decode("address", prevLog.topics[1]);
+          let to = ethereum.decode("address", prevLog.topics[2]);
+          if (
+            from !== null &&
+            from.toAddress().toHexString() === transfer.from &&
+            to !== null &&
+            to.toAddress().toHexString() === FEE_RESERVE.toHexString()
+          ) {
+            updateNTokenFeeBuffer(token.currencyId, transfer, event, true);
+          }
+        }
+      }
+    }
   }
+
   _saveBalance(balance, snapshot);
 }
 
@@ -366,8 +403,10 @@ function updateVaultState(
     let pDebtAddress = notional.pDebtAddress(token.currencyId);
     let pDebt = ERC4626.bind(pDebtAddress);
     if (isPrimary) {
-      totalDebtUnderlying = notional.getVaultState(vaultAddress, PRIME_CASH_VAULT_MATURITY)
-        .totalDebtUnderlying;
+      totalDebtUnderlying = notional.getVaultState(
+        vaultAddress,
+        PRIME_CASH_VAULT_MATURITY
+      ).totalDebtUnderlying;
     } else {
       totalDebtUnderlying = notional.getSecondaryBorrow(
         vaultAddress,
@@ -385,8 +424,10 @@ function updateVaultState(
     snapshot.currentBalance = pDebt.convertToShares(totalDebtInExternal);
   } else if (token.tokenType == fCash) {
     if (isPrimary) {
-      totalDebtUnderlying = notional.getVaultState(vaultAddress, token.maturity as BigInt)
-        .totalDebtUnderlying;
+      totalDebtUnderlying = notional.getVaultState(
+        vaultAddress,
+        token.maturity as BigInt
+      ).totalDebtUnderlying;
     } else {
       totalDebtUnderlying = notional.getSecondaryBorrow(
         vaultAddress,
@@ -409,16 +450,26 @@ function updateVaultState(
   _saveBalance(balance, snapshot);
 }
 
-function updateNTokenFeeBuffer(currencyId: i32, transfer: Transfer, event: ethereum.Event): void {
+export function calculateTotalFCashFee(currencyId: i32, valueInUnderlying: BigInt): BigInt {
   let config = getCurrencyConfiguration(currencyId);
-  if (config == null) return;
+  if (config == null) return BigInt.zero();
+
+  return valueInUnderlying
+    .times(BigInt.fromI32(100 - config.fCashReserveFeeSharePercent))
+    .div(BigInt.fromI32(100));
+}
+
+function updateNTokenFeeBuffer(
+  currencyId: i32,
+  transfer: Transfer,
+  event: ethereum.Event,
+  isVaultFee: boolean
+): void {
   // Only execute if the nToken has been created.
   let nTokenAddress = getNotional().try_nTokenAddress(currencyId);
   if (nTokenAddress.reverted) return;
 
-  let fCashReserveFeeSharePercent = config.fCashReserveFeeSharePercent;
   let feeBuffer = getNTokenFeeBuffer(currencyId);
-
   let minTransferTimestamp = event.block.timestamp.minus(NTOKEN_FEE_BUFFER_WINDOW).toI32();
   let feeTransfers = feeBuffer.feeTransfers;
   let feeTransferAmount = feeBuffer.feeTransferAmount;
@@ -437,9 +488,9 @@ function updateNTokenFeeBuffer(currencyId: i32, transfer: Transfer, event: ether
   }
 
   let transferAmount = transfer.valueInUnderlying
-    ? (transfer.valueInUnderlying as BigInt)
-        .times(BigInt.fromI32(100 - fCashReserveFeeSharePercent))
-        .div(BigInt.fromI32(100))
+    ? isVaultFee
+      ? (transfer.valueInUnderlying as BigInt)
+      : calculateTotalFCashFee(currencyId, transfer.valueInUnderlying as BigInt)
     : BigInt.zero();
   feeTransferAmount.push(transferAmount);
   feeTransfers.push(transfer.id);
@@ -494,8 +545,9 @@ function updateReserves(
 
   _saveBalance(balance, snapshot);
 
-  if (reserve.systemAccountType == FeeReserve) {
-    updateNTokenFeeBuffer(currencyId, transfer, event);
+  if (reserve.systemAccountType == FeeReserve && transfer.fromSystemAccount != Vault) {
+    // Vault fee transfers are direct to the nToken
+    updateNTokenFeeBuffer(currencyId, transfer, event, false);
   }
 }
 
