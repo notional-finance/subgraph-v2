@@ -583,13 +583,13 @@ function extractProfitLossLineItem(
 
     // Find the entry transfer bundle immediately preceding
     let vaultEntry = findPrecedingBundle("Vault Entry Transfer", bundleArray);
-    // vault share burned at oracle price
-    createVaultShareLineItem(
-      bundle,
-      transfers[1],
-      lineItems,
-      transfers[1].valueInUnderlying as BigInt
-    );
+    // Vault share value is the value of the vault shares created, in one edge case
+    // the value is null because the exchange rate is not available, so we set it to zero.
+    let vaultShareValue = transfers[1].valueInUnderlying;
+    if (vaultShareValue === null) vaultShareValue = BigInt.zero();
+
+    createVaultShareLineItem(bundle, transfers[1], lineItems, vaultShareValue);
+
     // vault shares created
     if (vaultEntry !== null && vaultEntry[0].valueInUnderlying !== null) {
       createVaultShareLineItem(
@@ -599,12 +599,7 @@ function extractProfitLossLineItem(
         (transfers[1].valueInUnderlying as BigInt).plus(vaultEntry[0].valueInUnderlying as BigInt)
       );
     } else {
-      createVaultShareLineItem(
-        bundle,
-        transfers[3],
-        lineItems,
-        transfers[1].valueInUnderlying as BigInt
-      );
+      createVaultShareLineItem(bundle, transfers[3], lineItems, vaultShareValue);
     }
     // vault debt burned
     createVaultDebtLineItem(bundle, transfers[0], lineItems, bundleArray);
