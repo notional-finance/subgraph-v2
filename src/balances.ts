@@ -366,8 +366,10 @@ function updateVaultState(
     let pDebtAddress = notional.pDebtAddress(token.currencyId);
     let pDebt = ERC4626.bind(pDebtAddress);
     if (isPrimary) {
-      totalDebtUnderlying = notional.getVaultState(vaultAddress, PRIME_CASH_VAULT_MATURITY)
-        .totalDebtUnderlying;
+      totalDebtUnderlying = notional.getVaultState(
+        vaultAddress,
+        PRIME_CASH_VAULT_MATURITY
+      ).totalDebtUnderlying;
     } else {
       totalDebtUnderlying = notional.getSecondaryBorrow(
         vaultAddress,
@@ -385,8 +387,10 @@ function updateVaultState(
     snapshot.currentBalance = pDebt.convertToShares(totalDebtInExternal);
   } else if (token.tokenType == fCash) {
     if (isPrimary) {
-      totalDebtUnderlying = notional.getVaultState(vaultAddress, token.maturity as BigInt)
-        .totalDebtUnderlying;
+      totalDebtUnderlying = notional.getVaultState(
+        vaultAddress,
+        token.maturity as BigInt
+      ).totalDebtUnderlying;
     } else {
       totalDebtUnderlying = notional.getSecondaryBorrow(
         vaultAddress,

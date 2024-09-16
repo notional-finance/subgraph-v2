@@ -130,7 +130,8 @@ export function convertValueToUnderlying(
     let vault = IStrategyVault.bind(Address.fromBytes(token.vaultAddress as Bytes));
     underlyingExternal = vault.try_convertStrategyToUnderlying(
       Address.fromBytes(token.vaultAddress as Bytes),
-      value,
+      // Have to use absolute value here because the vault expects a uint256 here.
+      value.abs(),
       token.maturity as BigInt
     );
     if (underlyingExternal.reverted) {
@@ -142,6 +143,9 @@ export function convertValueToUnderlying(
         let underlying = getUnderlying(currencyId);
         return value.times(exchangeRate.value).div(underlying.precision);
       }
+    } else if (value.lt(BigInt.fromI32(0))) {
+      // If the value is negative then invert the return value
+      return underlyingExternal.value.times(BigInt.fromI32(-1));
     }
   } else {
     // Unknown token type

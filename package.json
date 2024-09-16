@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "@goldskycom/cli": "^1.12.0",
-    "@graphprotocol/graph-cli": "^0.79.2",
+    "@graphprotocol/graph-cli": "^0.81.0",
     "@graphprotocol/graph-ts": "^0.31.0",
     "hbs-cli": "^1.4.0",
     "matchstick-as": "^0.5.2"
