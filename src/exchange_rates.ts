@@ -386,12 +386,17 @@ function updateNTokenRates(
     );
 
     // This is the APY of the secondary incentive in its own terms
-    let secondaryAPY = incentives.secondaryEmissionRate
-      ? (incentives.secondaryEmissionRate as BigInt)
-          .times(INTERNAL_TOKEN_PRECISION)
-          .times(RATE_PRECISION)
-          .div(nTokenUnderlyingPV)
-      : BigInt.zero();
+    let isSecondaryRewardActive =
+      incentives.secondaryRewardEndTime !== null &&
+      (incentives.secondaryRewardEndTime as BigInt).gt(block.timestamp);
+
+    let secondaryAPY =
+      incentives.secondaryEmissionRate && isSecondaryRewardActive
+        ? (incentives.secondaryEmissionRate as BigInt)
+            .times(INTERNAL_TOKEN_PRECISION)
+            .times(RATE_PRECISION)
+            .div(nTokenUnderlyingPV)
+        : BigInt.zero();
 
     // prettier-ignore
     updateNTokenRate(
