@@ -123,12 +123,16 @@ export function handleUnderlyingSnapshot(block: ethereum.Block): void {
 }
 
 export function handleCurrencyRebalanced(event: CurrencyRebalanced): void {
-  /* TODO: temporary disable this
   let external = getExternalLending(event.params.currencyId, event.block);
   let snapshot = getExternalLendingSnapshot(event.params.currencyId, event);
   if (snapshot == null) return;
 
-  updateUnderlyingSnapshot(event.params.currencyId, event.block, external);
+  updateUnderlyingSnapshot(
+    event.params.currencyId,
+    event.block,
+    external,
+    event.transaction.hash.toHexString()
+  );
 
   snapshot.externalLending = external.id;
   if (external.get("currentExternal") !== null) {
@@ -156,7 +160,6 @@ export function handleCurrencyRebalanced(event: CurrencyRebalanced): void {
 
   external.save();
   snapshot.save();
-  */
 }
 
 export function handleInterestHarvested(event: AssetInterestHarvested): void {
