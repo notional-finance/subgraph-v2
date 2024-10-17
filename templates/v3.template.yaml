@@ -6,8 +6,8 @@ repository: https://github.com/notional-finance/contracts-v2
 # features:
 #   - grafting
 # graft:
-#   base: QmYCYEJdnLTtxnndfLXVAy2LSYTpT9UejZeou2R7ffDrWt
-#   block: 164974495
+#   base: QmRqfLs1KbdZR9Z62kiBejR5U2aKsBPZ8M2zbyzscXCdGg
+#   block: 264515100
 schema:
   file: ./schema.graphql
 dataSources:
@@ -149,6 +149,8 @@ dataSources:
           file: ./abi/IStrategyVault.json
         - name: ERC4626
           file: ./abi/ERC4626.json
+        - name: ERC20
+          file: ./abi/ERC20.json
         - name: SecondaryRewarder
           file: ./abi/SecondaryRewarder.json
       eventHandlers:

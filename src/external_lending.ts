@@ -92,9 +92,15 @@ function getExternalLendingSnapshot(
   snapshot.storedBalanceOf = notional.getStoredTokenBalances([externalLendingToken])[0];
   snapshot.storedBalanceOfUnderlying = holdingsOracle.holdingValuesInUnderlying()[0];
 
-  let underlyingExchangeRate = snapshot.storedBalanceOfUnderlying
-    .times(SCALAR_PRECISION)
-    .div(snapshot.storedBalanceOf);
+  let underlyingExchangeRate: BigInt;
+  if (snapshot.storedBalanceOf.isZero()) {
+    return null;
+  } else {
+    underlyingExchangeRate = snapshot.storedBalanceOfUnderlying
+      .times(SCALAR_PRECISION)
+      .div(snapshot.storedBalanceOf);
+  }
+
   snapshot.balanceOf = externalLendingERC20.balanceOf(notional._address);
   // This is inferred using the exchange rate since the prime cash holdings oracle is not aware
   // of the actual balanceOf
@@ -140,6 +146,10 @@ export function handleCurrencyRebalanced(event: CurrencyRebalanced): void {
   }
   external.currentExternal = snapshot.id;
 
+  // These are default values for these attributes
+  snapshot.protocolRevenueSinceLastSnapshot = BigInt.zero();
+  external.protocolRevenueAllTime = BigInt.zero();
+
   if (snapshot.prevSnapshot !== null) {
     let prevSnapshot = ExternalLendingSnapshot.load(snapshot.prevSnapshot as string);
     if (prevSnapshot !== null) {
@@ -152,9 +162,6 @@ export function handleCurrencyRebalanced(event: CurrencyRebalanced): void {
       external.protocolRevenueAllTime = external.protocolRevenueAllTime.plus(
         snapshot.protocolRevenueSinceLastSnapshot
       );
-    } else {
-      snapshot.protocolRevenueSinceLastSnapshot = BigInt.zero();
-      external.protocolRevenueAllTime = BigInt.zero();
     }
   }
 

@@ -599,9 +599,9 @@ export function handleRebalance(event: CurrencyRebalanced): void {
   // External lending rate
   let pCashExternalLending = getOracle(base, pCashAsset, PrimeCashExternalLendingInterestRate);
   let interestRates = notional.getPrimeInterestRate(event.params.currencyId);
-  pCashSupplyRate.decimals = RATE_DECIMALS;
-  pCashSupplyRate.ratePrecision = RATE_PRECISION;
-  pCashSupplyRate.oracleAddress = notional._address;
+  pCashExternalLending.decimals = RATE_DECIMALS;
+  pCashExternalLending.ratePrecision = RATE_PRECISION;
+  pCashExternalLending.oracleAddress = notional._address;
   updateExchangeRate(
     pCashExternalLending,
     // The external lending rate is the difference between the oracle supply rate
