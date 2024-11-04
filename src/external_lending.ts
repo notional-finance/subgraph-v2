@@ -91,22 +91,23 @@ function getExternalLendingSnapshot(
   snapshot.externalLendingToken = externalLendingToken.toHexString();
   snapshot.storedBalanceOf = notional.getStoredTokenBalances([externalLendingToken])[0];
   snapshot.storedBalanceOfUnderlying = holdingsOracle.holdingValuesInUnderlying()[0];
+  snapshot.balanceOf = externalLendingERC20.balanceOf(notional._address);
 
   let underlyingExchangeRate: BigInt;
   if (snapshot.storedBalanceOf.isZero()) {
-    return null;
+    // This is set to zero when the stored balance is zero
+    snapshot.balanceOfUnderlying = BigInt.zero();
   } else {
     underlyingExchangeRate = snapshot.storedBalanceOfUnderlying
       .times(SCALAR_PRECISION)
       .div(snapshot.storedBalanceOf);
+    // This is inferred using the exchange rate since the prime cash holdings oracle is not aware
+    // of the actual balanceOf
+    snapshot.balanceOfUnderlying = snapshot.balanceOf
+      .times(underlyingExchangeRate)
+      .div(SCALAR_PRECISION);
   }
 
-  snapshot.balanceOf = externalLendingERC20.balanceOf(notional._address);
-  // This is inferred using the exchange rate since the prime cash holdings oracle is not aware
-  // of the actual balanceOf
-  snapshot.balanceOfUnderlying = snapshot.balanceOf
-    .times(underlyingExchangeRate)
-    .div(SCALAR_PRECISION);
   snapshot.holdingAvailableToWithdraw = oracleData.externalUnderlyingAvailableForWithdraw;
 
   // NOTE: this is set by listening to a different event
