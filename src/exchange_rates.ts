@@ -9,7 +9,7 @@ import {
 } from "../generated/ExchangeRates/Notional";
 import { IStrategyVault } from "../generated/ExchangeRates/IStrategyVault";
 import { Aggregator } from "../generated/ExchangeRates/Aggregator";
-import { Token, ExchangeRate, Oracle, Incentive } from "../generated/schema";
+import { Token, ExchangeRate, Oracle, Incentive, Transfer } from "../generated/schema";
 import {
   Chainlink,
   DOUBLE_SCALAR_DECIMALS,
@@ -42,6 +42,7 @@ import {
   nTokenFeeRate,
   nTokenIncentiveRate,
   nTokenSecondaryIncentiveRate,
+  NTOKEN_FEE_BUFFER_WINDOW,
 } from "./common/constants";
 import {
   getAsset,
@@ -208,6 +209,7 @@ export function updatefCashOraclesAndMarkets(
     pCashAsset,
     block.timestamp
   );
+  let nTokenPortfolio = notional.getNTokenPortfolio(Address.fromBytes(nToken.tokenAddress));
   if (nTokenCash === null) nTokenCash = BigInt.zero();
   let nTokenBlendedInterestNumerator = nTokenCash.times(pCashSupplyRate);
   let nTokenBlendedInterestDenominator = nTokenCash;
@@ -265,8 +267,17 @@ export function updatefCashOraclesAndMarkets(
     updatefCashMarket(currencyId, a.maturity.toI32(), block, txnHash);
 
     // Updates blended interest rate factors
+    let netFCash = BigInt.zero();
+    for (let i = 0; i < nTokenPortfolio.getNetfCashAssets().length; i++) {
+      let n = nTokenPortfolio.getNetfCashAssets()[i];
+      if (n.maturity === a.maturity) {
+        netFCash = n.notional;
+        break;
+      }
+    }
+
     let fCashPV = convertValueToUnderlying(
-      activeMarkets.value[i].totalfCash,
+      activeMarkets.value[i].totalfCash.plus(netFCash),
       posFCash,
       block.timestamp
     );
@@ -352,9 +363,23 @@ function updateNTokenRates(
 
   if (nTokenUnderlyingPV.gt(BigInt.zero())) {
     let feeBuffer = getNTokenFeeBuffer(currencyId);
+    let last30DayNTokenFees = BigInt.zero();
+    // Calculate the last 30 day fees dynamically in case the fee buffer has not been updated
+    let minTransferTimestamp = block.timestamp.minus(NTOKEN_FEE_BUFFER_WINDOW).toI32();
+    for (let i = 0; i < feeBuffer.feeTransfers.length; i++) {
+      let transfer = Transfer.load(feeBuffer.feeTransfers[i]);
+      if (
+        transfer === null ||
+        transfer.timestamp < minTransferTimestamp ||
+        transfer.valueInUnderlying === null
+      )
+        continue;
+      last30DayNTokenFees = last30DayNTokenFees.plus(transfer.valueInUnderlying as BigInt);
+    }
+
     let underlying = getUnderlying(currencyId);
     // NOTE: last 30 day fees is in underlying external precision
-    let feeAPY = feeBuffer.last30DayNTokenFees
+    let feeAPY = last30DayNTokenFees
       // NOTE: this sets the value on an annualized basis
       .times(BigInt.fromI32(12))
       .times(RATE_PRECISION)
