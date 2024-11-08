@@ -9,7 +9,7 @@ import {
 } from "../generated/ExchangeRates/Notional";
 import { IStrategyVault } from "../generated/ExchangeRates/IStrategyVault";
 import { Aggregator } from "../generated/ExchangeRates/Aggregator";
-import { Token, ExchangeRate, Oracle, Incentive } from "../generated/schema";
+import { Token, ExchangeRate, Oracle, Incentive, Transfer } from "../generated/schema";
 import {
   Chainlink,
   DOUBLE_SCALAR_DECIMALS,
@@ -45,6 +45,7 @@ import {
   nTokenInterestAccrued,
   SECONDS_IN_YEAR,
   VaultShareInterestAccrued,
+  NTOKEN_FEE_BUFFER_WINDOW,
 } from "./common/constants";
 import {
   getAsset,
@@ -471,9 +472,23 @@ function updateNTokenRates(
 
   if (nTokenUnderlyingPV.gt(BigInt.zero())) {
     let feeBuffer = getNTokenFeeBuffer(currencyId);
+    let last30DayNTokenFees = BigInt.zero();
+    // Calculate the last 30 day fees dynamically in case the fee buffer has not been updated
+    let minTransferTimestamp = block.timestamp.minus(NTOKEN_FEE_BUFFER_WINDOW).toI32();
+    for (let i = 0; i < feeBuffer.feeTransfers.length; i++) {
+      let transfer = Transfer.load(feeBuffer.feeTransfers[i]);
+      if (
+        transfer === null ||
+        transfer.timestamp < minTransferTimestamp ||
+        transfer.valueInUnderlying === null
+      )
+        continue;
+      last30DayNTokenFees = last30DayNTokenFees.plus(transfer.valueInUnderlying as BigInt);
+    }
+
     let underlying = getUnderlying(currencyId);
     // NOTE: last 30 day fees is in underlying external precision
-    let feeAPY = feeBuffer.last30DayNTokenFees
+    let feeAPY = last30DayNTokenFees
       // NOTE: this sets the value on an annualized basis
       .times(BigInt.fromI32(12))
       .times(RATE_PRECISION)
@@ -505,12 +520,17 @@ function updateNTokenRates(
     );
 
     // This is the APY of the secondary incentive in its own terms
-    let secondaryAPY = incentives.secondaryEmissionRate
-      ? (incentives.secondaryEmissionRate as BigInt)
-          .times(INTERNAL_TOKEN_PRECISION)
-          .times(RATE_PRECISION)
-          .div(nTokenUnderlyingPV)
-      : BigInt.zero();
+    let isSecondaryRewardActive =
+      incentives.secondaryRewardEndTime !== null &&
+      (incentives.secondaryRewardEndTime as BigInt).gt(block.timestamp);
+
+    let secondaryAPY =
+      incentives.secondaryEmissionRate && isSecondaryRewardActive
+        ? (incentives.secondaryEmissionRate as BigInt)
+            .times(INTERNAL_TOKEN_PRECISION)
+            .times(RATE_PRECISION)
+            .div(nTokenUnderlyingPV)
+        : BigInt.zero();
 
     // prettier-ignore
     updateNTokenRate(
@@ -713,9 +733,9 @@ export function handleRebalance(event: CurrencyRebalanced): void {
   // External lending rate
   let pCashExternalLending = getOracle(base, pCashAsset, PrimeCashExternalLendingInterestRate);
   let interestRates = notional.getPrimeInterestRate(event.params.currencyId);
-  pCashSupplyRate.decimals = RATE_DECIMALS;
-  pCashSupplyRate.ratePrecision = RATE_PRECISION;
-  pCashSupplyRate.oracleAddress = notional._address;
+  pCashExternalLending.decimals = RATE_DECIMALS;
+  pCashExternalLending.ratePrecision = RATE_PRECISION;
+  pCashExternalLending.oracleAddress = notional._address;
   updateExchangeRate(
     pCashExternalLending,
     // The external lending rate is the difference between the oracle supply rate

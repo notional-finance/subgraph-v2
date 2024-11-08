@@ -91,16 +91,23 @@ function getExternalLendingSnapshot(
   snapshot.externalLendingToken = externalLendingToken.toHexString();
   snapshot.storedBalanceOf = notional.getStoredTokenBalances([externalLendingToken])[0];
   snapshot.storedBalanceOfUnderlying = holdingsOracle.holdingValuesInUnderlying()[0];
-
-  let underlyingExchangeRate = snapshot.storedBalanceOfUnderlying
-    .times(SCALAR_PRECISION)
-    .div(snapshot.storedBalanceOf);
   snapshot.balanceOf = externalLendingERC20.balanceOf(notional._address);
-  // This is inferred using the exchange rate since the prime cash holdings oracle is not aware
-  // of the actual balanceOf
-  snapshot.balanceOfUnderlying = snapshot.balanceOf
-    .times(underlyingExchangeRate)
-    .div(SCALAR_PRECISION);
+
+  let underlyingExchangeRate: BigInt;
+  if (snapshot.storedBalanceOf.isZero()) {
+    // This is set to zero when the stored balance is zero
+    snapshot.balanceOfUnderlying = BigInt.zero();
+  } else {
+    underlyingExchangeRate = snapshot.storedBalanceOfUnderlying
+      .times(SCALAR_PRECISION)
+      .div(snapshot.storedBalanceOf);
+    // This is inferred using the exchange rate since the prime cash holdings oracle is not aware
+    // of the actual balanceOf
+    snapshot.balanceOfUnderlying = snapshot.balanceOf
+      .times(underlyingExchangeRate)
+      .div(SCALAR_PRECISION);
+  }
+
   snapshot.holdingAvailableToWithdraw = oracleData.externalUnderlyingAvailableForWithdraw;
 
   // NOTE: this is set by listening to a different event
@@ -123,18 +130,26 @@ export function handleUnderlyingSnapshot(block: ethereum.Block): void {
 }
 
 export function handleCurrencyRebalanced(event: CurrencyRebalanced): void {
-  /* TODO: temporary disable this
   let external = getExternalLending(event.params.currencyId, event.block);
   let snapshot = getExternalLendingSnapshot(event.params.currencyId, event);
   if (snapshot == null) return;
 
-  updateUnderlyingSnapshot(event.params.currencyId, event.block, external);
+  updateUnderlyingSnapshot(
+    event.params.currencyId,
+    event.block,
+    external,
+    event.transaction.hash.toHexString()
+  );
 
   snapshot.externalLending = external.id;
   if (external.get("currentExternal") !== null) {
     snapshot.prevSnapshot = external.currentExternal;
   }
   external.currentExternal = snapshot.id;
+
+  // These are default values for these attributes
+  snapshot.protocolRevenueSinceLastSnapshot = BigInt.zero();
+  external.protocolRevenueAllTime = BigInt.zero();
 
   if (snapshot.prevSnapshot !== null) {
     let prevSnapshot = ExternalLendingSnapshot.load(snapshot.prevSnapshot as string);
@@ -148,15 +163,11 @@ export function handleCurrencyRebalanced(event: CurrencyRebalanced): void {
       external.protocolRevenueAllTime = external.protocolRevenueAllTime.plus(
         snapshot.protocolRevenueSinceLastSnapshot
       );
-    } else {
-      snapshot.protocolRevenueSinceLastSnapshot = BigInt.zero();
-      external.protocolRevenueAllTime = BigInt.zero();
     }
   }
 
   external.save();
   snapshot.save();
-  */
 }
 
 export function handleInterestHarvested(event: AssetInterestHarvested): void {

@@ -545,8 +545,13 @@ function updateReserves(
 
   _saveBalance(balance, snapshot);
 
-  if (reserve.systemAccountType == FeeReserve && transfer.fromSystemAccount != Vault) {
-    // Vault fee transfers are direct to the nToken
+  if (
+    reserve.systemAccountType == FeeReserve &&
+    transfer.transferType === "Transfer" &&
+    transfer.fromSystemAccount !== Vault
+  ) {
+    // Only transfers are used to update the fee buffer, excludes Mints of prime cash which
+    // go entirely to the fee reserve.
     updateNTokenFeeBuffer(currencyId, transfer, event, false);
   }
 }
