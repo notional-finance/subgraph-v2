@@ -370,7 +370,7 @@ function updateNToken(
             to !== null &&
             to.toAddress().toHexString() === FEE_RESERVE.toHexString()
           ) {
-            updateNTokenFeeBuffer(token.currencyId, transfer, event, true);
+            updateNTokenFeeBuffer(token.currencyId, transfer, event);
           }
         }
       }
@@ -455,16 +455,11 @@ export function calculateTotalFCashFee(currencyId: i32, valueInUnderlying: BigIn
   if (config == null) return BigInt.zero();
 
   return valueInUnderlying
-    .times(BigInt.fromI32(100 - config.fCashReserveFeeSharePercent))
-    .div(BigInt.fromI32(100));
+    .times(BigInt.fromI32(100))
+    .div(BigInt.fromI32(100 - config.fCashReserveFeeSharePercent));
 }
 
-function updateNTokenFeeBuffer(
-  currencyId: i32,
-  transfer: Transfer,
-  event: ethereum.Event,
-  isVaultFee: boolean
-): void {
+function updateNTokenFeeBuffer(currencyId: i32, transfer: Transfer, event: ethereum.Event): void {
   // Only execute if the nToken has been created.
   let nTokenAddress = getNotional().try_nTokenAddress(currencyId);
   if (nTokenAddress.reverted) return;
@@ -487,11 +482,11 @@ function updateNTokenFeeBuffer(
     }
   }
 
-  let transferAmount = transfer.valueInUnderlying
-    ? isVaultFee
-      ? (transfer.valueInUnderlying as BigInt)
-      : calculateTotalFCashFee(currencyId, transfer.valueInUnderlying as BigInt)
-    : BigInt.zero();
+  let transferAmount = BigInt.zero();
+  if (transfer.valueInUnderlying !== null) {
+    transferAmount = transfer.valueInUnderlying as BigInt;
+  }
+
   feeTransferAmount.push(transferAmount);
   feeTransfers.push(transfer.id);
 
@@ -552,7 +547,7 @@ function updateReserves(
   ) {
     // Only transfers are used to update the fee buffer, excludes Mints of prime cash which
     // go entirely to the fee reserve.
-    updateNTokenFeeBuffer(currencyId, transfer, event, false);
+    updateNTokenFeeBuffer(currencyId, transfer, event);
   }
 }
 
