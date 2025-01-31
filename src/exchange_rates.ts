@@ -472,18 +472,21 @@ function updateNTokenRates(
 
   if (nTokenUnderlyingPV.gt(BigInt.zero())) {
     let feeBuffer = getNTokenFeeBuffer(currencyId);
-    let last30DayNTokenFees = BigInt.zero();
     // Calculate the last 30 day fees dynamically in case the fee buffer has not been updated
     let minTransferTimestamp = block.timestamp.minus(NTOKEN_FEE_BUFFER_WINDOW).toI32();
+    let last30DayNTokenFees = BigInt.zero();
     for (let i = 0; i < feeBuffer.feeTransfers.length; i++) {
       let transfer = Transfer.load(feeBuffer.feeTransfers[i]);
       if (
         transfer === null ||
         transfer.timestamp < minTransferTimestamp ||
-        transfer.valueInUnderlying === null
+        transfer.valueInUnderlying === null ||
+        // NOTE: this should never happen but use it as a sanity check
+        feeBuffer.feeTransferAmount.length <= i
       )
         continue;
-      last30DayNTokenFees = last30DayNTokenFees.plus(transfer.valueInUnderlying as BigInt);
+
+      last30DayNTokenFees = last30DayNTokenFees.plus(feeBuffer.feeTransferAmount[i] as BigInt);
     }
 
     let underlying = getUnderlying(currencyId);
@@ -493,6 +496,7 @@ function updateNTokenRates(
       .times(BigInt.fromI32(12))
       .times(RATE_PRECISION)
       .div(nTokenUnderlyingPV.times(underlying.precision).div(INTERNAL_TOKEN_PRECISION));
+
     // prettier-ignore
     updateNTokenRate(
       nTokenFeeRate,

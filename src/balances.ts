@@ -29,7 +29,7 @@ import {
   NOTE,
   Notional,
   NTOKEN_FEE_BUFFER_WINDOW,
-  FEE_RESERVE,
+  None,
 } from "./common/constants";
 import { getAccount, getAsset, getIncentives, getNotional, getUnderlying } from "./common/entities";
 import { updatePrimeCashMarket } from "./common/market";
@@ -348,31 +348,22 @@ function updateNToken(
     if (
       transfer !== null &&
       event.receipt !== null &&
+      transfer.valueInUnderlying !== null &&
+      (transfer.valueInUnderlying as BigInt).gt(BigInt.zero()) &&
       transfer.fromSystemAccount == Vault &&
       event.logIndex.toI32() > 1
     ) {
-      if ((event.receipt as ethereum.TransactionReceipt).logs.length >= event.logIndex.toI32()) {
-        let prevLog = (event.receipt as ethereum.TransactionReceipt).logs[
-          event.logIndex.toI32() - 1
-        ];
-        if (
-          prevLog.address.toHexString() === transfer.token &&
-          prevLog.topics.length == 3 &&
-          prevLog.topics[0].toHexString() ==
-            "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
-        ) {
-          // This is a transfer event
-          let from = ethereum.decode("address", prevLog.topics[1]);
-          let to = ethereum.decode("address", prevLog.topics[2]);
-          if (
-            from !== null &&
-            from.toAddress().toHexString() === transfer.from &&
-            to !== null &&
-            to.toAddress().toHexString() === FEE_RESERVE.toHexString()
-          ) {
-            updateNTokenFeeBuffer(token.currencyId, transfer, event);
-          }
-        }
+      let transferId =
+        transfer.transactionHash + ":" + (transfer.logIndex - 1).toString().padStart(6, "0") + ":0";
+      let prevTransfer = Transfer.load(transferId);
+
+      if (
+        prevTransfer !== null &&
+        transfer.from == prevTransfer.from &&
+        transfer.token == prevTransfer.token &&
+        prevTransfer.toSystemAccount == FeeReserve
+      ) {
+        updateNTokenFeeBuffer(token.currencyId, transfer, event);
       }
     }
   }
@@ -483,7 +474,30 @@ function updateNTokenFeeBuffer(currencyId: i32, transfer: Transfer, event: ether
   }
 
   let transferAmount = BigInt.zero();
-  if (transfer.valueInUnderlying !== null) {
+  // If the transfer is an fCash trade then this amount is the amount of transfer
+  // to the fee reserve. The transfer is from an fCash trade if the transfer comes
+  // directly from an end user account. We can calculate the amount that goes to the nToken
+  // by applying the reserve fee share percent.
+  if (
+    transfer.valueInUnderlying !== null &&
+    transfer.fromSystemAccount == None &&
+    transfer.toSystemAccount == FeeReserve
+  ) {
+    let config = getCurrencyConfiguration(currencyId);
+    if (config == null) {
+      transferAmount = transfer.valueInUnderlying as BigInt;
+    } else {
+      // (valueInUnderlying / reserveFeeSharePercent) * (1 - reserveFeeSharePercent)
+      transferAmount = (transfer.valueInUnderlying as BigInt)
+        .times(BigInt.fromI32(100 - config.fCashReserveFeeSharePercent))
+        .div(BigInt.fromI32(config.fCashReserveFeeSharePercent));
+    }
+  } else if (
+    transfer.valueInUnderlying !== null &&
+    transfer.fromSystemAccount == Vault &&
+    transfer.toSystemAccount == nToken
+  ) {
+    // In this case, the transfer is from a vault directly to the nToken.
     transferAmount = transfer.valueInUnderlying as BigInt;
   }
 
@@ -541,9 +555,10 @@ function updateReserves(
   _saveBalance(balance, snapshot);
 
   if (
+    // NOTE: this could also be the settlement reserve so we filter that here.
     reserve.systemAccountType == FeeReserve &&
-    transfer.transferType === "Transfer" &&
-    transfer.fromSystemAccount !== Vault
+    transfer.transferType == "Transfer" &&
+    transfer.fromSystemAccount != Vault
   ) {
     // Only transfers are used to update the fee buffer, excludes Mints of prime cash which
     // go entirely to the fee reserve.

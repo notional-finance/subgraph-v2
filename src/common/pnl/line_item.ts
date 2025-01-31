@@ -248,7 +248,7 @@ export function createfCashLineItems(
 ): void {
   let isBuy = fCashTrade[0].toSystemAccount == nToken;
   let ratio: BigInt | null =
-    fCashTrade[2].value === fCashTransfer.value.abs()
+    fCashTrade[2].value == fCashTransfer.value.abs()
       ? null
       : fCashTransfer.value.times(RATE_PRECISION).div(fCashTrade[2].value).abs();
 
