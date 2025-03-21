@@ -4,6 +4,7 @@
         "Negativef",
         "Positivef",
         "Rebalance",
+        "reinvestments",
         "Wrappedf"
     ],
     "editor.defaultFormatter": "dbaeumer.vscode-eslint",

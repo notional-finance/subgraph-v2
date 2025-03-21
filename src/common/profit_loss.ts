@@ -1,4 +1,4 @@
-import { ethereum, BigInt, Bytes, log } from "@graphprotocol/graph-ts";
+import { ethereum, BigInt } from "@graphprotocol/graph-ts";
 import {
   BalanceSnapshot,
   ProfitLossLineItem,
@@ -109,6 +109,7 @@ export function processProfitAndLoss(
       // Clear all snapshot amounts back to zero if the accumulated balance goes below zero
       // NOTE: _accumulatedCostRealized is not cleared to zero in here. Is that correct?
       snapshot._accumulatedBalance = BigInt.zero();
+      snapshot._lastInterestAccumulator = BigInt.zero();
       snapshot.adjustedCostBasis = BigInt.zero();
       snapshot.currentProfitAndLossAtSnapshot = BigInt.zero();
       snapshot.totalInterestAccrualAtSnapshot = BigInt.zero();
@@ -143,7 +144,7 @@ export function processProfitAndLoss(
       // This will update the total IL and fees metric, which is used in the following
       // method to calculate the total interest accrued at the snapshot
       updateTotalILAndFees(snapshot, item);
-      updateCurrentSnapshotPnL(snapshot, token, event);
+      updateCurrentSnapshotPnL(snapshot, token, event, item);
     }
 
     item.save();
@@ -240,7 +241,7 @@ function extractProfitLossLineItem(
           snapshot = updateAccount(nToken, account, balance, event);
 
           // Updates the current snapshot PnL figures
-          updateCurrentSnapshotPnL(snapshot, nToken, event);
+          updateCurrentSnapshotPnL(snapshot, nToken, event, null);
           snapshot.save();
         } else {
           // If not then continue to the next currency id

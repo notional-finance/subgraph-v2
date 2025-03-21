@@ -227,10 +227,10 @@
     readline-sync "^1.4.10"
     update-notifier "^6.0.2"
 
-"@graphprotocol/graph-cli@^0.81.0":
-  version "0.81.0"
-  resolved "https://registry.yarnpkg.com/@graphprotocol/graph-cli/-/graph-cli-0.81.0.tgz#4728b38d155e8d59ab33fddf2cb7c1e1305ae679"
-  integrity sha512-jIH36P+OwHmSLAPPMq0KyGHr3gGK0HadJoqZmi22GqOWce8mh7cWp0rHykSGwrVftUBDD9IEYu1kI0ibpGXOLg==
+"@graphprotocol/graph-cli@^0.80.1":
+  version "0.80.1"
+  resolved "https://registry.yarnpkg.com/@graphprotocol/graph-cli/-/graph-cli-0.80.1.tgz#a46e5f7c62a4d98c1f66f219725aff9c4bc7e31d"
+  integrity sha512-Kg1o3Ww2B4Q1IhCvYBCJ4fMCv+EqVtLgGvLCZdVyZo4a994Uj76apqkr1KVwRBSW60jgrGkTtpoE2JTNpgbaXg==
   dependencies:
     "@float-capital/float-subgraph-uncrashable" "^0.0.0-alpha.4"
     "@oclif/core" "2.8.6"

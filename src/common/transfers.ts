@@ -29,10 +29,8 @@ import { processProfitAndLoss } from "./profit_loss";
 
 export function getExpFactor(rateInRatePrecision: BigInt, timeToMaturity: BigInt): f64 {
   return (
-    (rateInRatePrecision
-      .times(timeToMaturity)
-      .div(RATE_PRECISION)
-      .toI64() as f64) / (SECONDS_IN_YEAR.toI64() as f64)
+    (rateInRatePrecision.times(timeToMaturity).div(RATE_PRECISION).toI64() as f64) /
+    (SECONDS_IN_YEAR.toI64() as f64)
   );
 }
 
@@ -74,6 +72,11 @@ export function convertValueToUnderlying(
     let pDebtAddress = notional.pDebtAddress(currencyId);
     let pDebt = ERC4626.bind(pDebtAddress);
     underlyingExternal = pDebt.try_convertToAssets(value.abs());
+
+    if (underlyingExternal.reverted && pDebt.totalSupply().equals(BigInt.zero())) {
+      // In this case, convertToAssets will revert due to a divide by zero error.
+      return value.times(token.precision).div(INTERNAL_TOKEN_PRECISION);
+    }
   } else if (token.tokenType == PrimeCash || token.tokenType == VaultCash) {
     underlyingExternal = notional.try_convertCashBalanceToExternal(currencyId, value, true);
   } else if (
