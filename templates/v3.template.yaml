@@ -1,13 +1,13 @@
-specVersion: 0.0.8
+specVersion: 1.2.0
 description: Notional V3 Subgraph
 repository: https://github.com/notional-finance/contracts-v2
 # Enable these lines to spin up grafting. Note that you must
 # deploy to a newly created subgraph.
-# features:
-#   - grafting
-# graft:
-#   base: QmQB5iGmtUtQcbeoV9yBbARpDASFJGomfUhoiDycoqMF18
-#   block: 20869011
+features:
+  - grafting
+graft:
+  base: QmUeyWiH3fGWmeRESHvHANtuZUbwkWFvpQ4gPVVRTYPwbX
+  block: 269833908
 schema:
   file: ./schema.graphql
 dataSources:
@@ -20,7 +20,7 @@ dataSources:
       startBlock: {{ startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./src/assets.ts
       entities:
@@ -47,7 +47,7 @@ dataSources:
       startBlock: {{ startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./src/transactions.ts
       entities:
@@ -85,7 +85,7 @@ dataSources:
       startBlock: {{ startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./src/exchange_rates.ts
       entities:
@@ -137,7 +137,7 @@ dataSources:
       startBlock: {{ startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./src/configuration.ts
       entities:
@@ -229,7 +229,7 @@ dataSources:
       startBlock: {{ startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./src/trading_module.ts
       entities:
@@ -261,7 +261,7 @@ dataSources:
       startBlock: {{ startBlock }}
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./src/treasury_manager.ts
       entities:
@@ -289,7 +289,7 @@ templates:
       abi: ERC4626
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./src/transactions.ts
       entities:
@@ -320,7 +320,7 @@ templates:
       abi: SecondaryRewarder
     mapping:
       kind: ethereum/events
-      apiVersion: 0.0.7
+      apiVersion: 0.0.9
       language: wasm/assemblyscript
       file: ./src/rewarder.ts
       entities:

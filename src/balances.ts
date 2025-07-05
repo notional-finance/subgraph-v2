@@ -478,11 +478,7 @@ function updateNTokenFeeBuffer(currencyId: i32, transfer: Transfer, event: ether
   // to the fee reserve. The transfer is from an fCash trade if the transfer comes
   // directly from an end user account. We can calculate the amount that goes to the nToken
   // by applying the reserve fee share percent.
-  if (
-    transfer.valueInUnderlying !== null &&
-    transfer.fromSystemAccount == None &&
-    transfer.toSystemAccount == FeeReserve
-  ) {
+  if (transfer.valueInUnderlying !== null && transfer.toSystemAccount == FeeReserve) {
     let config = getCurrencyConfiguration(currencyId);
     if (config == null) {
       transferAmount = transfer.valueInUnderlying as BigInt;
@@ -554,14 +550,31 @@ function updateReserves(
 
   _saveBalance(balance, snapshot);
 
-  if (
-    // NOTE: this could also be the settlement reserve so we filter that here.
-    reserve.systemAccountType == FeeReserve &&
-    transfer.transferType == "Transfer" &&
-    transfer.fromSystemAccount != Vault
-  ) {
-    // Only transfers are used to update the fee buffer, excludes Mints of prime cash which
-    // go entirely to the fee reserve.
+  if (reserve.systemAccountType != FeeReserve || transfer.transferType != "Transfer") {
+    return;
+  }
+
+  // NOTE: these are fee transfers for fCash trades
+  if (transfer.fromSystemAccount == Vault) {
+    // This should never happen but use it as a sanity check
+    if (transfer.logIndex == 0) return;
+    let transferId =
+      transfer.transactionHash + ":" + (transfer.logIndex - 1).toString().padStart(6, "0") + ":0";
+    let prevTransfer = Transfer.load(transferId);
+
+    if (
+      prevTransfer !== null &&
+      // Both of these are transfers of prime cash
+      transfer.token == prevTransfer.token &&
+      // When borrowing fixed, the previous transfer is a transfer of prime cash from the nToken to the vault.
+      ((prevTransfer.to == transfer.from && prevTransfer.fromSystemAccount == nToken) ||
+        // When lending fixed, the previous transfer is a transfer of prime cash from the vault to the nToken.
+        (prevTransfer.from == transfer.from && prevTransfer.toSystemAccount == nToken))
+    ) {
+      updateNTokenFeeBuffer(currencyId, transfer, event);
+    }
+  } else {
+    // These are user paid transfers to the fee reserve
     updateNTokenFeeBuffer(currencyId, transfer, event);
   }
 }
