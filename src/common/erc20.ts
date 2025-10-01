@@ -75,11 +75,15 @@ export function createERC20TokenAsset(
   } else {
     let erc20 = ERC20.bind(tokenAddress);
     let symbolAndName = getTokenNameAndSymbol(erc20);
-    let decimals = erc20.decimals();
+    let decimals = erc20.try_decimals();
     token.name = symbolAndName[0];
     token.symbol = symbolAndName[1];
-    token.decimals = decimals;
-    token.precision = BigInt.fromI32(10).pow(decimals as u8);
+    if (decimals.reverted) {
+      token.decimals = 18;
+    } else {
+      token.decimals = decimals.value;
+    }
+    token.precision = BigInt.fromI32(10).pow(token.decimals as u8);
   }
 
   token.tokenInterface = "ERC20";
