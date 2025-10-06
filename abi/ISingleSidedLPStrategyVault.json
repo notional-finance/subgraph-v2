@@ -49,6 +49,50 @@
         "type": "address"
       },
       {
+        "internalType": "address",
+        "name": "vault",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "liquidator",
+        "type": "address"
+      },
+      {
+        "internalType": "uint16",
+        "name": "currencyIndex",
+        "type": "uint16"
+      },
+      {
+        "internalType": "int256",
+        "name": "depositUnderlyingInternal",
+        "type": "int256"
+      }
+    ],
+    "name": "deleverageAccount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "vaultSharesFromLiquidation",
+        "type": "uint256"
+      },
+      {
+        "internalType": "int256",
+        "name": "depositAmountPrimeCash",
+        "type": "int256"
+      }
+    ],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "account",
+        "type": "address"
+      },
+      {
         "internalType": "uint256",
         "name": "depositAmount",
         "type": "uint256"
@@ -73,6 +117,60 @@
       }
     ],
     "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "maturity",
+        "type": "uint256"
+      }
+    ],
+    "name": "getExchangeRate",
+    "outputs": [
+      {
+        "internalType": "int256",
+        "name": "",
+        "type": "int256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getStrategyVaultInfo",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "address",
+            "name": "pool",
+            "type": "address"
+          },
+          {
+            "internalType": "uint8",
+            "name": "singleSidedTokenIndex",
+            "type": "uint8"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalLPTokens",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "totalVaultShares",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct ISingleSidedLPStrategyVault.SingleSidedLPStrategyVaultInfo",
+        "name": "",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -169,25 +267,6 @@
         "internalType": "bytes4",
         "name": "strategyId",
         "type": "bytes4"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "maturity",
-        "type": "uint256"
-      }
-    ],
-    "name": "getExchangeRate",
-    "outputs": [
-      {
-        "internalType": "int256",
-        "name": "",
-        "type": "int256"
       }
     ],
     "stateMutability": "view",
